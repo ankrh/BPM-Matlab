@@ -1,68 +1,64 @@
 %%
-% MADHU V
-% 22 March 2018
-% Gaussian continous wave propagation
+% Author: Madhu Veettikazhy
+% Date: 22 March 2018
+% Gaussian beam (CW) electric field propagation from the 
+% focal point (initial waist plane width is defined here) 
+% back to the distal end of the optical fiber. 
+% ***************************************************************************************************
 
-%%
 clc;
 clear all;
 close all;
-%%
+%% General parameters
 
-N=600;       %Resolution 
-L=250e-6;         %Active area 
-delta=L/N;     %Pixel pitch 
-lambda=632.8e-9; 
+N=600;                                                                          % Resolution 
+L=250e-6;                                                                      % Active area 
+delta=L/N;                                                                      % Pixel pitch 
+lambda=632.8e-9;                                                           % Wavelength 
 lambdabar=lambda/(2*pi);
-w=10e-6;         %Initial waist plane width
-k=1/lambdabar;
+w=10e-6;                                                                        % Initial waist plane width of the gaussian beam
+k=1/lambdabar;                                                               % Wavenumber
 format LONGENG
 
-%% Calculate values for the LG mode
-gauss=zeros(N);          %Gaussian 
-phase=zeros(N);           %Phase
+%% Gaussian beam generation
 
-for x=-N/2:N/2-1
-	for y=-N/2:N/2-1
-        xp=(x+0.0000000001);
-        yp=(y+0.0000000001);
-        r=sqrt(xp^2+yp^2)*delta;
-        gauss(x+N/2+1,y+N/2+1)=exp(-(r^2)/w^2);          % exp(-(x^2+y^2)/w^2)
-        phase(x+N/2+1,y+N/2+1)=1; %exp(1i*(r^2));               
-	end
-end
+x=(-N/2:N/2-1);
+y=x;
+[X,Y]=meshgrid(x,y);  
 
-%% Change the name of PSI function accordingly
-E_gauss=gauss.*phase;
-E_gauss=E_gauss/sqrt(max(max(abs(E_gauss).^2)));
-mesh(angle(E_gauss));
+R = sqrt(X.^2+Y.^2);                                                        % r and phi co-ordinates
+PHI = atan2(Y,X);
+gauss = exp(-(R.^2).*(delta/w)^2);                                      % Gaussian field amplitude
+phase = 1;                                                                          % Phase
+E_gauss=gauss.*phase;                                                       % Electric field
+E_gauss=E_gauss/sqrt(max(max(abs(E_gauss).^2)));            % Normalization of E field
+% mesh(abs(E_gauss));
 
-clearvars gaus Phs x y r 
+clearvars gauss phase x y                                                      % Clear unwanted variables
 
 %% Fresnel Propagation
 
-dist=10e-6;           %CHANGE THIS VALUE FOR VARYING RESOLUTION OF DISTANCE
+dist_z=1e-6;                                                                              % Steps in distance for every iteration (in meters)
+prop_kernel= exp((-1i*dist_z*lambda*pi/(L^2)).*(R.^2));           % Fresnel propagation kernel
+total_steps = 100;
 
-prop_kernel=zeros(N);        %Kernel for propagation through a distance 'dist'
-for im=-N/2:N/2-1
-    for jn=-N/2:N/2-1
-        prop_kernel(jn+N/2+1,im+N/2+1)=exp(-1i*dist*lambda*pi*((im/(N*delta))^2+(jn/(N*delta))^2));
-    end
+E_field_prop = E_gauss;
+
+%Propagating the E_gauss field in 'total_steps' steps of 'dist_z' meters
+for iter = 1:total_steps
+        E_field_fourier = fftshift(fft2(ifftshift(E_field_prop)));
+        E_field_prop = fftshift(ifft2(ifftshift(E_field_fourier.*prop_kernel)));
+        
+        prop_distance = dist_z*iter/1e-6;                                       % In microns
+        subplot(1,2,1) , mesh(abs(E_field_prop)),title('Field amplitude');
+        subplot(1,2,2) , imagesc(angle(E_field_prop)),title('Phase');
+        suptitle(['Propagated distance: ', num2str(prop_distance),' microns'])
+        drawnow;
 end
 
-Qf_field = E_gauss;
-for iter=1:100 
-    %% Fresnel propagation
-    tmp=fftshift(fft2(ifftshift(Qf_field)));
-    Qf_field=fftshift(ifft2(ifftshift(tmp.*prop_kernel)));
-    
-  subplot(2,1,1) , mesh(abs(Qf_field)),title(['Propagated step: ', num2str(iter)]);
-  subplot(2,1,2) , imagesc(angle(Qf_field)),title(['Propagated step: ', num2str(iter)]);
-    drawnow;
-end
-
-% % % Angular Spectrum Propagation
-% dist_z = 10e-6;                       % altitude (meters) 
+%%  Angular Spectrum Propagation
+% 
+% dist_z = 1e-6;                       % altitude (meters) 
 % phy_x = w;               % physical width (meters) 
 % phy_y = w;               % physical length (meters) 
 % Fs_x = N/phy_x; 
