@@ -9,6 +9,12 @@
 clc;
 clear all;
 close all;
+
+%% Creating the plot figure
+hFigure = figure;
+hAxesEField = axes('Position', [0.05 0.05 0.4 0.9], 'Parent', hFigure);
+hAxesPhase = axes('Position', [0.55 0.05 0.4 0.9], 'Parent', hFigure);
+
 %% General parameters
 
 N=600;                                                                          % Resolution 
@@ -43,6 +49,14 @@ prop_kernel= exp((-1i*dist_z*lambda*pi/(L^2)).*(R.^2));           % Fresnel prop
 total_steps = 100;
 
 E_field_prop = E_gauss;
+E_field_Amplitude = abs(E_field_prop);
+E_field_Angle = angle(E_field_prop);
+
+hMeshEField = mesh(E_field_Amplitude, 'ZDataSource', 'E_field_Amplitude', 'Parent', hAxesEField);
+title('Field amplitude', 'Parent', hAxesEField);
+hImagescPhase = mesh(E_field_Angle, 'ZDataSource', 'E_field_Angle', 'Parent', hAxesPhase);
+title('Phase', 'Parent', hAxesPhase);
+%suptitle(['Propagated distance: ', num2str(prop_distance),' microns'])
 
 %Propagating the E_gauss field in 'total_steps' steps of 'dist_z' meters
 for iter = 1:total_steps
@@ -50,10 +64,10 @@ for iter = 1:total_steps
         E_field_prop = fftshift(ifft2(ifftshift(E_field_fourier.*prop_kernel)));
         
         prop_distance = dist_z*iter/1e-6;                                       % In microns
-        subplot(1,2,1) , mesh(abs(E_field_prop)),title('Field amplitude');
-        subplot(1,2,2) , imagesc(angle(E_field_prop)),title('Phase');
-        suptitle(['Propagated distance: ', num2str(prop_distance),' microns'])
-        drawnow;
+        
+        E_field_Amplitude = abs(E_field_prop);
+        E_field_Angle = angle(E_field_prop);
+        refreshdata(hFigure); drawnow;
 end
 
 %%  Angular Spectrum Propagation
