@@ -6,69 +6,67 @@
 % back to the distal end of the optical fiber. 
 % ***************************************************************************************************
 
-clc;
-clear all;
-close all;
+%% User-specified general parameters
+Nx = 600;                                                        % x resolution
+Ny = 300;                                                         % y resolution
+Nz = 100;                                                        % Number of z steps
 
-%% Creating the plot figure
-hFigure = figure;
-hAxesEField = axes('Position', [0.05 0.05 0.4 0.9], 'Parent', hFigure);
-hAxesPhase = axes('Position', [0.55 0.05 0.4 0.9], 'Parent', hFigure);
+Lx = 250e-6;                                                     % [m] x side length
+Ly = 300e-6;                                                         % [m] y side length
+Lz = 2e-3;                                                       % [m] z propagation distance
 
-%% General parameters
+lambda = 632.8e-9;                                               % [m] Wavelength 
+w = 10e-6;                                                       % [m] Initial waist plane 1/e^2 radius of the gaussian beam
 
-N=600;                                                                          % Resolution 
-L=250e-6;                                                                      % Active area 
-delta=L/N;                                                                      % Pixel pitch 
-lambda=632.8e-9;                                                           % Wavelength 
-lambdabar=lambda/(2*pi);
-w=10e-6;                                                                        % Initial waist plane width of the gaussian beam
-k=1/lambdabar;                                                               % Wavenumber
-format LONGENG
+%% Initialization of space and frequency grids
+dx = Lx/Nx;
+dy = Ly/Ny;
+dz = Lz/Nz;
 
-%% Gaussian beam generation
+x = dx*(-Nx/2:Nx/2-1);
+y = dy*(-Ny/2:Ny/2-1);
+[X,Y] = ndgrid(x,y);
 
-x=(-N/2:N/2-1);
-y=x;
-[X,Y]=meshgrid(x,y);  
+kx = 2*pi/Lx*(-Nx/2:Nx/2-1);
+ky = 2*pi/Ly*(-Ny/2:Ny/2-1);
+[kX,kY] = ndgrid(kx,ky);
 
-R = sqrt(X.^2+Y.^2);                                                        % r and phi co-ordinates
-PHI = atan2(Y,X);
-gauss = exp(-(R.^2).*(delta/w)^2);                                      % Gaussian field amplitude
-phase = 1;                                                                          % Phase
-E_gauss=gauss.*phase;                                                       % Electric field
-E_gauss=E_gauss/sqrt(max(max(abs(E_gauss).^2)));            % Normalization of E field
-% mesh(abs(E_gauss));
+%% Beam initialization
+amplitude = exp(-2*(X.^2+Y.^2)/w^2);                             % Gaussian field amplitude
+phase = zeros(Nx,Ny);                                            % Phase
+E = amplitude.*exp(1i*phase);                                    % Electric field
 
-clearvars gauss phase x y                                                      % Clear unwanted variables
+%% Figure initialization
+figure(2);clf;
+h_ax1 = axes('Position', [0.05 0.05 0.425 0.9]);
+h_im1 = imagesc(x,y,abs(E.').^2);
+axis xy
+axis equal
+axis tight
 
-%% Fresnel Propagation
+h_ax2 = axes('Position', [0.525 0.05 0.425 0.9]);
+h_im2 = imagesc(x,y,angle(E.'));
+axis xy
+axis equal
+axis tight
 
-dist_z=1e-6;                                                                              % Steps in distance for every iteration (in meters)
-prop_kernel= exp((-1i*dist_z*lambda*pi/(L^2)).*(R.^2));           % Fresnel propagation kernel
-total_steps = 100;
+%% Fresnel Propagation and plotting
+prop_kernel = ifftshift(exp(-1i*dz*(kX.^2 + kY.^2)*lambda/(4*pi))); % Fresnel propagation kernel
 
-E_field_prop = E_gauss;
-E_field_Amplitude = abs(E_field_prop);
-E_field_Angle = angle(E_field_prop);
-
-hMeshEField = mesh(E_field_Amplitude, 'ZDataSource', 'E_field_Amplitude', 'Parent', hAxesEField);
-title('Field amplitude', 'Parent', hAxesEField);
-hImagescPhase = mesh(E_field_Angle, 'ZDataSource', 'E_field_Angle', 'Parent', hAxesPhase);
-title('Phase', 'Parent', hAxesPhase);
-%suptitle(['Propagated distance: ', num2str(prop_distance),' microns'])
-
-%Propagating the E_gauss field in 'total_steps' steps of 'dist_z' meters
-for iter = 1:total_steps
-        E_field_fourier = fftshift(fft2(ifftshift(E_field_prop)));
-        E_field_prop = fftshift(ifft2(ifftshift(E_field_fourier.*prop_kernel)));
-        
-        prop_distance = dist_z*iter/1e-6;                                       % In microns
-        
-        E_field_Amplitude = abs(E_field_prop);
-        E_field_Angle = angle(E_field_prop);
-        refreshdata(hFigure); drawnow;
+for zidx = 1:Nz
+    E = ifft2(fft2(E).*prop_kernel);
+    
+    h_ax1.Title.String = ['Intensity at z = ' num2str(zidx*dz,'%.1e') ' m'];
+    h_im1.CData = abs(E.').^2;
+    h_ax2.Title.String = ['Phase at z = ' num2str(zidx*dz,'%.1e') ' m'];
+    h_im2.CData = angle(E.');
+    drawnow;
 end
+
+
+
+
+
 
 %%  Angular Spectrum Propagation
 % 
