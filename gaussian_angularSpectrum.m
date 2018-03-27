@@ -8,10 +8,10 @@
 
 %% User-specified general parameters
 Nx = 600;                                                        % x resolution
-Ny = 300;                                                         % y resolution
+Ny = 600;                                                         % y resolution
 Nz = 100;                                                        % Number of z steps
 
-Lx = 250e-6;                                                     % [m] x side length
+Lx = 300e-6;                                                     % [m] x side length
 Ly = 300e-6;                                                         % [m] y side length
 Lz = 2e-3;                                                       % [m] z propagation distance
 
@@ -38,13 +38,13 @@ E = amplitude.*exp(1i*phase);                                    % Electric fiel
 
 %% Figure initialization
 h_fig1 = figure(1);
-set(h_fig1,'Position',[50 50 Nx*2+150 Ny+150]); clf;
-h_ax1 = axes('Units','pixels','Position', [50 75 Nx Ny]);
+set(h_fig1,'Position',[50 50 Nx+150 Ny/2+150]); clf;
+h_ax1 = axes('Units','pixels','Position', [50 75 Nx/2 Ny/2]);
 h_im1 = imagesc(x,y,abs(E.').^2);
 axis xy
 set(h_ax1, 'xlimmode','manual', 'ylimmode','manual');
 
-h_ax2 = axes('Units','pixels','Position', [Nx+100 75 Nx Ny]);
+h_ax2 = axes('Units','pixels','Position', [Nx/2+100 75 Nx/2 Ny/2]);
 h_im2 = imagesc(x,y,angle(E.'));
 axis xy
 set(h_ax2, 'xlimmode','manual', 'ylimmode','manual');
