@@ -37,19 +37,16 @@ phase = zeros(Nx,Ny);                                            % Phase
 E = amplitude.*exp(1i*phase);                                    % Electric field
 
 %% Figure initialization
-figure(2);clf;
-h_ax1 = axes('Position', [0.05 0.05 0.425 0.9]);
+h_fig1 = figure(1);
+set(h_fig1,'Position',[50 50 Nx*2+150 Ny+150]); clf;
+h_ax1 = axes('Units','pixels','Position', [50 75 Nx Ny]);
 h_im1 = imagesc(x,y,abs(E.').^2);
 axis xy
-axis equal
-axis tight
 set(h_ax1, 'xlimmode','manual', 'ylimmode','manual');
-       
-h_ax2 = axes('Position', [0.525 0.05 0.425 0.9]);
+
+h_ax2 = axes('Units','pixels','Position', [Nx+100 75 Nx Ny]);
 h_im2 = imagesc(x,y,angle(E.'));
 axis xy
-axis equal
-axis tight
 set(h_ax2, 'xlimmode','manual', 'ylimmode','manual');
        
 %% Fresnel Propagation and plotting
