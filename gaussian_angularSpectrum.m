@@ -43,13 +43,15 @@ h_im1 = imagesc(x,y,abs(E.').^2);
 axis xy
 axis equal
 axis tight
-
+set(h_ax1, 'xlimmode','manual', 'ylimmode','manual');
+       
 h_ax2 = axes('Position', [0.525 0.05 0.425 0.9]);
 h_im2 = imagesc(x,y,angle(E.'));
 axis xy
 axis equal
 axis tight
-
+set(h_ax2, 'xlimmode','manual', 'ylimmode','manual');
+       
 %% Fresnel Propagation and plotting
 prop_kernel = ifftshift(exp(-1i*dz*(kX.^2 + kY.^2)*lambda/(4*pi))); % Fresnel propagation kernel
 
