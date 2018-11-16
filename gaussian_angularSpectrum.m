@@ -32,7 +32,7 @@ ky = 2*pi/Ly*(-Ny/2:Ny/2-1);
 [kX,kY] = ndgrid(kx,ky);
 
 %% Beam initialization
-amplitude = exp(-2*(X.^2+Y.^2)/w^2);                             % Gaussian field amplitude
+amplitude = exp(-(X.^2+Y.^2)/w^2);                             % Gaussian field amplitude
 phase = zeros(Nx,Ny);                                            % Phase
 E = amplitude.*exp(1i*phase);                                    % Electric field
 
