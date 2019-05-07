@@ -84,10 +84,10 @@ M_rhs = M_iMinus1+M_i_rhs+M_iPlus1;
 figure(1);plot(x,abs(E').^2); 
 
 %For plotting the diverged gaussian field from gaussian_Prop_2D.m
-NxNy_ref = size(E_ref);
-Nx_ref=NxNy_ref(1);
-Nx_ref_start=round(Nx_ref/2)-round(Nx/2);
-Nx_ref_end=round(Nx_ref/2)+round(Nx/2)-1;
+% NxNy_ref = size(E_ref);
+% Nx_ref=NxNy_ref(1);
+% Nx_ref_start=round(Nx_ref/2)-round(Nx/2);
+% Nx_ref_end=round(Nx_ref/2)+round(Nx/2)-1;
 
 for zidx = 1:Nz
     RHS = M_rhs*E_column;
@@ -98,10 +98,10 @@ for zidx = 1:Nz
     plot(x,abs(E_2D').^2);                                                                                                      %Current field in blue
     title(['Intensity at z = ' num2str(zidx*dz,'%.1e') ' m']);
     axis([-Lx/2 Lx/2 0 1]);
-    hold on;
-    plot(x,abs(E_ref(Nx_ref_start:Nx_ref_end,:).').^2,'Color','green', 'LineWidth', 0.25);        %Reference field in green
-    line(x, absorb.','Color','red', 'LineWidth', 1);                                                                      %Absorbed profile in red
-    line(x, absorb_pseudo.','Color','yellow', 'LineWidth', 0.25);                                               %Computational window of interest in yellow
-    hold off;
+%     hold on;
+%     plot(x,abs(E_ref(Nx_ref_start:Nx_ref_end,:).').^2,'Color','green', 'LineWidth', 0.25);        %Reference field in green
+%     line(x, absorb.','Color','red', 'LineWidth', 1);                                                                      %Absorbed profile in red
+%     line(x, absorb_pseudo.','Color','yellow', 'LineWidth', 0.25);                                               %Computational window of interest in yellow
+%     hold off;
     drawnow;
 end
