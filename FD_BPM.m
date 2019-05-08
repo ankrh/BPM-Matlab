@@ -8,24 +8,28 @@
 
 %% User-specified general parameters
 Lx_main = 200e-6;                                                     % [m] x side length of main area
-Ly_main = 200e-6;                                                    % [m] y side length of main area
-Lz = 20e-3;                                                          % [m] z propagation distance
-targetzstepsize = 50e-6;                                          % [m] z step size to aim for
+Ly_main = 20e-6;                                                    % [m] y side length of main area
+Lz = 10e-3;                                                          % [m] z propagation distance
+targetzstepsize = 100e-6;                                          % [m] z step size to aim for
 
-Nx_main = 31;                                                        % x resolution of main area
-Ny_main = 31;                                                             % y resolution of main area
+Nx_main = 51;                                                        % x resolution of main area
+Ny_main = 11;                                                             % y resolution of main area
 
 lambda = 1e-6;                                                % [m] Wavelength 
-w = 30e-6;                                                       % [m] Initial waist plane 1/e^2 radius of the gaussian beam
+w = 20e-6;%3.9e-6;                                                       % [m] Initial waist plane 1/e^2 radius of the gaussian beam
 
 updates = 10;          % Number of times to update plot. If set higher than nz (such as Inf), script will simply update every step.
 
 absorbertype = 4; % 1: No absorber, 2: constant absorber, 3: linear absorber, 4: quadratic absorber
-targetLx = Lx_main; % [m] Full area x side length
-targetLy = Ly_main;    % [m] Full area y side length
+targetLx = 2*Lx_main; % [m] Full area x side length
+targetLy = 2*Ly_main;    % [m] Full area y side length
 alpha = 10e1; % [1/m] "Absorption coefficient", used for absorbertype 2
 beta = 10e4; % [1/m^2] "Absorption coefficient" per unit length distance out from edge of main area, used for absorbertype 3
 gamma = 3e8; % [1/m^3] "Absorption coefficient" per unit length distance out from edge of main area, squared, used for absorbertype 4
+
+n_cladding = 1.01;%1.45;
+n_core = 1.01;%1.45;%1.46;
+core_radius = 5e-6;
 
 %% Initialization of space and frequency grids
 nz = round(Lz/targetzstepsize);                                       % Number of z steps
@@ -69,9 +73,13 @@ xlim([min(x) max(x)]);
 k_0 = 2*pi/lambda;                                              % [m^-1] Wavenumber
 
 %% Initialisation of optical fibre parameters
-% n_0 = n_cladding;
-% n_fibre=ones(nx,ny)*n_core;
-% n_fibre(abs(x)> core_radius) = n_cladding;
+n_0 = 1;%n_cladding;
+n_fibre = ones(nx,ny)*n_core;
+n_fibre(sqrt(X.^2+Y.^2) > core_radius) = n_cladding;
+figure(1);clf;
+imagesc(x,y,n_fibre.');
+axis xy
+axis equal
 
 %% Beam initialization
 amplitude = exp(-(X.^2+Y.^2)/w^2);                             % Gaussian field amplitude
@@ -79,8 +87,7 @@ phase = 0*X;                                         % Phase
 E_ref = amplitude.*exp(1i*phase);                      % Electric field
 
 %% Fibre propagation and plotting
-n_0 = 1;
-delta_n_2 = zeros(nx,ny);%n_fibre.^2-n_0^2;                              %delta_n^2 in the expression for FD BPM
+delta_n_2 = n_fibre.^2-n_0^2;                              %delta_n^2 in the expression for FD BPM
 delta_n_2_column = delta_n_2(:);                         %Converting from NxN square matrix to N^2x1 column matrix
 E_column=E_ref(:);                                                   %Converting 2D matrix into a column matrix
 N=nx*ny;                                                            %N*N - size of sparse matrices
@@ -152,13 +159,13 @@ d = zeros(nx,ny);
 for zidx = 1:nz
     %% Explicit part of step 1
     for iy = 1:ny
-        for ix = 1:nx % construct rhs, the right hand side of the system of linear equations
+        for ix = 1:nx % construct d, the right hand side of the system of linear equations
             i = sub2ind([nx,ny],ix,iy);
             delta = 0;
             if ix ~= 1;  delta = delta +   ax*(E(ix-1,iy)-E(ix,iy)); end
             if ix ~= nx; delta = delta +   ax*(E(ix+1,iy)-E(ix,iy)); end
-            if iy ~= 1;  delta = delta + 2*ay*(E(ix,iy-1)-E(ix,iy)); end
-            if iy ~= ny; delta = delta + 2*ay*(E(ix,iy+1)-E(ix,iy)); end
+%             if iy ~= 1;  delta = delta + 2*ay*(E(ix,iy-1)-E(ix,iy)); end
+%             if iy ~= ny; delta = delta + 2*ay*(E(ix,iy+1)-E(ix,iy)); end
             d(ix,iy) = E(ix,iy)*(1 - 1i*e(ie(i))) + delta;
         end
     end
@@ -192,63 +199,46 @@ for zidx = 1:nz
         % Back sweep, index 1:
         d(1,iy) = (d(1,iy) + ax*d(2,iy))/b(1);
     end
-    
-    %% Explicit part of step 2
-    for iy = 1:ny
-        for ix = 1:nx % construct d, the right hand side of the system of linear equations
-            i = sub2ind([nx,ny],ix,iy);
-            delta = -1i*e(ie(i));
-            if iy ~= 1;  delta = delta - ay*(E(ix,iy-1)-E(ix,iy)); end
-            if iy ~= ny; delta = delta - ay*(E(ix,iy+1)-E(ix,iy)); end
-            d(ix,iy) = d(ix,iy) + delta;
-        end
-    end
-
+    E = d;
+%     %% Explicit part of step 2
+%     for iy = 1:ny
+%         for ix = 1:nx % construct d, the right hand side of the system of linear equations
+%             i = sub2ind([nx,ny],ix,iy);
+%             delta = 0;
+%             if iy ~= 1;  delta = delta - ay*(E(ix,iy-1)-E(ix,iy)); end
+%             if iy ~= ny; delta = delta - ay*(E(ix,iy+1)-E(ix,iy)); end
+%             d(ix,iy) = d(ix,iy) + delta;
+%         end
+%     end
+%     
 %     %% Implicit part of step 2, Thomas algorithm along y, sweeps up from 2 to ny and then down from ny to 1
-%     for ix = (1 + heatsinkedboundary):(nx - heatsinkedboundary) % heatsinkedboundary may be 0 or 1
+%     for ix = 1:nx
 %         % Forward sweep, index 2:
-%         if heatsinkedboundary
-%             b(1) = 1;
-%         else
-%             b(1) = 1 + A2(M(ix,1),M(ix,2));
-%         end
-%         w = -A2(M(ix,2),M(ix,1))/b(1);
-%         if heatsinkedboundary
-%             b(2) = 1 + A2(M(ix,2),M(ix,3)) + A2(M(ix,2),M(ix,1));
-%         else
-%             b(2) = 1 + A2(M(ix,2),M(ix,3)) + A2(M(ix,2),M(ix,1)) + w*A2(M(ix,1),M(ix,2));
-%         end
+%         b(1) = 1 + ay;
+%         w = -ay/b(1);
+%         b(2) = 1 + 2*ay + w*ay;
 %         d(ix,2) = d(ix,2) - w*d(ix,1);
 %         % Forward sweep, indices 3 to ny-1:
 %         for iy = 3:ny-1
-%             w = -A2(M(ix,iy),M(ix,iy-1))/b(iy-1);
-%             b(iy) = 1 + A2(M(ix,iy),M(ix,iy-1)) + A2(M(ix,iy),M(ix,iy+1));
-%             b(iy) = b(iy) + w*A2(M(ix,iy-1),M(ix,iy));
+%             w = -ay/b(iy-1);
+%             b(iy) = 1 + 2*ay;
+%             b(iy) = b(iy) + w*ay;
 %             d(ix,iy) = d(ix,iy) - w*d(ix,iy-1);
 %         end
 %         % Forward sweep, index ny:
-%         if heatsinkedboundary
-%             b(ny) = 1;
-%         else
-%             w = -A2(M(ix,ny),M(ix,ny-1))/b(ny-1);
-%             b(ny) = 1 + A2(M(ix,ny),M(ix,ny-1));
-%             b(ny) = b(ny) + w*A2(M(ix,ny-1),M(ix,ny));
-%             d(ix,ny) = d(ix,ny) - w*d(ix,ny-1);
-%         end
+%         w = -ay/b(ny-1);
+%         b(ny) = 1 + ay;
+%         b(ny) = b(ny) + w*ay;
+%         d(ix,ny) = d(ix,ny) - w*d(ix,ny-1);
 % 
 %         % Back sweep, index ny:
-%         T(ix,ny) = d(ix,ny)/b(ny);
+%         E(ix,ny) = d(ix,ny)/b(ny);
 %         % Back sweep, indices ny-1 to 2:
 %         for iy = ny-1:-1:2
-%             T(ix,iy) = (d(ix,iy) + A2(M(ix,iy),M(ix,iy+1))*T(ix,iy+1))/b(iy);
-%             T(ix,iy+1) = T(ix,iy+1) + s(ix,iy+1);
+%             E(ix,iy) = (d(ix,iy) + ay*E(ix,iy+1))/b(iy);
 %         end
 %         % Back sweep, index 1:
-%         if ~heatsinkedboundary
-%             T(ix,1) = (d(ix,1) + A2(M(ix,1),M(ix,2))*T(ix,2))/b(1);
-%         end
-%         T(ix,2) = T(ix,2) + s(ix,2);
-%         T(ix,1) = T(ix,1) + s(ix,1);
+%         E(ix,1) = (d(ix,1) + ay*E(ix,2))/b(1);
 %     end
 
     h_line.YData = abs(E(:,round((ny-1)/2+1))).^2;
