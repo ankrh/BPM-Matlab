@@ -74,10 +74,10 @@ k_0 = 2*pi/lambda;                                              % [m^-1] Wavenum
 
 %% Initialisation of optical fibre parameters
 n_0 = 1;%n_cladding;
-n_fibre = ones(nx,ny)*n_core;
-n_fibre(sqrt(X.^2+Y.^2) > core_radius) = n_cladding;
+n_mat = ones(nx,ny)*n_core;
+n_mat(sqrt(X.^2+Y.^2) > core_radius) = n_cladding;
 figure(1);clf;
-imagesc(x,y,n_fibre.');
+imagesc(x,y,n_mat.');
 axis xy
 axis equal
 
@@ -87,19 +87,20 @@ phase = 0*X;                                         % Phase
 E_ref = amplitude.*exp(1i*phase);                      % Electric field
 
 %% Fibre propagation and plotting
-delta_n_2 = n_fibre.^2-n_0^2;                              %delta_n^2 in the expression for FD BPM
-delta_n_2_column = delta_n_2(:);                         %Converting from NxN square matrix to N^2x1 column matrix
-E_column=E_ref(:);                                                   %Converting 2D matrix into a column matrix
-N=nx*ny;                                                            %N*N - size of sparse matrices
-
 %% Sequential method initialization
-ax = dz/(4i*dx^2*k_0*n_0);
-ay = dz/(4i*dy^2*k_0*n_0);
-[e,~,ie] = uniquetol(dz*k_0*delta_n_2_column/n_0);
+[nvec,~,invec] = uniquetol(n_mat);
+% ax = dz/(4i*dx^2*k_0*n);
+% ay = dz/(4i*dy^2*k_0*n);
+% [e,~,ie] = uniquetol(dz*k_0*(n.^2-n_0^2)/n);
 % b  = 1 + 2*ax + 2*ay + dz*1i*k_0*delta_n_2_column/n_0;
 % c  = 1 - 2*ax - 2*ay - dz*1i*k_0*delta_n_2_column/n_0;
 
 %% Vectorized method initialization
+% delta_n_2 = n.^2-n_0^2;                              %delta_n^2 in the expression for FD BPM
+% delta_n_2_column = delta_n_2(:);                         %Converting from NxN square matrix to N^2x1 column matrix
+% E_column=E_ref(:);                                                   %Converting 2D matrix into a column matrix
+% N=nx*ny;                                                            %N*N - size of sparse matrices
+% 
 % ax = dz/(2*dx^2);
 % ay = dz/(2*dy^2);
 % b = dz*(1/dx^2+1/dy^2) - (k_0^2*dz/2).*delta_n_2_column + (2*1i*k_0*n_0);
@@ -161,43 +162,56 @@ for zidx = 1:nz
     for iy = 1:ny
         for ix = 1:nx % construct d, the right hand side of the system of linear equations
             i = sub2ind([nx,ny],ix,iy);
+			n = nvec(invec(i));
             delta = 0;
-            if ix ~= 1;  delta = delta +   ax*(E(ix-1,iy)-E(ix,iy)); end
-            if ix ~= nx; delta = delta +   ax*(E(ix+1,iy)-E(ix,iy)); end
-%             if iy ~= 1;  delta = delta + 2*ay*(E(ix,iy-1)-E(ix,iy)); end
-%             if iy ~= ny; delta = delta + 2*ay*(E(ix,iy+1)-E(ix,iy)); end
-            d(ix,iy) = E(ix,iy)*(1 - 1i*e(ie(i))) + delta;
+            if ix ~= 1;  delta = delta +   dz/(4i*dx^2*k_0*n)*(E(ix-1,iy)-E(ix,iy)); end
+            if ix ~= nx; delta = delta +   dz/(4i*dx^2*k_0*n)*(E(ix+1,iy)-E(ix,iy)); end
+%             if iy ~= 1;  delta = delta + 2*dz/(4i*dy^2*k_0*n)*(E(ix,iy-1)-E(ix,iy)); end
+%             if iy ~= ny; delta = delta + 2*dz/(4i*dy^2*k_0*n)*(E(ix,iy+1)-E(ix,iy)); end
+            d(ix,iy) = E(ix,iy)*(1 - 1i*dz*k_0*(n^2 - n_0^2)/n) + delta;
         end
     end
 
     %% Implicit part of step 1, Thomas algorithm along x, sweeps up from 2 to nx and then down from nx to 1
     for iy = 1:ny
-        % Forward sweep, index 2:
-        b(1) = 1 + ax + 1i*e(ie(1+(iy-1)*nx));
-        w = -ax/b(1);
-        b(2) = 1 + 2*ax + 1i*e(ie(1+(iy-1)*nx)) + w*ax;
+        % Forward sweep, index 1 and 2:
+		i = sub2ind([nx,ny],1,iy);
+		n = nvec(invec(i));
+        b(1) = 1 + dz/(4i*dx^2*k_0*n) + 1i*dz*k_0*(n^2 - n_0^2)/n;
+		i = sub2ind([nx,ny],2,iy);
+		n = nvec(invec(i));
+        w = -dz/(4i*dx^2*k_0*n)/b(1);
+        b(2) = 1 + 2*dz/(4i*dx^2*k_0*n) + 1i*dz*k_0*(n^2 - n_0^2)/n + w*dz/(4i*dx^2*k_0*     n     );
         d(2,iy) = d(2,iy) - w*d(1,iy);
         % Forward sweep, indices 3 to nx-1:
         for ix = 3:nx-1
-            w = -ax/b(ix-1);
-            b(ix) = 1 + 2*ax + 1i*e(ie(ix+(iy-1)*nx));
-            b(ix) = b(ix) + w*ax;
+			i = sub2ind([nx,ny],ix,iy);
+			n = nvec(invec(i));
+            w = -dz/(4i*dx^2*k_0*n)/b(ix-1);
+            b(ix) = 1 + 2*dz/(4i*dx^2*k_0*n) + 1i*dz*k_0*(n^2 - n_0^2)/n;
+            b(ix) = b(ix) + w*dz/(4i*dx^2*k_0*     n     );
             d(ix,iy) = d(ix,iy) - w*d(ix-1,iy);
         end
         % Forward sweep, index nx:
-        w = -ax/b(nx-1);
-        b(nx) = 1 + ax + 1i*e(ie(nx+(iy-1)*nx));
-        b(nx) = b(nx) + w*ax;
+		i = sub2ind([nx,ny],nx,iy);
+		n = nvec(invec(i));
+        w = -dz/(4i*dx^2*k_0*n)/b(nx-1);
+        b(nx) = 1 + dz/(4i*dx^2*k_0*n) + 1i*dz*k_0*(n^2 - n_0^2)/n;
+        b(nx) = b(nx) + w*dz/(4i*dx^2*k_0*     n     );
         d(nx,iy) = d(nx,iy) - w*d(nx-1,iy);
 
         % Back sweep, index nx:
         d(nx,iy) = d(nx,iy)/b(nx);
         % Back sweep, indices nx-1 to 2:
         for ix = nx-1:-1:2
-            d(ix,iy) = (d(ix,iy) + ax*d(ix+1,iy))/b(ix);
+			i = sub2ind([nx,ny],ix,iy);
+			n = nvec(invec(i));
+            d(ix,iy) = (d(ix,iy) + dz/(4i*dx^2*k_0*n)*d(ix+1,iy))/b(ix);
         end
         % Back sweep, index 1:
-        d(1,iy) = (d(1,iy) + ax*d(2,iy))/b(1);
+		i = sub2ind([nx,ny],1,iy);
+		n = nvec(invec(i));
+        d(1,iy) = (d(1,iy) + dz/(4i*dx^2*k_0*n)*d(2,iy))/b(1);
     end
     E = d;
 %     %% Explicit part of step 2
