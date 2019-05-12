@@ -39,7 +39,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
         for(iz=0; iz<nz; iz++) {
             if(ctrlc_caught) break;
 			
-            // Explicit part of substep 1 out of 3
+            // Explicit part of substep 1 out of 2
             #pragma omp for schedule(auto)
 			for(iy=0; iy<ny; iy++) {
 				for(ix=0; ix<nx; ix++) {
@@ -53,7 +53,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
 				}
 			}
 			
-			// Implicit part of substep 1 out of 3
+			// Implicit part of substep 1 out of 2
             #pragma omp for schedule(auto)
 			for(iy=0; iy<ny; iy++) {
 				// Thomson algorithm, sweeps up from 0 to nx-1 and then down from nx-1 to 0:
@@ -76,7 +76,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
 				}
 			}
 			
-            // Explicit part of substep 2 out of 3
+            // Explicit part of substep 2 out of 2
             #pragma omp for schedule(auto)
 			for(iy=0; iy<ny; iy++) {
 				for(ix=0; ix<nx; ix++) {
@@ -87,7 +87,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
 				}
 			}
 			
-			// Implicit part of substep 2 out of 3
+			// Implicit part of substep 2 out of 2
             #pragma omp for schedule(auto)
 			for(ix=0; ix<nx; ix++) {
 				for(iy=0; iy<ny; iy++) {
