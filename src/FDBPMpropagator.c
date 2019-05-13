@@ -1,13 +1,13 @@
 /********************************************
  * FDBPMpropagator.c, in the C programming language, written for MATLAB MEX function generation
- * Can be compiled using "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall -pedantic' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall -pedantic' .\src\FDBPMpropagator_floats.c ".\src\libut.lib" -R2018a"
+ * Can be compiled using "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall -pedantic' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall -pedantic' .\src\FDBPMpropagator.c ".\src\libut.lib" -R2018a"
  ********************************************/
 
 #include <math.h>
-#include <stdint.h>
 #include <complex.h>
 #include "mex.h"
 #include "omp.h"
+
 extern bool utIsInterruptPending(); // Allows catching ctrl+c while executing the mex function
 #define E1 (*E_src)
 #define E2 (*E_tgt)

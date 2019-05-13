@@ -8,38 +8,52 @@
 format long
 format compact
 
-%% User-specified general parameters
-calctype = 3; % 1: MATLAB vectorized method (full Crank-Nicolson), 2: MATLAB sequential method (DG-ADI Crank-Nicolson), 3: mex sequential method (DG-ADI Crank-Nicolson), 4: same as 3 but with single-precision
-useAllCPUs = true;
+% Test of execution speed, 10 steps through a 2000x2000 grid, only the one
+% mandatory update:
+% 
+% calctype 1: 657 seconds
+% calctype 2: 48.7 seconds
+% calctype 3: 1.56 seconds
+% calctype 4: 5.47 seconds
+% 
+% That means method 3 is 421 times faster than method 1
 
-Lx_main = 50e-6;                                                     % [m] x side length of main area
-Ly_main = 50e-6;                                                    % [m] y side length of main area
-Lz = 1e-4;                                                         % [m] z propagation distance
-targetzstepsize = 1e-6;                                          % [m] z step size to aim for
-
-Nx_main = 500;                                                        % x resolution of main area
-Ny_main = 500;                                                             % y resolution of main area
-
-lambda = 1e-6;                                                % [m] Wavelength
-w_0 = 3e-6;                                                       % [m] Initial waist plane 1/e^2 radius of the gaussian beam
-
-updates = 20;          % Number of times to update plot. Must be at least 2, showing the initial state and the final state. If set higher than nz (such as Inf), script will simply update every step.
-
-absorbertype = 4; % 1: No absorber, 2: constant absorber, 3: linear absorber, 4: quadratic absorber
-targetLx = 2*Lx_main; % [m] Full area x side length
-targetLy = 2*Ly_main;    % [m] Full area y side length
-alpha = 10e1; % [1/m] "Absorption coefficient", used for absorbertype 2
-beta = 10e4; % [1/m^2] "Absorption coefficient" per unit length distance out from edge of main area, used for absorbertype 3
-gamma = 3e12; % [1/m^3] "Absorption coefficient" per unit length distance out from edge of main area, squared, used for absorbertype 4
+%% General parameters
+lambda = 1e-6;          % [m] Wavelength
+w_0 = 3e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
+Lz = 1e-2;              % [m] z propagation distance
 
 n_cladding = 1.45;
 n_core = 1.46;
 core_radius = 15e-6;
+
+%% Resolution-related parameters
+targetzstepsize = 1e-6; % [m] z step size to aim for
+Lx_main = 50e-6;        % [m] x side length of main area
+Ly_main = 50e-6;        % [m] y side length of main area
+Nx_main = 200;          % x resolution of main area
+Ny_main = 200;          % y resolution of main area
+
+%% Solver-related parameters
+calctype = 3; % 1: MATLAB vectorized method (full 2D Crank-Nicolson), 2: MATLAB sequential method (2x1D Douglas-Gunn-ADI Crank-Nicolson), 3: Same as 2 but in mex, 4: Same as 3 but with single-precision
+useAllCPUs = true;
+
+absorbertype = 4;       % 1: No absorber, 2: constant absorber, 3: linear absorber, 4: quadratic absorber
+targetLx = 1.5*Lx_main;   % [m] Full area x side length, including absorber layer
+targetLy = 1.5*Ly_main;   % [m] Full area y side length, including absorber layer
+alpha = 10e1;           % [1/m] "Absorption coefficient", used for absorbertype 2
+beta = 10e4;            % [1/m^2] "Absorption coefficient" per unit length distance out from edge of main area, used for absorbertype 3
+gamma = 3e14;           % [1/m^3] "Absorption coefficient" per unit length distance out from edge of main area, squared, used for absorbertype 4
+
+%% Visualization parameters
+updates = 300;            % Number of times to update plot. Must be at least 1, showing the final state. If set higher than nz (such as Inf), script will simply update every step.
+colormax = 5e-4;      % Maximum to use for the color scale in figure 4a
+
 % expectedRayleighrange = pi*w_0^2/(lambda/n_core)
 % expectedspotsize = w_0*sqrt(1+(Lz/expectedRayleighrange)^2)
 
 %% Initialization of space and frequency grids
-nz = round(Lz/targetzstepsize);                                       % Number of z steps
+nz = round(Lz/targetzstepsize)                                       % Number of z steps
 
 dx = Lx_main/Nx_main;
 dy = Ly_main/Ny_main;
@@ -92,8 +106,9 @@ n_mat = ones(nx,ny)*n_cladding;
 % n_mat(sqrt((X+Lx_main/4).^2+Y.^2) < core_radius) = n_core;
 % n_mat(abs(X-Lx_main/4) < core_radius & abs(Y) < core_radius) = n_core;
 % n_mat(abs(X+Lx_main/4) < core_radius & abs(Y) < core_radius) = n_core;
-% n_mat(sqrt(X.^2) > core_radius) = n_cladding;
+n_mat(sqrt(X.^2+Y.^2) < core_radius) = n_core;
 % n_mat = max(n_cladding,n_core-(n_core-n_cladding)/core_radius^2*(X.^2+Y.^2));
+
 figure(2);clf;
 imagesc(x,y,n_mat.');
 axis xy
@@ -109,14 +124,14 @@ title('Refractive index');
 % amplitude = exp(-((X-Lx_main/4).^2+Y.^2)/w_0^2) - exp(-((X+Lx_main/4).^2+Y.^2)/w_0^2);                             % Gaussian field amplitude
 amplitude = exp(-((X-Lx_main/10).^2+Y.^2)/w_0^2);                             % Gaussian field amplitude
 % amplitude = exp(-(X.^2+Y.^2)/w_0^2);                             % Gaussian field amplitude
-phase = 0*X;                                         % Phase
+phase = 8e5*Y;                                         % Phase
 E = amplitude.*exp(1i*phase);                      % Electric field
 E = complex(E/sqrt(sum(abs(E(:)).^2)));
 
 %% Fibre propagation and plotting
-updatesliceindices = unique(round(linspace(0,nz,min(nz,updates))));
-z_updates = dz*updatesliceindices;
-nextupdatesliceindicesindex = 2;
+updatezindices = round((1:min(nz,updates))/min(nz,updates)*nz);
+z_updates = dz*updatezindices;
+nextupdatenumber = 1;
 
 switch calctype
 	case 1
@@ -187,8 +202,8 @@ caxis('manual');
 xlabel('x [m]');
 ylabel('y [m]');
 title('Intensity [W/m^2]');
-if max(n_mat(:) > min(n_mat)); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','r','linestyle','--'); end
-% caxis([0 30e-3]);
+if max(n_mat(:) > min(n_mat(:))); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','w','linestyle','--'); end
+caxis([0 colormax]);
 subplot(2,1,2);
 hold on;
 h_im2 = imagesc(x,y,angle(E.'));
@@ -198,15 +213,16 @@ xlim([-Lx/2 Lx/2]);
 ylim([-Ly/2 Ly/2]);
 colorbar;
 caxis([-pi pi]);
-if max(n_mat(:) > min(n_mat)); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','r','linestyle','--'); end
+if max(n_mat(:) > min(n_mat(:))); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','w','linestyle','--'); end
 xlabel('x [m]');
 ylabel('y [m]');
 title('Phase [rad]');
+colormap(gca,hsv/1.5);
 
-powers = NaN(1,min(nz,updates));
+powers = NaN(1,min(nz,updates)+1);
 powers(1) = sum(abs(E(:)).^2);
 figure(5);clf;
-plot(z_updates,powers,'YDataSource','powers','linewidth',2);
+plot([0 z_updates],powers,'YDataSource','powers','linewidth',2);
 xlim([0 Lz]);
 xlabel('Propagation distance [m]');
 ylabel('Relative power remaining');
@@ -219,16 +235,16 @@ switch calctype
 		    RHS = M_rhs*E_column;
 		    E_column = M_lhs\RHS;
 		    E_column = E_column.*absorber_column;
-			if zidx == updatesliceindices(nextupdatesliceindicesindex)
+			if zidx == updatezindices(nextupdatenumber)
 				E = reshape(E_column,[nx ny]);
-				powers(nextupdatesliceindicesindex) = sum(abs(E(:)).^2);
+				powers(nextupdatenumber+1) = sum(abs(E(:)).^2);
 				h_line.YData = abs(E(:,round((ny-1)/2+1))).^2;
 				h_title.String = ['x intensity profile at z = ' num2str(zidx*dz,'%.1e') ' m (second moment radius = ' num2str(2*std(x,h_line.YData),'%.6e') ' m)'];
 				h_im1.CData = abs(E.').^2;
 				h_im2.CData = angle(E.');
 				refreshdata(5);
 				drawnow;
-				nextupdatesliceindicesindex = nextupdatesliceindicesindex + 1;
+				nextupdatenumber = nextupdatenumber + 1;
 			end
 		end
 	case 2
@@ -318,25 +334,29 @@ switch calctype
 			end
 			E = E.*multiplier;
 			
-			if zidx == updatesliceindices(nextupdatesliceindicesindex)
-				powers(nextupdatesliceindicesindex) = sum(abs(E(:)).^2);
+			if zidx == updatezindices(nextupdatenumber)
+				powers(nextupdatenumber+1) = sum(abs(E(:)).^2);
 				h_line.YData = abs(E(:,round((ny-1)/2+1))).^2;
 				h_title.String = ['x intensity profile at z = ' num2str(zidx*dz,'%.1e') ' m (second moment radius = ' num2str(2*std(x,h_line.YData),'%.6e') ' m)'];
 				h_im1.CData = abs(E.').^2;
 				h_im2.CData = angle(E.');
 				refreshdata(5);
 				drawnow;
-				nextupdatesliceindicesindex = nextupdatesliceindicesindex + 1;
+				nextupdatenumber = nextupdatenumber + 1;
 			end
 		end
 	case 3
-		for updidx = 2:length(updatesliceindices)
-			parameters.nz = updatesliceindices(updidx) - updatesliceindices(updidx-1);
+		for updidx = 1:length(updatezindices)
+            if updidx == 1
+                parameters.nz = updatezindices(1);
+            else
+                parameters.nz = updatezindices(updidx) - updatezindices(updidx-1);
+            end
 			E = FDBPMpropagator(E,parameters);
-
-			powers(updidx) = sum(abs(E(:)).^2);
+            
+			powers(updidx+1) = sum(abs(E(:)).^2);
 			h_line.YData = abs(E(:,round((ny-1)/2+1))).^2;
-			h_title.String = ['x intensity profile at z = ' num2str(updatesliceindices(updidx)*dz,'%.1e') ' m (second moment radius = ' num2str(2*std(x,h_line.YData),'%.6e') ' m)'];
+			h_title.String = ['x intensity profile at z = ' num2str(updatezindices(updidx)*dz,'%.1e') ' m (second moment radius = ' num2str(2*std(x,h_line.YData),'%.6e') ' m)'];
 			h_im1.CData = abs(E.').^2;
 			h_im2.CData = angle(E.');
 			refreshdata(5);
@@ -344,13 +364,17 @@ switch calctype
 		end
 	case 4
 		E = complex(single(E));
-		for updidx = 2:length(updatesliceindices)
-			parameters.nz = updatesliceindices(updidx) - updatesliceindices(updidx-1);
+		for updidx = 1:length(updatezindices)
+            if updidx == 1
+                parameters.nz = updatezindices(1);
+            else
+                parameters.nz = updatezindices(updidx) - updatezindices(updidx-1);
+            end
 			E = FDBPMpropagator_floats(E,parameters);
 
-			powers(updidx) = sum(abs(E(:)).^2);
+			powers(updidx+1) = sum(abs(E(:)).^2);
 			h_line.YData = abs(E(:,round((ny-1)/2+1))).^2;
-			h_title.String = ['x intensity profile at z = ' num2str(updatesliceindices(updidx)*dz,'%.1e') ' m (second moment radius = ' num2str(2*std(x,h_line.YData),'%.6e') ' m)'];
+			h_title.String = ['x intensity profile at z = ' num2str(updatezindices(updidx)*dz,'%.1e') ' m (second moment radius = ' num2str(2*std(x,h_line.YData),'%.6e') ' m)'];
 			h_im1.CData = abs(E.').^2;
 			h_im2.CData = angle(E.');
 			refreshdata(5);
@@ -359,5 +383,5 @@ switch calctype
 end
 toc
 
-2*std(x,h_line.YData)
-
+finalwidth = 2*std(x,h_line.YData)
+finalpower = powers(end)
