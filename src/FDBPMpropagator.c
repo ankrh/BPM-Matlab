@@ -1,6 +1,8 @@
 /********************************************
  * FDBPMpropagator.c, in the C programming language, written for MATLAB MEX function generation
  * Can be compiled using "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall -pedantic' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall -pedantic' .\src\FDBPMpropagator.c ".\src\libut.lib" -R2018a"
+ * Approach is based on me690-lctr-nts.pdf Eqs. 3.21, 3.22, 3.23a and 3.23b.
+ * Implicit steps are performed using the Thomson algorithm (https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm)
  ********************************************/
 
 #include <math.h>

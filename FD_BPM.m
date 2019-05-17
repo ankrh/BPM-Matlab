@@ -4,6 +4,9 @@
 % through fibre using Finite Difference Beam Propagation Method
 % in 2D
 % Reference: An assessment of FD BPM method - Youngchul Chung
+% 
+% Douglas-Gunn Alternating Direction Implicit approach is based on me690-lctr-nts.pdf Eqs. 3.21, 3.22, 3.23a and 3.23b.
+% Implicit steps are performed using the Thomson algorithm (https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm)
 % ***************************************************************************************************
 format long
 format compact
@@ -170,13 +173,13 @@ switch calctype
 		ax = dz/(4i*dx^2*k_0*n_0);
 		ay = dz/(4i*dy^2*k_0*n_0);
 		
-		multiplier = exp(-1i*dz*k_0/2*(n_mat.^2 - n_0^2)/n_0).*absorber;
+		multiplier = complex(exp(-1i*dz*k_0/2*(n_mat.^2 - n_0^2)/n_0).*absorber);
 		parameters = struct('multiplier',multiplier,'ax',ax,'ay',ay,'useAllCPUs',useAllCPUs);
 	case 4
 		ax = single(dz/(4i*dx^2*k_0*n_0));
 		ay = single(dz/(4i*dy^2*k_0*n_0));
 		
-		multiplier = single(exp(-1i*dz*k_0/2*(n_mat.^2 - n_0^2)/n_0).*absorber);
+		multiplier = complex(single(exp(-1i*dz*k_0/2*(n_mat.^2 - n_0^2)/n_0).*absorber));
 		parameters = struct('multiplier',multiplier,'ax',ax,'ay',ay,'useAllCPUs',useAllCPUs);
 end
 
