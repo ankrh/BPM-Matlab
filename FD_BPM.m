@@ -61,6 +61,22 @@ colormax = 1e10;          % Maximum to use for the color scale in figure 4a
 % expectedRayleighrange = pi*w_0^2/(lambda/n_core)
 % expectedspotsize = w_0*sqrt(1+(Lz/expectedRayleighrange)^2)
 
+%% Check for GPU compatibility if needed
+if (calctype == 5)
+  v = ver;
+  if ~any(strcmp({v.Name},'Parallel Computing Toolbox'))
+    error('You must have the Parallel Computing Toolbox installed to use GPU acceleration');
+  end
+  try
+    GPUDev = gpuDevice;
+    if(str2double(GPUDev.ComputeCapability) < 3)
+      error('Your GPU is too old (CUDA compute capability < 3.0)')
+    end
+  catch
+    error('No supported NVIDIA GPU found, or its driver is too old');
+  end
+end
+
 %% Initialization of space and frequency grids
 nz = round(Lz/targetzstepsize) % Number of z steps
 
