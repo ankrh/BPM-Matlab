@@ -91,36 +91,15 @@ Ly = Ny*dy;
 
 x = dx*(-(Nx-1)/2:(Nx-1)/2);
 y = dy*(-(Ny-1)/2:(Ny-1)/2);
+z = dz*(0:Nz); % Has Nz + 1 elements
 [X,Y] = ndgrid(x,y);
-
-absorber = exp(-dz*max(0,max(abs(Y) - Ly_main/2,abs(X) - Lx_main/2)).^2*alpha);
 
 k_0 = 2*pi/lambda; % [m^-1] Wavenumber
 
 %% Initialisation of optical fibre parameters
 n_0 = n_core;
 
-taperfactors = linspace(1,0.5,Nz); % Array of factors that determines the radial scaling of the refractive index profile, one for each z step
-twistangles = linspace(0,0,Nz); % Array of angles in radians that the fiber is twisted, one for each z step
-
-n_mat = ones(Nx,Ny)*n_cladding;
-% n_mat(sqrt((X-Lx_main/4).^2+Y.^2) < core_radius) = n_core;
-% n_mat(sqrt((X+Lx_main/4).^2+Y.^2) < core_radius) = n_core;
-% n_mat(abs(X-Lx_main/4) < core_radius & abs(Y) < core_radius) = n_core;
-% n_mat(abs(X+Lx_main/4) < core_radius & abs(Y) < core_radius) = n_core;
-n_mat(sqrt(X.^2+Y.^2) < core_radius) = n_core;
-% n_mat = max(n_cladding,n_core-(n_core-n_cladding)/core_radius^2*(X.^2+Y.^2));
-
-figure(1);clf;
-imagesc(x,y,n_mat.');
-axis xy
-axis equal
-xlim([-Lx/2 Lx/2]);
-ylim([-Ly/2 Ly/2]);
-colorbar;
-xlabel('x [m]');
-ylabel('y [m]');
-title('Refractive index');
+shapes = RIprofilesFunc(z(2:end),n_core); % 3D array describing the mathematical shapes that form the refractive index profile at each z
 
 %% Beam initialization
 % amplitude = exp(-((X-Lx_main/4).^2+Y.^2)/w_0^2) - exp(-((X+Lx_main/4).^2+Y.^2)/w_0^2); % Gaussian field amplitude
@@ -138,10 +117,33 @@ nextupdatenumber = 1;
 ax = single(dz/(4i*dx^2*k_0*n_0));
 ay = single(dz/(4i*dy^2*k_0*n_0));
 
-multiplier = complex(single(exp(-1i*dz*k_0/2*(n_mat.^2 - n_0^2)/n_0).*absorber));
-parameters = struct('taperfactors',taperfactors,'twistangles',twistangles,'multiplier',multiplier,'ax',ax,'ay',ay,'useAllCPUs',useAllCPUs);
+RIprofileVaries = size(unique(reshape(shapes,Nz,[]),'rows')) > 1;
+RIprofilesMexInput = shapes;
+RIprofilesMexInput(:,:,5) = complex(exp(-1i*dz*k_0/2*(RIprofilesMexInput(:,:,5).^2 - n_0^2)/n_0));
+d_cladding = complex(exp(-1i*dz*k_0/2*(n_cladding.^2 - n_0^2)/n_0));
+
+absorber = exp(-dz*max(0,max(abs(Y) - Ly_main/2,abs(X) - Lx_main/2)).^2*alpha);
+multiplier = absorber; % This could also include a phase gradient due to bending
+
+parameters = struct('RIprofileVaries',RIprofileVaries,'d_cladding',d_cladding,'RIprofilesMexInput',RIprofilesMexInput,'multiplier',multiplier,'ax',ax,'ay',ay,'useAllCPUs',useAllCPUs);
+
+% exp(d*(nsq-e)).*absorber
+% exp(d*nsq-d*e).*absorber
+% exp(d*nsq)/exp(d*e).*absorber
+
 
 %% Figure initialization
+figure(1);clf;
+h_im1 = imagesc(x,y,zeros(Ny,Nx));
+axis xy
+axis equal
+xlim([-Lx/2 Lx/2]);
+ylim([-Ly/2 Ly/2]);
+colorbar;
+xlabel('x [m]');
+ylabel('y [m]');
+title('Refractive index');
+
 powers = NaN(1,min(Nz,updates)+1);
 powers(1) = sum(dx*dy*abs(E(:)).^2);
 figure(2);clf;
@@ -153,7 +155,7 @@ ylabel('Relative power remaining');
 figure(3);clf;
 subplot(2,1,1);
 hold on;
-h_im1 = imagesc(x,y,abs(E.').^2);
+h_im3a = imagesc(x,y,abs(E.').^2);
 axis xy;
 axis equal;
 xlim([-Lx/2 Lx/2]);
@@ -163,19 +165,19 @@ caxis('manual');
 xlabel('x [m]');
 ylabel('y [m]');
 title('Intensity [W/m^2]');
-if max(n_mat(:) > min(n_mat(:))); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','w','linestyle','--'); end
+% if max(n_mat(:) > min(n_mat(:))); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','w','linestyle','--'); end
 line([-Lx_main Lx_main Lx_main -Lx_main -Lx_main]/2,[Ly_main Ly_main -Ly_main -Ly_main Ly_main]/2,'color','r','linestyle','--');
 caxis([0 colormax]);
 subplot(2,1,2);
 hold on;
-h_im2 = imagesc(x,y,angle(E.'));
+h_im3b = imagesc(x,y,angle(E.'));
 axis xy;
 axis equal;
 xlim([-Lx/2 Lx/2]);
 ylim([-Ly/2 Ly/2]);
 colorbar;
 caxis([-pi pi]);
-if max(n_mat(:) > min(n_mat(:))); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','w','linestyle','--'); end
+% if max(n_mat(:) > min(n_mat(:))); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','w','linestyle','--'); end
 line([-Lx_main Lx_main Lx_main -Lx_main -Lx_main]/2,[Ly_main Ly_main -Ly_main -Ly_main Ly_main]/2,'color','r','linestyle','--');
 xlabel('x [m]');
 ylabel('y [m]');
@@ -191,15 +193,33 @@ for updidx = 1:length(updatezindices)
     parameters.iz_end   = updatezindices(updidx);
   end
   if useGPU
-    E = FDBPMpropagator_CUDA(E,parameters);
+    [E,d] = FDBPMpropagator_CUDA(E,parameters); % d is a parameter from which we can retrieve the refractive index profile that the mex function calculated
   else
-    E = FDBPMpropagator(E,parameters);
+    [E,d] = FDBPMpropagator(E,parameters); % d is a parameter from which we can retrieve the refractive index profile that the mex function calculated
   end
 
-  h_im1.CData = abs(E.').^2;
-  h_im2.CData = angle(E.');
+  h_im1.CData = sqrt(log(d)*n_0*2i/dz/k_0 + n_0^2); % Refractive index at this update
+  h_im3a.CData = abs(E.').^2; % Intensity at this update
+  h_im3b.CData = angle(E.'); % Phase at this update
   powers(updidx+1) = dx*dy*sum(abs(E(:)).^2);
   refreshdata(2);
   drawnow;
 end
 toc
+
+function RIprofiles = RIprofilesFunc(z,n_core)
+% In this function, the refractive index profile at each z position is
+% defined in terms of fundamental mathematical shapes. Currently only
+% circular disks are supported.
+
+% Shapes is a cell array with one cell for each z position in the z array
+% passed in. Each cell contains a 2D array in which each column corresponds
+% to a shape, and the rows correspond to different parameters of the shape.
+% Each column consists of these rows: [shape type; x center coord; y center
+% coord; radius; refractive index]. shape type can be 1: Disk, 2:
+% Rectangle, 3: Triangle. Currently, only shape type 1 is implemented.
+
+for iz = 1:length(z)
+  RIprofiles{iz} =  [1 1; 1e-5 -1e-5; 2e-5 2e-5; 1.5e-5 1.5e-5; n_core n_core];
+end
+end
