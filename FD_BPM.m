@@ -32,9 +32,11 @@ lambda = 1e-6;          % [m] Wavelength
 w_0 = 3e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
 Lz = 1e-2;              % [m] z propagation distance
 
+taperScaling = 0.5; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
+twistRate = 0; % Specifies how rapidly the fiber twists, measured in radians per metre
+
 n_cladding = 1.45;
 n_core = 1.46;
-core_radius = 15e-6;
 
 %% Resolution-related parameters
 targetzstepsize = 1e-6; % [m] z step size to aim for
@@ -99,7 +101,9 @@ k_0 = 2*pi/lambda; % [m^-1] Wavenumber
 %% Initialisation of optical fibre parameters
 n_0 = n_core;
 
-shapes = RIprofilesFunc(z(2:end),n_core); % 3D array describing the mathematical shapes that form the refractive index profile at each z
+shapeTypes = [1 ; 2];
+shapeParameters = [1e-5  2e-5 1.5e-5 ; -1e-5 2e-5 1.5e-5];
+shapeRIs = [n_core ; n_core];
 
 %% Beam initialization
 % amplitude = exp(-((X-Lx_main/4).^2+Y.^2)/w_0^2) - exp(-((X+Lx_main/4).^2+Y.^2)/w_0^2); % Gaussian field amplitude
@@ -114,23 +118,18 @@ updatezindices = round((1:min(Nz,updates))/min(Nz,updates)*Nz);
 z_updates = dz*updatezindices;
 nextupdatenumber = 1;
 
-ax = single(dz/(4i*dx^2*k_0*n_0));
-ay = single(dz/(4i*dy^2*k_0*n_0));
+ax = dz/(4i*dx^2*k_0*n_0);
+ay = dz/(4i*dy^2*k_0*n_0);
 
-RIprofileVaries = size(unique(reshape(shapes,Nz,[]),'rows')) > 1;
-RIprofilesMexInput = shapes;
-RIprofilesMexInput(:,:,5) = complex(exp(-1i*dz*k_0/2*(RIprofilesMexInput(:,:,5).^2 - n_0^2)/n_0));
-d_cladding = complex(exp(-1i*dz*k_0/2*(n_cladding.^2 - n_0^2)/n_0));
+Dcladding = exp(-1i*dz*k_0/2*(n_cladding.^2 - n_0^2)/n_0);
+shapeDvalues = exp(-1i*dz*k_0/2*(shapeRIs.^2 - n_0^2)/n_0);
 
 absorber = exp(-dz*max(0,max(abs(Y) - Ly_main/2,abs(X) - Lx_main/2)).^2*alpha);
 multiplier = absorber; % This could also include a phase gradient due to bending
 
-parameters = struct('RIprofileVaries',RIprofileVaries,'d_cladding',d_cladding,'RIprofilesMexInput',RIprofilesMexInput,'multiplier',multiplier,'ax',ax,'ay',ay,'useAllCPUs',useAllCPUs);
-
-% exp(d*(nsq-e)).*absorber
-% exp(d*nsq-d*e).*absorber
-% exp(d*nsq)/exp(d*e).*absorber
-
+parameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single(1-(1-taperScaling)/Nz),'twistPerStep',single(twistRate*Lz/Nz),...
+  'shapeTypes',uint8(shapeTypes),'shapeParameters',single(shapeParameters),'shapeDvalues',complex(single(shapeDvalues)),'Dcladding',complex(single(Dcladding)),'multiplier',complex(single(multiplier)),...
+  'ax',single(ax),'ay',single(ay),'useAllCPUs',useAllCPUs);
 
 %% Figure initialization
 figure(1);clf;
@@ -184,13 +183,13 @@ ylabel('y [m]');
 title('Phase [rad]');
 colormap(gca,hsv/1.5);
 
-parameters.iz_start = 1; % first z index for the first call to FDBPMpropagator
-parameters.iz_end = updatezindices(1); % final z index for the first call to FDBPMpropagator
+parameters.iz_start = int32(0); % z index of the first z position to step from for the first call to FDBPMpropagator, in C indexing (starting from 0)
+parameters.iz_end = int32(updatezindices(1)); % last z index to step into for the first call to FDBPMpropagator, in C indexing (starting from 0)
 tic;
 for updidx = 1:length(updatezindices)
   if updidx > 1
-    parameters.iz_start = updatezindices(updidx-1) + 1;
-    parameters.iz_end   = updatezindices(updidx);
+    parameters.iz_start = int32(updatezindices(updidx-1));
+    parameters.iz_end   = int32(updatezindices(updidx));
   end
   if useGPU
     [E,d] = FDBPMpropagator_CUDA(E,parameters); % d is a parameter from which we can retrieve the refractive index profile that the mex function calculated

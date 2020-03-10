@@ -57,22 +57,29 @@ struct debug {
 struct parameters {
   long Nx;
   long Ny;
-  long iz;
+  float dx;
+  float dy;
+  long iz_start;
   long iz_end;
-  bool RIprofileVaries;
-  floatcomplex d_cladding;
-  unsigned char *shapetypes;
+  float taperPerStep;
+  float twistPerStep;
+  floatcomplex Dcladding;
+  long NShapes;
+  unsigned char *shapeTypes;
   float *shapeParameters;
-  floatcomplex *shape_dvalues;
+  floatcomplex *shapeDvalues;
   floatcomplex *Efinal;
   floatcomplex *E1;
   floatcomplex *E2;
   floatcomplex *Eyx;
   floatcomplex *b;
   floatcomplex *multiplier;
+  floatcomplex *D;
   floatcomplex ax;
   floatcomplex ay;
 };
+
+double sqr(double x) {return x*x;}
 
 #ifdef __NVCC__ // If compiling for CUDA
 __global__
@@ -395,12 +402,45 @@ void retrieveAndFreeDeviceStructs(struct parameters *P, struct parameters *P_dev
 }
 #endif
 
+void calcD(struct parameters *P,long iz) {
+  for(long ix=0;ix<P->Nx;ix++) {
+    float x = ix - P->Nx/2.0
+    for(long iy=0;iy<P->Ny;iy++) {
+      float y = iy - P->Ny/2.0
+      long i = ix + iy*P->Nx;
+      P->D[i] = P->Dcladding;
+      for(long iShape=0;iShape<P->NShapes;iShape++) {
+        switch(P->shapeTypes[iShape]) {
+          case 1: // Disk
+            if(sqr(x-P->shapeParameters[0]) + sqr(y-P->shapeParameters[1]) < sqr(P->shapeParameters[2]))
+              P->D[i] = P->shapeDvalues[iShape];
+            break;
+          case 2: // Graded index disk
+            if(sqr(x-P->shapeParameters[0]) + sqr(y-P->shapeParameters[1]) < sqr(P->shapeParameters[2]))
+              P->D[i] = (sqr(x-P->shapeParameters[0]) + sqr(y-P->shapeParameters[1]))/sqr(P->shapeParameters[2])*(P->shapeDvalues[iShape] - P->);
+            break;
+        }
+      }
+    }
+  }
+}
+
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   struct parameters P_var;
   struct parameters *P = &P_var;
   P->Nx = (long)mxGetM(prhs[0]);
   P->Ny = (long)mxGetN(prhs[0]);
-  P->Nz = (long)*(double *)mxGetData(mxGetField(prhs[1],0,"Nz")); // Number of steps to perform
+  P->dx = *(float *)mxGetData(mxGetField(prhs[1],0,"dx"));
+  P->dy = *(float *)mxGetData(mxGetField(prhs[1],0,"dy"));
+  P->iz_start = *(long *)mxGetData(mxGetField(prhs[1],0,"iz_start"));
+  P->iz_end = *(long *)mxGetData(mxGetField(prhs[1],0,"iz_end"));
+  P->taperPerStep = *(float *)mxGetData(mxGetField(prhs[1],0,"taperPerStep"));
+  P->twistPerStep = *(float *)mxGetData(mxGetField(prhs[1],0,"twistPerStep"));
+  P->Dcladding = *(floatcomplex *)mxGetData(mxGetField(prhs[1],0,"Dcladding"));
+  P->NShapes = (long)mxGetM(mxGetField(prhs[1],0,"shapeTypes"));
+  P->shapeTypes = (unsigned char *)mxGetData(mxGetField(prhs[1],0,"shapeTypes"));
+  P->shapeParameters = (float *)mxGetData(mxGetField(prhs[1],0,"shapeParameters"));
+  P->shapeDvalues = (floatcomplex *)mxGetData(mxGetField(prhs[1],0,"shapeDvalues"));
   P->E1 = (floatcomplex *)mxGetData(prhs[0]); // Input E field
   mwSize const *dimPtr = mxGetDimensions(prhs[0]);
   P->Efinal = (floatcomplex *)mxGetData(plhs[0] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxCOMPLEX)); // Output E field
@@ -434,7 +474,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   #endif
   #endif
   {
-    for(long iz=0; iz<P->Nz; iz++) {
+    for(long iz=P->iz_start; iz<P->iz_end; iz++) {
       if(ctrlc_caught) break;
       
       #ifdef __NVCC__
@@ -444,6 +484,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
       substep2b<<<nBlocks, blockDims>>>(P_dev); // xy -> xy
       gpuErrchk(cudaDeviceSynchronize()); // Wait until all kernels have finished
       #else
+      calcD(P,iz);
       substep1a(P);
       substep1b(P);
       substep2a(P);
