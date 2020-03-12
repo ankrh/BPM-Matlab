@@ -121,15 +121,14 @@ nextupdatenumber = 1;
 ax = dz/(4i*dx^2*k_0*n_0);
 ay = dz/(4i*dy^2*k_0*n_0);
 
-Dcladding = exp(-1i*dz*k_0/2*(n_cladding.^2 - n_0^2)/n_0);
-shapeDvalues = exp(-1i*dz*k_0/2*(shapeRIs.^2 - n_0^2)/n_0);
+d = -dz*k_0/(2*n_0); % E = E*multiplier*exp(1i*d*(n^2-n_0^2))
 
 absorber = exp(-dz*max(0,max(abs(Y) - Ly_main/2,abs(X) - Lx_main/2)).^2*alpha);
 multiplier = absorber; % This could also include a phase gradient due to bending
 
 parameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single(1-(1-taperScaling)/Nz),'twistPerStep',single(twistRate*Lz/Nz),...
-  'shapeTypes',uint8(shapeTypes),'shapeParameters',single(shapeParameters),'shapeDvalues',complex(single(shapeDvalues)),'Dcladding',complex(single(Dcladding)),'multiplier',complex(single(multiplier)),...
-  'ax',single(ax),'ay',single(ay),'useAllCPUs',useAllCPUs);
+  'shapeTypes',uint8(shapeTypes),'shapeParameters',single(shapeParameters),'shapeRIs',single(shapeRIs),'n_cladding',single(n_cladding),'multiplier',complex(single(multiplier)),...
+  'd',single(d),'n_0',single(n_0),'ax',single(ax),'ay',single(ay),'useAllCPUs',useAllCPUs);
 
 %% Figure initialization
 figure(1);clf;

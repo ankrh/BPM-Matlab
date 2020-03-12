@@ -63,11 +63,14 @@ struct parameters {
   long iz_end;
   float taperPerStep;
   float twistPerStep;
-  floatcomplex Dcladding;
+  float d;
+  float n_cladding;
+  float n_0;
   long NShapes;
   unsigned char *shapeTypes;
   float *shapeParameters;
-  floatcomplex *shapeDvalues;
+  float *shapeRIs;
+  float *shapexy;
   floatcomplex *Efinal;
   floatcomplex *E1;
   floatcomplex *E2;
@@ -403,24 +406,34 @@ void retrieveAndFreeDeviceStructs(struct parameters *P, struct parameters *P_dev
 #endif
 
 void calcD(struct parameters *P,long iz) {
+  float cosvalue = cos(P->twistPerStep*iz);
+  float sinvalue = sin(P->twistPerStep*iz);
+  float scaling = P->taperPerStep*iz;
+  for(long iShape=0;iShape<P->NShapes;iShape++) {
+    P->shapexyr[iShape*3  ] = scaling*(cosvalue*P->shapeParameters[0] - sinvalue*P->shapeParameters[1]);
+    P->shapexyr[iShape*3+1] = scaling*(sinvalue*P->shapeParameters[0] + cosvalue*P->shapeParameters[1]);
+    P->shapexyr[iShape*3+2] = scaling*P->shapeParameters[2];
+  }
   for(long ix=0;ix<P->Nx;ix++) {
-    float x = ix - P->Nx/2.0
+    float x = P->dx*(ix - P->Nx/2.0);
     for(long iy=0;iy<P->Ny;iy++) {
-      float y = iy - P->Ny/2.0
+      float y = P->dy*(iy - P->Ny/2.0);
       long i = ix + iy*P->Nx;
-      P->D[i] = P->Dcladding;
+      float n = P->n_cladding;
       for(long iShape=0;iShape<P->NShapes;iShape++) {
         switch(P->shapeTypes[iShape]) {
-          case 1: // Disk
-            if(sqr(x-P->shapeParameters[0]) + sqr(y-P->shapeParameters[1]) < sqr(P->shapeParameters[2]))
-              P->D[i] = P->shapeDvalues[iShape];
+          case 1: // Step-index disk
+            if(sqr(x - P->shapexyr[iShape*3]) + sqr(y - P->shapexyr[iShape*3+1]) < sqr(P->shapexyr[iShape*3+2]))
+              n = P->shapeRIs[iShape];
             break;
-          case 2: // Graded index disk
-            if(sqr(x-P->shapeParameters[0]) + sqr(y-P->shapeParameters[1]) < sqr(P->shapeParameters[2]))
-              P->D[i] = (sqr(x-P->shapeParameters[0]) + sqr(y-P->shapeParameters[1]))/sqr(P->shapeParameters[2])*(P->shapeDvalues[iShape] - P->);
+          case 2: // Parabolic graded index disk
+            float r_ratio_sqr = (sqr(x - P->shapexyr[iShape*3]) + sqr(y - P->shapexyr[iShape*3+1]))/sqr(P->shapexyr[iShape*3+2]);
+            if(r_ratio_sqr < 1)
+              n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
             break;
         }
       }
+      P->D[i] = P->multiplier[i]*cexpf(I*P->d*(sqr(n) - sqr(P->n_0)));
     }
   }
 }
@@ -436,11 +449,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->iz_end = *(long *)mxGetData(mxGetField(prhs[1],0,"iz_end"));
   P->taperPerStep = *(float *)mxGetData(mxGetField(prhs[1],0,"taperPerStep"));
   P->twistPerStep = *(float *)mxGetData(mxGetField(prhs[1],0,"twistPerStep"));
-  P->Dcladding = *(floatcomplex *)mxGetData(mxGetField(prhs[1],0,"Dcladding"));
+  P->d = *(float *)mxGetData(mxGetField(prhs[1],0,"d"));
+  P->n_cladding = *(float *)mxGetData(mxGetField(prhs[1],0,"n_cladding"));
+  P->n_0 = *(float *)mxGetData(mxGetField(prhs[1],0,"n_0"));
   P->NShapes = (long)mxGetM(mxGetField(prhs[1],0,"shapeTypes"));
   P->shapeTypes = (unsigned char *)mxGetData(mxGetField(prhs[1],0,"shapeTypes"));
   P->shapeParameters = (float *)mxGetData(mxGetField(prhs[1],0,"shapeParameters"));
-  P->shapeDvalues = (floatcomplex *)mxGetData(mxGetField(prhs[1],0,"shapeDvalues"));
+  P->shapeRIs = (float *)mxGetData(mxGetField(prhs[1],0,"shapeRIs"));
+  P->shapexyr = (float *)malloc(P->NShapes*3*sizeof(float));
   P->E1 = (floatcomplex *)mxGetData(prhs[0]); // Input E field
   mwSize const *dimPtr = mxGetDimensions(prhs[0]);
   P->Efinal = (floatcomplex *)mxGetData(plhs[0] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxCOMPLEX)); // Output E field
@@ -522,6 +538,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   #else
   if(P->Nz > 1) free(P->E1);
   free(P->b);
+  free(P->shapexyr);
   #endif
 
   return;
