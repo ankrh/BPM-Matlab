@@ -11,32 +11,23 @@
 format long
 format compact
 
-% Test of execution speed, 10 steps through a 2000x2000 grid, only the one
-% mandatory update:
-% 
-% calctype 1: 657 seconds
-% calctype 2: 48.7 seconds
-% calctype 3: 1.56 seconds
-% 
-% That means method 3 is 421 times faster than method 1
-% 
-% GPU speedup comparison on 2020-02-02, with 1000 steps through a 2000x2000 grid, one update:
-% calctype 3: 114 seconds
-% calctype 4: 83.0 seconds when compiling with GCC, slightly slower when compiling with MSVC
-% calctype 5: 12.2 seconds
-% The speedup from calctype 3 to 5 is 9x
-% Thus, the speedup from calctype 1 to 5 is ~3800x
-
 %% General parameters
 lambda = 1e-6;          % [m] Wavelength
-w_0 = 3e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
-Lz = 1e-2;              % [m] z propagation distance
+w_0 = 2e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
+Lz = 5e-3;              % [m] z propagation distance
 
-taperScaling = 0.5; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
-twistRate = 0; % Specifies how rapidly the fiber twists, measured in radians per metre
+taperScaling = 0.15; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
+twistRate = 2*pi/Lz; % Specifies how rapidly the fiber twists, measured in radians per metre
 
 n_cladding = 1.45;
 n_core = 1.46;
+
+shapeTypes = [1 2 3]; % Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk
+shapeParameters = [-7e-6   1.5e-5 0; % x values
+                   -7e-6    0   1e-5; % y values
+                   10e-6  1.25e-6 6e-6]; % r values
+shapeRIs = [n_core n_core 1.455];
+Eparameters = {w_0};    % Cell array of parameters that the E field initialization function will need
 
 %% Resolution-related parameters
 targetzstepsize = 1e-6; % [m] z step size to aim for
@@ -48,6 +39,8 @@ Ny_main = 200;          % y resolution of main area
 %% Solver-related parameters
 useAllCPUs = true;
 useGPU = false;
+
+n_0 = n_core;
 
 targetLx = 1.5*Lx_main;   % [m] Full area x side length, including absorber layer
 targetLy = 1.5*Ly_main;   % [m] Full area y side length, including absorber layer
@@ -98,20 +91,9 @@ z = dz*(0:Nz); % Has Nz + 1 elements
 
 k_0 = 2*pi/lambda; % [m^-1] Wavenumber
 
-%% Initialisation of optical fibre parameters
-n_0 = n_core;
-
-shapeTypes = [1 ; 2];
-shapeParameters = [1e-5  2e-5 1.5e-5 ; -1e-5 2e-5 1.5e-5];
-shapeRIs = [n_core ; n_core];
-
 %% Beam initialization
-% amplitude = exp(-((X-Lx_main/4).^2+Y.^2)/w_0^2) - exp(-((X+Lx_main/4).^2+Y.^2)/w_0^2); % Gaussian field amplitude
-amplitude = exp(-((X-Lx_main/10).^2+Y.^2)/w_0^2); % Gaussian field amplitude
-% amplitude = exp(-(X.^2+Y.^2)/w_0^2); % Gaussian field amplitude
-phase = 8e5*Y;
-E = amplitude.*exp(1i*phase); % Electric field
-E = complex(single(E/sqrt(dx*dy*sum(abs(E(:)).^2))));
+E = calcInitialE(X,Y,Eparameters); % Call function to initialize E field
+E = complex(single(E/sqrt(dx*dy*sum(abs(E(:)).^2)))); % Normalize and force to be complex single precision
 
 %% Fibre propagation and plotting
 updatezindices = round((1:min(Nz,updates))/min(Nz,updates)*Nz);
@@ -126,12 +108,13 @@ d = -dz*k_0/(2*n_0); % E = E*multiplier*exp(1i*d*(n^2-n_0^2))
 absorber = exp(-dz*max(0,max(abs(Y) - Ly_main/2,abs(X) - Lx_main/2)).^2*alpha);
 multiplier = absorber; % This could also include a phase gradient due to bending
 
-parameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single(1-(1-taperScaling)/Nz),'twistPerStep',single(twistRate*Lz/Nz),...
+parameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-taperScaling)/Nz),'twistPerStep',single(twistRate*Lz/Nz),...
   'shapeTypes',uint8(shapeTypes),'shapeParameters',single(shapeParameters),'shapeRIs',single(shapeRIs),'n_cladding',single(n_cladding),'multiplier',complex(single(multiplier)),...
   'd',single(d),'n_0',single(n_0),'ax',single(ax),'ay',single(ay),'useAllCPUs',useAllCPUs);
 
 %% Figure initialization
 figure(1);clf;
+subplot(2,2,1)
 h_im1 = imagesc(x,y,zeros(Ny,Nx));
 axis xy
 axis equal
@@ -144,14 +127,13 @@ title('Refractive index');
 
 powers = NaN(1,min(Nz,updates)+1);
 powers(1) = sum(dx*dy*abs(E(:)).^2);
-figure(2);clf;
+subplot(2,2,2);
 plot([0 z_updates],powers,'YDataSource','powers','linewidth',2);
 xlim([0 Lz]);
 xlabel('Propagation distance [m]');
 ylabel('Relative power remaining');
 
-figure(3);clf;
-subplot(2,1,1);
+subplot(2,2,3);
 hold on;
 h_im3a = imagesc(x,y,abs(E.').^2);
 axis xy;
@@ -166,7 +148,7 @@ title('Intensity [W/m^2]');
 % if max(n_mat(:) > min(n_mat(:))); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','w','linestyle','--'); end
 line([-Lx_main Lx_main Lx_main -Lx_main -Lx_main]/2,[Ly_main Ly_main -Ly_main -Ly_main Ly_main]/2,'color','r','linestyle','--');
 caxis([0 colormax]);
-subplot(2,1,2);
+subplot(2,2,4);
 hold on;
 h_im3b = imagesc(x,y,angle(E.'));
 axis xy;
@@ -191,33 +173,28 @@ for updidx = 1:length(updatezindices)
     parameters.iz_end   = int32(updatezindices(updidx));
   end
   if useGPU
-    [E,d] = FDBPMpropagator_CUDA(E,parameters); % d is a parameter from which we can retrieve the refractive index profile that the mex function calculated
+    [E,n] = FDBPMpropagator_CUDA(E,parameters); % d is a parameter from which we can retrieve the refractive index profile that the mex function calculated
   else
-    [E,d] = FDBPMpropagator(E,parameters); % d is a parameter from which we can retrieve the refractive index profile that the mex function calculated
+    [E,n] = FDBPMpropagator(E,parameters); % d is a parameter from which we can retrieve the refractive index profile that the mex function calculated
   end
 
-  h_im1.CData = sqrt(log(d)*n_0*2i/dz/k_0 + n_0^2); % Refractive index at this update
+  h_im1.CData = n.'; % Refractive index at this update
   h_im3a.CData = abs(E.').^2; % Intensity at this update
   h_im3b.CData = angle(E.'); % Phase at this update
   powers(updidx+1) = dx*dy*sum(abs(E(:)).^2);
-  refreshdata(2);
+  refreshdata(1);
   drawnow;
 end
 toc
 
-function RIprofiles = RIprofilesFunc(z,n_core)
-% In this function, the refractive index profile at each z position is
-% defined in terms of fundamental mathematical shapes. Currently only
-% circular disks are supported.
-
-% Shapes is a cell array with one cell for each z position in the z array
-% passed in. Each cell contains a 2D array in which each column corresponds
-% to a shape, and the rows correspond to different parameters of the shape.
-% Each column consists of these rows: [shape type; x center coord; y center
-% coord; radius; refractive index]. shape type can be 1: Disk, 2:
-% Rectangle, 3: Triangle. Currently, only shape type 1 is implemented.
-
-for iz = 1:length(z)
-  RIprofiles{iz} =  [1 1; 1e-5 -1e-5; 2e-5 2e-5; 1.5e-5 1.5e-5; n_core n_core];
-end
+function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
+% amplitude = exp(-((X-Lx_main/4).^2+Y.^2)/w_0^2) - exp(-((X+Lx_main/4).^2+Y.^2)/w_0^2); % Gaussian field amplitude
+% amplitude = exp(-((X-Lx_main/10).^2+Y.^2)/w_0^2); % Gaussian field amplitude
+% amplitude = exp(-(X.^2+Y.^2)/w_0^2); % Gaussian field amplitude
+w_0 = Eparameters{1};
+amplitude1 = exp(-((X-1.5e-5).^2+Y.^2)/w_0^2);
+amplitude2 = 2*exp(-((X+12e-6).^2+(Y+7e-6).^2)/w_0^2);
+phase1 = zeros(size(X));
+phase2 = 8e5*Y;
+E = amplitude1.*exp(1i*phase1) + amplitude2.*exp(1i*phase2); % Electric field
 end
