@@ -1,13 +1,15 @@
-% Author: Madhu Veettikazhy
-% Date:12 November 2018
-% Gaussian beam (CW) electric field propagation from the
-% through fibre using Finite Difference Beam Propagation Method
-% in 2D
-% Reference: An assessment of FD BPM method - Youngchul Chung
+% Authors: Madhu Veetikazhy and Anders K. Hansen
+% DTU Health and DTU Fotonik
+% 
+% Electric field propagation through fibre using Finite Difference Beam
+% Propagation Method in 2D Reference: An assessment of FD BPM method -
+% Youngchul Chung
 %
-% Douglas-Gunn Alternating Direction Implicit approach is based on me690-lctr-nts.pdf Eqs. 3.21, 3.22, 3.23a and 3.23b.
-% Implicit steps are performed using the Thomson algorithm (https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm)
-% ***************************************************************************************************
+% Douglas-Gunn Alternating Direction Implicit approach is based on
+% me690-lctr-nts.pdf Eqs. 3.21, 3.22, 3.23a and 3.23b. Implicit steps are
+% performed using the Thomson algorithm
+% (https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm)
+% ***********************************************************************
 format long
 format compact
 
@@ -27,7 +29,7 @@ shapeParameters = [-7e-6   1.5e-5 0; % x values
                    -7e-6    0   1e-5; % y values
                    10e-6  1.25e-6 6e-6]; % r values
 shapeRIs = [n_core n_core 1.455];
-Eparameters = {w_0};    % Cell array of parameters that the E field initialization function will need
+Eparameters = {w_0};    % Cell array of parameters that the E field initialization function (defined at the end of this file) will need
 
 %% Resolution-related parameters
 targetzstepsize = 1e-6; % [m] z step size to aim for
@@ -38,7 +40,7 @@ Ny_main = 200;          % y resolution of main area
 
 %% Solver-related parameters
 useAllCPUs = true;
-useGPU = false;
+useGPU = true;
 
 n_0 = n_core;
 
@@ -148,6 +150,8 @@ title('Intensity [W/m^2]');
 % if max(n_mat(:) > min(n_mat(:))); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','w','linestyle','--'); end
 line([-Lx_main Lx_main Lx_main -Lx_main -Lx_main]/2,[Ly_main Ly_main -Ly_main -Ly_main Ly_main]/2,'color','r','linestyle','--');
 caxis([0 colormax]);
+colormap(gca,GPBGYRcolormap);
+
 subplot(2,2,4);
 hold on;
 h_im3b = imagesc(x,y,angle(E.'));
@@ -187,6 +191,7 @@ for updidx = 1:length(updatezindices)
 end
 toc
 
+%% USER DEFINED FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
 % amplitude = exp(-((X-Lx_main/4).^2+Y.^2)/w_0^2) - exp(-((X+Lx_main/4).^2+Y.^2)/w_0^2); % Gaussian field amplitude
 % amplitude = exp(-((X-Lx_main/10).^2+Y.^2)/w_0^2); % Gaussian field amplitude

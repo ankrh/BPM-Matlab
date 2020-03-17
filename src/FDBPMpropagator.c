@@ -22,10 +22,6 @@
 #ifdef _OPENMP
   #include "omp.h"
 #endif
-#ifdef __GNUC__ // This is defined for GCC and CLANG but not for Microsoft Visual C++ compiler
-  #define min(a,b) ({__typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b? _b: _a;})
-  #define max(a,b) ({__typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b? _a: _b;})
-#endif
 #ifndef __clang__
   #ifdef __cplusplus
   extern "C"
@@ -35,17 +31,25 @@
 #ifdef __NVCC__
   #include <thrust/complex.h>
   typedef thrust::complex<float> floatcomplex;
+  #define I thrust::complex<float>{0,1}
+  #define CEXPF(x) (thrust::exp(x))
+  #define MAX(x,y) (max(x,y))
   #include <nvml.h>
   #define TILE_DIM 32
 #else
-  #ifdef __GNUC__
+  #ifdef __GNUC__ // This is defined for GCC and CLANG but not for Microsoft Visual C++ compiler
+    #define MIN(a,b) ({__typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b? _b: _a;})
+    #define MAX(a,b) ({__typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b? _a: _b;})
     #include <complex.h>
     typedef float complex floatcomplex;
+    #define CEXPF(x) (cexpf(x))
   #else
     #include <algorithm>
-    using namespace std;
     #include <complex>
     typedef std::complex<float> floatcomplex;
+    #define I std::complex<float>{0,1}
+    #define CEXPF(x) (std::exp(x))
+    #define MAX(x,y) (std::max(x,y))
   #endif
 #endif
 
@@ -66,7 +70,7 @@ struct parameters {
   float d;
   float n_cladding;
   float n_0;
-  long NShapes;
+  long Nshapes;
   unsigned char *shapeTypes;
   float *shapeParameters;
   float *shapeRIs;
@@ -82,6 +86,9 @@ struct parameters {
   floatcomplex ay;
 };
 
+#ifdef __NVCC__ // If compiling for CUDA
+__host__ __device__
+#endif
 float sqrf(float x) {return x*x;}
 
 #ifdef __NVCC__ // If compiling for CUDA
@@ -261,7 +268,7 @@ void substep2a(struct parameters *P_global) {
 #ifdef __NVCC__ // If compiling for CUDA
 __global__
 #endif
-void substep2b(struct parameters *P_global, long iz) {
+void substep2b(struct parameters *P_global) {
   // Implicit part of substep 2 out of 2
   #ifdef __NVCC__
   long threadNum = threadIdx.x + threadIdx.y*blockDim.x + blockIdx.x*blockDim.x*blockDim.y;
@@ -285,9 +292,7 @@ void substep2b(struct parameters *P_global, long iz) {
     for(long iy=P->Ny-1; iy>=0; iy--) {
       long i = ix + iy*P->Nx;
       P->E2[i] = (P->E2[i] + (iy == P->Ny-1? 0: P->ay*P->E2[i+P->Nx]))/P->b[i];
-      if(iy < P->Ny-1) P->E2[i+P->Nx] *= P->multiplier[i];
     }
-    P->E2[ix] *= P->multiplier[ix];
   }
 
   #else
@@ -319,58 +324,86 @@ void substep2b(struct parameters *P_global, long iz) {
       P->E2[i] = (P->E2[i] + (iy == P->Ny-1? 0: P->ay*P->E2[i+P->Nx]))/P->b[ib];
     }
   }
+  #endif
+}
+
+#ifdef __NVCC__ // If compiling for CUDA
+__global__
+#endif
+void calcShapexyr(struct parameters *P, long iz) { // Called with only one thread
+  // Calculate positions and sizes of geometric shapes (only shapeType 1, 2 and 3 supported thus far)
+  float cosvalue = cosf(P->twistPerStep*iz);
+  float sinvalue = sinf(P->twistPerStep*iz);
+  float scaling = 1 - P->taperPerStep*iz;
+  for(long iShape=0;iShape<P->Nshapes;iShape++) {
+    P->shapexyr[iShape*3  ] = scaling*(cosvalue*P->shapeParameters[iShape*3] - sinvalue*P->shapeParameters[iShape*3+1]);
+    P->shapexyr[iShape*3+1] = scaling*(sinvalue*P->shapeParameters[iShape*3] + cosvalue*P->shapeParameters[iShape*3+1]);
+    P->shapexyr[iShape*3+2] = scaling*P->shapeParameters[iShape*3+2];
+  }
+}
+
+#ifdef __NVCC__ // If compiling for CUDA
+__global__
+#endif
+void applyMultiplier(struct parameters *P_global, long iz) {
+  #ifdef __NVCC__
+  long threadNum = threadIdx.x + threadIdx.y*blockDim.x + blockIdx.x*blockDim.x*blockDim.y;
+  __shared__ char Pdummy[sizeof(struct parameters)];
+  struct parameters *P = (struct parameters *)Pdummy;
+  if(!threadIdx.x && !threadIdx.y) *P = *P_global; // Only let one thread per block do the copying
+  __syncthreads(); // All threads in the block wait for the copy to have finished
 
   if(P->taperPerStep || P->twistPerStep) {
-    // Calculate positions and sizes of geometric shapes (only shapeType 1 and 2 supported thus far)
-    float cosvalue = cos(P->twistPerStep*iz);
-    float sinvalue = sin(P->twistPerStep*iz);
-    float scaling = 1 - P->taperPerStep*iz;
-    for(long iShape=0;iShape<P->NShapes;iShape++) {
-      P->shapexyr[iShape*3  ] = scaling*(cosvalue*P->shapeParameters[iShape*3] - sinvalue*P->shapeParameters[iShape*3+1]);
-      P->shapexyr[iShape*3+1] = scaling*(sinvalue*P->shapeParameters[iShape*3] + cosvalue*P->shapeParameters[iShape*3+1]);
-      P->shapexyr[iShape*3+2] = scaling*P->shapeParameters[iShape*3+2];
-    }
-
-    // For each pixel, calculate refractive index and multiply
+    for(long i=threadNum;i<P->Nx*P->Ny;i+=gridDim.x*blockDim.x*blockDim.y) {
+  #else
+  struct parameters *P = P_global;
+  if(P->taperPerStep || P->twistPerStep) {
     #ifdef _OPENMP
     #pragma omp for schedule(dynamic)
     #endif
-    for(long ix=0;ix<P->Nx;ix++) {
+    for(long i=0;i<P->Nx*P->Ny;i++) {
+  #endif
+      // For each pixel, calculate refractive index and multiply
+      long ix = i%P->Nx;
       float x = P->dx*(ix - P->Nx/2.0f);
-      for(long iy=0;iy<P->Ny;iy++) {
-        float y = P->dy*(iy - P->Ny/2.0f);
-        long i = ix + iy*P->Nx;
-        float n = P->n_cladding;
-        for(long iShape=0;iShape<P->NShapes;iShape++) {
-          switch(P->shapeTypes[iShape]) {
-            case 1: // Step-index disk
-              if(sqrf(x - P->shapexyr[iShape*3]) + sqrf(y - P->shapexyr[iShape*3+1]) < sqrf(P->shapexyr[iShape*3+2]))
-                n = P->shapeRIs[iShape];
-              break;
-            case 2:; // Antialiased step-index disk
-              float delta = max(P->dx,P->dy); // Width of antialiasing slope
-              float r_diff = sqrtf(sqrf(x - P->shapexyr[iShape*3]) + sqrf(y - P->shapexyr[iShape*3+1])) - P->shapexyr[iShape*3+2] + delta/2.0f;
-              if(r_diff < 0) {
-                n = P->shapeRIs[iShape];
-              } else if(r_diff < delta) {
-                n = r_diff/delta*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
-              }
-              break;
-            case 3:; // Parabolic graded index disk
-              float r_ratio_sqr = (sqrf(x - P->shapexyr[iShape*3]) + sqrf(y - P->shapexyr[iShape*3+1]))/sqrf(P->shapexyr[iShape*3+2]);
-              if(r_ratio_sqr < 1)
-                n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
-              break;
+      long iy = i/P->Nx;
+      float y = P->dy*(iy - P->Ny/2.0f);
+
+      float n = P->n_cladding;
+      for(long iShape=0;iShape<P->Nshapes;iShape++) {
+        switch(P->shapeTypes[iShape]) {
+          case 1: // Step-index disk
+            if(sqrf(x - P->shapexyr[iShape*3]) + sqrf(y - P->shapexyr[iShape*3+1]) < sqrf(P->shapexyr[iShape*3+2]))
+              n = P->shapeRIs[iShape];
+            break;
+          case 2: { // Antialiased step-index disk
+            float delta = MAX(P->dx,P->dy); // Width of antialiasing slope
+            float r_diff = sqrtf(sqrf(x - P->shapexyr[iShape*3]) + sqrf(y - P->shapexyr[iShape*3+1])) - P->shapexyr[iShape*3+2] + delta/2.0f;
+            if(r_diff < 0) {
+              n = P->shapeRIs[iShape];
+            } else if(r_diff < delta) {
+              n = r_diff/delta*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
+            }
+            break;
+          }
+          case 3: { // Parabolic graded index disk
+            float r_ratio_sqr = (sqrf(x - P->shapexyr[iShape*3]) + sqrf(y - P->shapexyr[iShape*3+1]))/sqrf(P->shapexyr[iShape*3+2]);
+            if(r_ratio_sqr < 1)
+              n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
+            break;
           }
         }
-        if(iz == P->iz_end-1) P->n_out[i] = n;
-        P->E2[i] *= P->multiplier[i]*cexpf(I*P->d*(sqrf(n) - sqrf(P->n_0)));
       }
+      if(iz == P->iz_end-1) P->n_out[i] = n;
+      P->E2[i] *= P->multiplier[i]*CEXPF(I*P->d*(sqrf(n) - sqrf(P->n_0)));
     }
   } else {
+  #ifdef __NVCC__
+    for(long i=threadNum;i<P->Nx*P->Ny;i+=gridDim.x*blockDim.x*blockDim.y) P->E2[i] *= P->multiplier[i];
+  #else
     for(long i=0;i<P->Nx*P->Ny;i++) P->E2[i] *= P->multiplier[i];
-  }
   #endif
+  }
 }
 
 #ifdef __NVCC__ // If compiling for CUDA
@@ -411,10 +444,20 @@ void createDeviceStructs(struct parameters *P, struct parameters **P_devptr,
   long N = P->Nx*P->Ny;
   struct parameters P_tempvar = *P;
 
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeTypes,P->Nshapes*sizeof(unsigned char)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapeTypes,P->shapeTypes,P->Nshapes*sizeof(unsigned char),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeParameters,P->Nshapes*3*sizeof(float)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapeParameters,P->shapeParameters,P->Nshapes*3*sizeof(float),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeRIs,P->Nshapes*sizeof(float)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapeRIs,P->shapeRIs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapexyr,P->Nshapes*3*sizeof(float)));
+
   gpuErrchk(cudaMalloc(&P_tempvar.E1,N*sizeof(floatcomplex)));
   gpuErrchk(cudaMemcpy(P_tempvar.E1,P->E1,N*sizeof(floatcomplex),cudaMemcpyHostToDevice));
   gpuErrchk(cudaMalloc(&P_tempvar.E2,N*sizeof(floatcomplex)));
   gpuErrchk(cudaMalloc(&P_tempvar.Eyx,N*sizeof(floatcomplex)));
+
+  if(P->taperPerStep || P->twistPerStep) gpuErrchk(cudaMalloc(&P_tempvar.n_out,N*sizeof(float)));
 
   gpuErrchk(cudaMalloc(&P_tempvar.b,N*sizeof(floatcomplex)));
   gpuErrchk(cudaMalloc(&P_tempvar.multiplier,N*sizeof(floatcomplex)));
@@ -434,12 +477,23 @@ void retrieveAndFreeDeviceStructs(struct parameters *P, struct parameters *P_dev
   long N = P->Nx*P->Ny;
   struct parameters P_temp; gpuErrchk(cudaMemcpy(&P_temp,P_dev,sizeof(struct parameters),cudaMemcpyDeviceToHost));
   gpuErrchk(cudaMemcpy(P->Efinal,P_temp.E2,N*sizeof(floatcomplex),cudaMemcpyDeviceToHost));
+  if(P->taperPerStep || P->twistPerStep) {
+    gpuErrchk(cudaMemcpy(P->n_out,P_temp.n_out,N*sizeof(float),cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaFree(P_temp.n_out));
+  }
+
+  gpuErrchk(cudaFree(P_temp.shapeTypes));
+  gpuErrchk(cudaFree(P_temp.shapeParameters));
+  gpuErrchk(cudaFree(P_temp.shapeRIs));
+  gpuErrchk(cudaFree(P_temp.shapexyr));
+
   gpuErrchk(cudaFree(P_temp.E1));
   gpuErrchk(cudaFree(P_temp.E2));
   gpuErrchk(cudaFree(P_temp.Eyx));
   gpuErrchk(cudaFree(P_temp.b));
   gpuErrchk(cudaFree(P_temp.multiplier));
   gpuErrchk(cudaFree(P_dev));
+
 
   gpuErrchk(cudaMemcpy(D, D_dev, sizeof(struct debug),cudaMemcpyDeviceToHost));
   gpuErrchk(cudaFree(D_dev));
@@ -460,11 +514,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->d = *(float *)mxGetData(mxGetField(prhs[1],0,"d"));
   P->n_cladding = *(float *)mxGetData(mxGetField(prhs[1],0,"n_cladding"));
   P->n_0 = *(float *)mxGetData(mxGetField(prhs[1],0,"n_0"));
-  P->NShapes = (long)mxGetN(mxGetField(prhs[1],0,"shapeTypes"));
+  P->Nshapes = (long)mxGetN(mxGetField(prhs[1],0,"shapeTypes"));
   P->shapeTypes = (unsigned char *)mxGetData(mxGetField(prhs[1],0,"shapeTypes"));
   P->shapeParameters = (float *)mxGetData(mxGetField(prhs[1],0,"shapeParameters"));
   P->shapeRIs = (float *)mxGetData(mxGetField(prhs[1],0,"shapeRIs"));
-  P->shapexyr = (float *)malloc(P->NShapes*3*sizeof(float));
+  P->shapexyr = (float *)malloc(P->Nshapes*3*sizeof(float));
   P->E1 = (floatcomplex *)mxGetData(prhs[0]); // Input E field
   mwSize const *dimPtr = mxGetDimensions(prhs[0]);
   P->Efinal = (floatcomplex *)mxGetData(plhs[0] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxCOMPLEX)); // Output E field
@@ -477,6 +531,45 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->ax = *(floatcomplex *)mxGetData(mxGetField(prhs[1],0,"ax"));
   P->ay = *(floatcomplex *)mxGetData(mxGetField(prhs[1],0,"ay"));
   
+  if(P->taperPerStep || P->twistPerStep) {
+    for(long i=0;i<P->Nx*P->Ny;i++) P->multiplier[i] = MatlabMultiplier[i];
+  } else {
+    for(long ix=0;ix<P->Nx;ix++) {
+      float x = P->dx*(ix - P->Nx/2.0f);
+      for(long iy=0;iy<P->Ny;iy++) {
+        float y = P->dy*(iy - P->Ny/2.0f);
+        long i = ix + iy*P->Nx;
+        float n = P->n_cladding;
+        for(long iShape=0;iShape<P->Nshapes;iShape++) {
+          switch(P->shapeTypes[iShape]) {
+            case 1: // Step-index disk
+              if(sqrf(x - P->shapeParameters[iShape*3]) + sqrf(y - P->shapeParameters[iShape*3+1]) < sqrf(P->shapeParameters[iShape*3+2]))
+                n = P->shapeRIs[iShape];
+              break;
+            case 2: { // Antialiased step-index disk
+              float delta = MAX(P->dx,P->dy); // Width of antialiasing slope
+              float r_diff = sqrtf(sqrf(x - P->shapeParameters[iShape*3]) + sqrf(y - P->shapeParameters[iShape*3+1])) - P->shapeParameters[iShape*3+2] + delta/2.0f;
+              if(r_diff < 0) {
+                n = P->shapeRIs[iShape];
+              } else if(r_diff < delta) {
+                n = r_diff/delta*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
+              }
+              break;
+            }
+            case 3: { // Parabolic graded index disk
+              float r_ratio_sqr = (sqrf(x - P->shapeParameters[iShape*3]) + sqrf(y - P->shapeParameters[iShape*3+1]))/sqrf(P->shapeParameters[iShape*3+2]);
+              if(r_ratio_sqr < 1)
+                n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
+              break;
+            }
+          }
+        }
+        P->n_out[i] = n;
+        P->multiplier[i] = MatlabMultiplier[i]*CEXPF(I*P->d*(sqrf(n) - sqrf(P->n_0)));
+      }
+    }
+  }
+  
   bool ctrlc_caught = false;      // Has a ctrl+c been passed from MATLAB?
   #ifdef __NVCC__
   int temp, nBlocks; gpuErrchk(cudaOccupancyMaxPotentialBlockSize(&nBlocks,&temp,&substep1a,0,0));
@@ -488,49 +581,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   struct debug *D_dev;
   createDeviceStructs(P,&P_dev,D,&D_dev);
   #else
-  if(P->taperPerStep || P->twistPerStep) {
-    for(long i=0;i<P->Nx*P->Ny;i++) P->multiplier[i] = MatlabMultiplier[i];
-  } else {
-    for(long ix=0;ix<P->Nx;ix++) {
-      float x = P->dx*(ix - P->Nx/2.0f);
-      for(long iy=0;iy<P->Ny;iy++) {
-        float y = P->dy*(iy - P->Ny/2.0f);
-        long i = ix + iy*P->Nx;
-        float n = P->n_cladding;
-        for(long iShape=0;iShape<P->NShapes;iShape++) {
-          switch(P->shapeTypes[iShape]) {
-            case 1: // Step-index disk
-              if(sqrf(x - P->shapeParameters[iShape*3]) + sqrf(y - P->shapeParameters[iShape*3+1]) < sqrf(P->shapeParameters[iShape*3+2]))
-                n = P->shapeRIs[iShape];
-              break;
-            case 2:; // Antialiased step-index disk
-              float delta = max(P->dx,P->dy); // Width of antialiasing slope
-              float r_diff = sqrtf(sqrf(x - P->shapeParameters[iShape*3]) + sqrf(y - P->shapeParameters[iShape*3+1])) - P->shapeParameters[iShape*3+2] + delta/2.0f;
-              if(r_diff < 0) {
-                n = P->shapeRIs[iShape];
-              } else if(r_diff < delta) {
-                n = r_diff/delta*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
-              }
-              break;
-            case 3:; // Parabolic graded index disk
-              float r_ratio_sqr = (sqrf(x - P->shapeParameters[iShape*3]) + sqrf(y - P->shapeParameters[iShape*3+1]))/sqrf(P->shapeParameters[iShape*3+2]);
-              if(r_ratio_sqr < 1)
-                n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
-              break;
-          }
-        }
-        P->n_out[i] = n;
-        P->multiplier[i] = MatlabMultiplier[i]*cexpf(I*P->d*(sqrf(n) - sqrf(P->n_0)));
-      }
-    }
-  }
   #ifdef _OPENMP
   bool useAllCPUs = mxIsLogicalScalarTrue(mxGetField(prhs[1],0,"useAllCPUs"));
   long numThreads = useAllCPUs || omp_get_num_procs() == 1? omp_get_num_procs(): omp_get_num_procs()-1;
   #else
   long numThreads = 1;
   #endif
-  P->b = (floatcomplex *)malloc(numThreads*max(P->Nx,P->Ny)*sizeof(floatcomplex));
+  P->b = (floatcomplex *)malloc(numThreads*MAX(P->Nx,P->Ny)*sizeof(floatcomplex));
   #ifdef _OPENMP
   #pragma omp parallel num_threads(useAllCPUs || omp_get_num_procs() == 1? omp_get_num_procs(): omp_get_num_procs()-1)
   #endif
@@ -544,12 +601,16 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
       substep1b<<<nBlocks, blockDims>>>(P_dev); // yx -> yx
       substep2a<<<nBlocks, blockDims>>>(P_dev); // yx -> xy
       substep2b<<<nBlocks, blockDims>>>(P_dev); // xy -> xy
+      if(P->taperPerStep || P->twistPerStep) calcShapexyr<<<1,1>>>(P_dev,iz);
+      applyMultiplier<<<nBlocks, blockDims>>>(P_dev,iz); // xy -> xy
       gpuErrchk(cudaDeviceSynchronize()); // Wait until all kernels have finished
       #else
       substep1a(P);
       substep1b(P);
       substep2a(P);
-      substep2b(P,iz);
+      substep2b(P);
+      if(P->taperPerStep || P->twistPerStep) calcShapexyr(P,iz);
+      applyMultiplier(P,iz);
       #endif
 
       #ifdef _OPENMP
