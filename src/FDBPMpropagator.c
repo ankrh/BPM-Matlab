@@ -38,7 +38,6 @@
   #define TILE_DIM 32
 #else
   #ifdef __GNUC__ // This is defined for GCC and CLANG but not for Microsoft Visual C++ compiler
-    #define MIN(a,b) ({__typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b? _b: _a;})
     #define MAX(a,b) ({__typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b? _a: _b;})
     #include <complex.h>
     typedef float complex floatcomplex;
@@ -647,7 +646,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   retrieveAndFreeDeviceStructs(P,P_dev,D,D_dev);
 //   printf("\nDebug: %.18e %.18e %.18e %llu %llu %llu\n          ",D->dbls[0],D->dbls[1],D->dbls[2],D->ulls[0],D->ulls[1],D->ulls[2]);
   #else
-  if(P->iz_end - P->iz_start > 1) free(P->E1);
+  if(P->E1 != mxGetData(prhs[0]) && P->E1 != P->Efinal) free(P->E1); // Part of the reason for checking this is to properly handle ctrl-c cases
   free(P->b);
   free(P->shapexyr);
   free(P->multiplier);

@@ -10,10 +10,11 @@
 % performed using the Thomson algorithm
 % (https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm)
 % ***********************************************************************
+
 format long
 format compact
 
-%% General parameters
+%% USER DEFINED General parameters
 clear Lz taperScaling twistRate shapeTypes shapeParameters shapeRIs
 
 lambda = 1e-6;          % [m] Wavelength
@@ -21,6 +22,12 @@ w_0 = 2e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian b
 
 n_cladding = 1.45;
 n_core = 1.46;
+
+% Lz, taperScaling, twistRate, shapeTypes, shapeParameters and shapeRIs are
+% cell arrays in which each element corresponds to a fiber segment in the
+% simulation. If an entry of shapeTypes is an empty array, it means the
+% shapes should simply carry over from the previous segment. Otherwise, new
+% shapes are defined, emulating a fiber splice.
 
 Lz{1} = 2e-3; % [m] z propagation distances, one for each segment
 taperScaling{1} = 1; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
@@ -56,14 +63,14 @@ shapeRIs{4} = [1.465];
 
 Eparameters = {w_0};    % Cell array of parameters that the E field initialization function (defined at the end of this file) will need
 
-%% Resolution-related parameters
+%% USER DEFINED Resolution-related parameters
 targetzstepsize = 1e-6; % [m] z step size to aim for
 Lx_main = 50e-6;        % [m] x side length of main area
 Ly_main = 50e-6;        % [m] y side length of main area
 Nx_main = 200;          % x resolution of main area
 Ny_main = 200;          % y resolution of main area
 
-%% Solver-related parameters
+%% USER DEFINED Solver-related parameters
 useAllCPUs = true;
 useGPU = false;
 
@@ -73,10 +80,18 @@ targetLx = 1.5*Lx_main;   % [m] Full area x side length, including absorber laye
 targetLy = 1.5*Ly_main;   % [m] Full area y side length, including absorber layer
 alpha = 3e14;             % [1/m^3] "Absorption coefficient" per unit length distance out from edge of main area, squared
 
-%% Visualization parameters
+%% USER DEFINED Visualization parameters
 updatesTotal = 300;            % Number of times to update plot. Must be at least 1, showing the final state.
 colormax = 1e10;          % Maximum to use for the color scale in figure 3a
+downsampleImages = true; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 
+
+
+
+
+
+
+%% YOU SHOULDN'T NORMALLY NEED TO MODIFY ANYTHING BELOW THIS LINE, EXCEPT THE E INITALIZATION FUNCTION AT THE END OF THE FILE
 %% Check for GPU compatibility if needed
 if useGPU
   v = ver;
@@ -125,6 +140,22 @@ x = dx*(-(Nx-1)/2:(Nx-1)/2);
 y = dy*(-(Ny-1)/2:(Ny-1)/2);
 [X,Y] = ndgrid(x,y);
 
+if downsampleImages
+  if Nx>500
+    ix_plot = round(linspace(1,Nx,500));
+  else
+    ix_plot = 1:Nx;
+  end
+  x_plot = x(ix_plot);
+
+  if Ny>500
+    iy_plot = round(linspace(1,Ny,500));
+  else
+    iy_plot = 1:Ny;
+  end
+  y_plot = y(iy_plot);
+end
+
 k_0 = 2*pi/lambda; % [m^-1] Wavenumber
 
 %% Beam initialization
@@ -134,7 +165,11 @@ E = complex(single(E/sqrt(dx*dy*sum(abs(E(:)).^2)))); % Normalize and force to b
 %% Figure initialization
 figure(1);clf;
 subplot(2,2,1)
-h_im1 = imagesc(x,y,zeros(Ny,Nx));
+if downsampleImages
+  h_im1 = imagesc(x_plot,y_plot,zeros(min(500,Ny),min(500,Nx),'single'));
+else
+  h_im1 = imagesc(x,y,zeros(Ny,Nx,'single'));
+end
 axis xy
 axis equal
 xlim([-Lx/2 Lx/2]);
@@ -155,7 +190,11 @@ ylabel('Relative power remaining');
 
 subplot(2,2,3);
 hold on;
-h_im3a = imagesc(x,y,abs(E.').^2);
+if downsampleImages
+  h_im3a = imagesc(x_plot,y_plot,abs(E(ix_plot,iy_plot).').^2);
+else
+  h_im3a = imagesc(x,y,abs(E.').^2);
+end
 axis xy;
 axis equal;
 xlim([-Lx/2 Lx/2]);
@@ -172,7 +211,11 @@ colormap(gca,GPBGYRcolormap);
 
 subplot(2,2,4);
 hold on;
-h_im3b = imagesc(x,y,angle(E.'));
+if downsampleImages
+  h_im3b = imagesc(x_plot,y_plot,angle(E(ix_plot,iy_plot).'));
+else
+  h_im3b = imagesc(x,y,angle(E.'));
+end
 axis xy;
 axis equal;
 xlim([-Lx/2 Lx/2]);
@@ -185,6 +228,8 @@ xlabel('x [m]');
 ylabel('y [m]');
 title('Phase [rad]');
 colormap(gca,hsv/1.5);
+
+drawnow;
 
 %% Loop over the segments
 NzTotal = 0;
@@ -213,6 +258,7 @@ for iSeg = 1:numel(Lz) % Segment index
     segShapeParameters(:,3) = scaleFactor*oldSegShapeParameters(:,3);
   end
   
+  %% Calculate z step size and positions
   Nz = max(updates{iSeg},round(Lz{iSeg}/targetzstepsize)); % Number of z steps in this segment
   NzTotal = NzTotal + Nz;
   dz = Lz{iSeg}/Nz;
@@ -224,13 +270,16 @@ for iSeg = 1:numel(Lz) % Segment index
     zUpdates(updatesCumSum(iSeg-1)+2:updatesCumSum(iSeg)+1) = dz*zUpdateIdxs + zUpdates(updatesCumSum(iSeg-1)+1);
   end
 
+  %% Calculate proportionality factors for use in the mex function
   ax = dz/(4i*dx^2*k_0*n_0);
   ay = dz/(4i*dy^2*k_0*n_0);
   d = -dz*k_0/(2*n_0); % E = E*multiplier*exp(1i*d*(n^2-n_0^2))
 
+  %% Define the multiplier
   absorber = exp(-dz*max(0,max(abs(Y) - Ly_main/2,abs(X) - Lx_main/2)).^2*alpha);
   multiplier = absorber; % This could also include a phase gradient due to bending
 
+  %% Load variables into a parameters struct and start looping, one iteration per update
   parameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-segTaperScaling)/Nz),'twistPerStep',single(twistRate{iSeg}*Lz{iSeg}/Nz),...
     'shapeTypes',uint8(segShapeTypes),'shapeParameters',single(segShapeParameters),'shapeRIs',single(segShapeRIs),'n_cladding',single(n_cladding),'multiplier',complex(single(multiplier)),...
     'd',single(d),'n_0',single(n_0),'ax',single(ax),'ay',single(ay),'useAllCPUs',useAllCPUs);
@@ -243,14 +292,22 @@ for iSeg = 1:numel(Lz) % Segment index
       parameters.iz_end   = int32(zUpdateIdxs(updidx));
     end
     if useGPU
-      [E,n] = FDBPMpropagator_CUDA(E,parameters); % d is a parameter from which we can retrieve the refractive index profile that the mex function calculated
+      [E,n] = FDBPMpropagator_CUDA(E,parameters);
     else
-      [E,n] = FDBPMpropagator(E,parameters); % d is a parameter from which we can retrieve the refractive index profile that the mex function calculated
+      [E,n] = FDBPMpropagator(E,parameters);
     end
 
-    h_im1.CData = n.'; % Refractive index at this update
-    h_im3a.CData = abs(E.').^2; % Intensity at this update
-    h_im3b.CData = angle(E.'); % Phase at this update
+    %% Update figure contents
+    if downsampleImages
+      h_im1.CData = n(ix_plot,iy_plot).'; % Refractive index at this update
+      h_im3a.CData = abs(E(ix_plot,iy_plot).').^2; % Intensity at this update
+      h_im3b.CData = angle(E(ix_plot,iy_plot).'); % Phase at this update
+    else
+      h_im1.CData = n.'; % Refractive index at this update
+      h_im3a.CData = abs(E.').^2; % Intensity at this update
+      h_im3b.CData = angle(E.'); % Phase at this update
+    end
+    
     if iSeg == 1
       powers(updidx+1) = dx*dy*sum(abs(E(:)).^2);
     else
@@ -262,7 +319,7 @@ for iSeg = 1:numel(Lz) % Segment index
 end
 toc
 
-%% USER DEFINED FUNCTION
+%% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
 % amplitude = exp(-((X-Lx_main/4).^2+Y.^2)/w_0^2) - exp(-((X+Lx_main/4).^2+Y.^2)/w_0^2); % Gaussian field amplitude
 % amplitude = exp(-((X-Lx_main/10).^2+Y.^2)/w_0^2); % Gaussian field amplitude
