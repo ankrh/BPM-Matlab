@@ -401,7 +401,12 @@ void applyMultiplier(struct parameters *P_global, long iz) {
   #ifdef __NVCC__
     for(long i=threadNum;i<P->Nx*P->Ny;i+=gridDim.x*blockDim.x*blockDim.y) P->E2[i] *= P->multiplier[i];
   #else
-    for(long i=0;i<P->Nx*P->Ny;i++) P->E2[i] *= P->multiplier[i];
+    #ifdef _OPENMP
+    #pragma omp for schedule(dynamic)
+    #endif
+    for(long i=0;i<P->Nx*P->Ny;i++) {
+      P->E2[i] *= P->multiplier[i];
+    }
   #endif
   }
 }
@@ -622,7 +627,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
           ctrlc_caught = true;
           printf("\nCtrl+C detected, stopping.\n");
         }
-        #endif
 
         if(iz+1 < P->iz_end) {
           #ifdef __NVCC__
@@ -631,6 +635,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
           swapEPointers(P,iz);
           #endif
         }
+        #endif
       }
       #ifdef _OPENMP
       #pragma omp barrier
@@ -647,6 +652,5 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   free(P->shapexyr);
   free(P->multiplier);
   #endif
-
   return;
 }

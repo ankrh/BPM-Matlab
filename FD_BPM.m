@@ -10,7 +10,6 @@
 % performed using the Thomson algorithm
 % (https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm)
 % ***********************************************************************
-clear all
 format long
 format compact
 
@@ -23,37 +22,37 @@ w_0 = 2e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian b
 n_cladding = 1.45;
 n_core = 1.46;
 
-Lz{1} = 2e-7; % [m] z propagation distances, one for each segment
+Lz{1} = 2e-3; % [m] z propagation distances, one for each segment
 taperScaling{1} = 1; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
 twistRate{1} = 0; % Specifies how rapidly the fiber twists, measured in radians per metre
 shapeTypes{1} = [1 2 3]; % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk
-shapeParameters{1} = [-7e-6   1.5e-5    0; % x values
-                      -7e-6   0        10e-6; % y values
-                      0 0 0];%10e-6   1.25e-6   6e-6]; % r values
-shapeRIs{1} = [n_core n_core 1.455]; % Refractive indices to use for the shapes
+shapeParameters{1} = [-7e-6   1.5e-5    2e-6; % x values
+                      -7e-6   0        12e-6; % y values
+                      10e-6   1.25e-6   10e-6]; % r values
+shapeRIs{1} = [n_core n_core 1.465]; % Refractive indices to use for the shapes
 
-% Lz{2} = 5e-3;
-% taperScaling{2} = 0.15;
-% twistRate{2} = 2*pi/Lz{2};
-% shapeTypes{2} = [];
-% shapeParameters{2} = [];
-% shapeRIs{2} = [];
-% 
-% Lz{3} = 2e-3;
-% taperScaling{3} = 0.15;
-% twistRate{3} = 0;
-% shapeTypes{3} = [];
-% shapeParameters{3} = [];
-% shapeRIs{3} = [];
-% 
-% Lz{4} = 3e-3;
-% taperScaling{4} = 0.15;
-% twistRate{4} = 0;
-% shapeTypes{4} = [3];
-% shapeParameters{4} = [0
-%                       0.15*(10e-6)
-%                       0.15*(6e-6)];
-% shapeRIs{4} = [1.455];
+Lz{2} = 5e-3;
+taperScaling{2} = 0.15;
+twistRate{2} = 2*pi/Lz{2};
+shapeTypes{2} = [];
+shapeParameters{2} = [];
+shapeRIs{2} = [];
+
+Lz{3} = 2e-3;
+taperScaling{3} = 0.15;
+twistRate{3} = 0;
+shapeTypes{3} = [];
+shapeParameters{3} = [];
+shapeRIs{3} = [];
+
+Lz{4} = 3e-3;
+taperScaling{4} = 0.15;
+twistRate{4} = 0;
+shapeTypes{4} = [3];
+shapeParameters{4} = [0.15*(2e-6)
+                      0.15*(12e-6)
+                      0.15*(10e-6)];
+shapeRIs{4} = [1.465];
 
 Eparameters = {w_0};    % Cell array of parameters that the E field initialization function (defined at the end of this file) will need
 
@@ -61,8 +60,8 @@ Eparameters = {w_0};    % Cell array of parameters that the E field initializati
 targetzstepsize = 1e-6; % [m] z step size to aim for
 Lx_main = 50e-6;        % [m] x side length of main area
 Ly_main = 50e-6;        % [m] y side length of main area
-Nx_main = 2;%200;          % x resolution of main area
-Ny_main = 2;%200;          % y resolution of main area
+Nx_main = 200;          % x resolution of main area
+Ny_main = 200;          % y resolution of main area
 
 %% Solver-related parameters
 useAllCPUs = true;
@@ -70,12 +69,12 @@ useGPU = false;
 
 n_0 = n_core;
 
-targetLx = Lx_main;%1.5*Lx_main;   % [m] Full area x side length, including absorber layer
-targetLy = Ly_main;%1.5*Ly_main;   % [m] Full area y side length, including absorber layer
+targetLx = 1.5*Lx_main;   % [m] Full area x side length, including absorber layer
+targetLy = 1.5*Ly_main;   % [m] Full area y side length, including absorber layer
 alpha = 3e14;             % [1/m^3] "Absorption coefficient" per unit length distance out from edge of main area, squared
 
 %% Visualization parameters
-updatesTotal = 1;            % Number of times to update plot. Must be at least 1, showing the final state.
+updatesTotal = 300;            % Number of times to update plot. Must be at least 1, showing the final state.
 colormax = 1e10;          % Maximum to use for the color scale in figure 3a
 
 %% Check for GPU compatibility if needed
@@ -229,7 +228,7 @@ for iSeg = 1:numel(Lz) % Segment index
   ay = dz/(4i*dy^2*k_0*n_0);
   d = -dz*k_0/(2*n_0); % E = E*multiplier*exp(1i*d*(n^2-n_0^2))
 
-  absorber = ones([Nx Ny]);%exp(-dz*max(0,max(abs(Y) - Ly_main/2,abs(X) - Lx_main/2)).^2*alpha);
+  absorber = exp(-dz*max(0,max(abs(Y) - Ly_main/2,abs(X) - Lx_main/2)).^2*alpha);
   multiplier = absorber; % This could also include a phase gradient due to bending
 
   parameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-segTaperScaling)/Nz),'twistPerStep',single(twistRate{iSeg}*Lz{iSeg}/Nz),...
@@ -269,8 +268,8 @@ function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E
 % amplitude = exp(-((X-Lx_main/10).^2+Y.^2)/w_0^2); % Gaussian field amplitude
 % amplitude = exp(-(X.^2+Y.^2)/w_0^2); % Gaussian field amplitude
 w_0 = Eparameters{1};
-amplitude1 = ones(size(X));%0*exp(-((X-1.5e-5).^2+Y.^2)/w_0^2);
-amplitude2 = 0*2*exp(-((X+12e-6).^2+(Y+7e-6).^2)/w_0^2);
+amplitude1 = exp(-((X-1.5e-5).^2+Y.^2)/w_0^2);
+amplitude2 = 2*exp(-((X+12e-6).^2+(Y+7e-6).^2)/w_0^2);
 phase1 = zeros(size(X));
 phase2 = 8e5*Y;
 E = amplitude1.*exp(1i*phase1) + amplitude2.*exp(1i*phase2); % Electric field
