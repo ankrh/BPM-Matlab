@@ -14,11 +14,17 @@
 format long
 format compact
 
+FileName = 'singleMode_w0';  % File name for the saved video and data files
+videoName = [FileName '.avi']; 
+ 
+saveVideo = false;  % To save the field intensity and phase profiles at different transverse planes
+saveData = false;  % To save the required variables from the simulation result
+
 %% USER DEFINED General parameters
 clear Lz taperScaling twistRate shapeTypes shapeParameters shapeRIs
 
-lambda = 1e-6;          % [m] Wavelength
-w_0 = 2e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
+lambda = 980e-9;          % [m] Wavelength
+w_0 = 2.35e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
 
 n_cladding = 1.45;
 n_core = 1.46;
@@ -29,46 +35,46 @@ n_core = 1.46;
 % shapes should simply carry over from the previous segment. Otherwise, new
 % shapes are defined, emulating a fiber splice.
 
-Lz{1} = 2e-3; % [m] z propagation distances, one for each segment
+Lz{1} = 0.15e-3; % [m] z propagation distances, one for each segment
 taperScaling{1} = 1; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
 twistRate{1} = 0; % Specifies how rapidly the fiber twists, measured in radians per metre
-shapeTypes{1} = [1 2 3]; % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk
-shapeParameters{1} = [-7e-6   1.5e-5    2e-6; % x values
-                      -7e-6   0        12e-6; % y values
-                      10e-6   1.25e-6   10e-6]; % r values
-shapeRIs{1} = [n_core n_core 1.465]; % Refractive indices to use for the shapes
+shapeTypes{1} = [1]; % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk
+shapeParameters{1} = [0; % x values
+                      0; % y values
+                      2e-6]; % r values
+shapeRIs{1} = [n_core]; % Refractive indices to use for the shapes
 
-Lz{2} = 5e-3;
-taperScaling{2} = 0.15;
-twistRate{2} = 2*pi/Lz{2};
-shapeTypes{2} = [];
-shapeParameters{2} = [];
-shapeRIs{2} = [];
-
-Lz{3} = 2e-3;
-taperScaling{3} = 0.15;
-twistRate{3} = 0;
-shapeTypes{3} = [];
-shapeParameters{3} = [];
-shapeRIs{3} = [];
-
-Lz{4} = 3e-3;
-taperScaling{4} = 0.15;
-twistRate{4} = 0;
-shapeTypes{4} = [3];
-shapeParameters{4} = [0.15*(2e-6)
-                      0.15*(12e-6)
-                      0.15*(10e-6)];
-shapeRIs{4} = [1.465];
+% Lz{2} = 5e-3;
+% taperScaling{2} = 0.15;
+% twistRate{2} = 2*pi/Lz{2};
+% shapeTypes{2} = [];
+% shapeParameters{2} = [];
+% shapeRIs{2} = [];
+% 
+% Lz{3} = 2e-3;
+% taperScaling{3} = 0.15;
+% twistRate{3} = 0;
+% shapeTypes{3} = [];
+% shapeParameters{3} = [];
+% shapeRIs{3} = [];
+% 
+% Lz{4} = 3e-3;
+% taperScaling{4} = 0.15;
+% twistRate{4} = 0;
+% shapeTypes{4} = [3];
+% shapeParameters{4} = [0.15*(2e-6)
+%                       0.15*(12e-6)
+%                       0.15*(10e-6)];
+% shapeRIs{4} = [1.465];
 
 Eparameters = {w_0};    % Cell array of parameters that the E field initialization function (defined at the end of this file) will need
 
 %% USER DEFINED Resolution-related parameters
-targetzstepsize = 1e-6; % [m] z step size to aim for
-Lx_main = 50e-6;        % [m] x side length of main area
-Ly_main = 50e-6;        % [m] y side length of main area
-Nx_main = 200;          % x resolution of main area
-Ny_main = 200;          % y resolution of main area
+targetzstepsize = 0.5e-6; % [m] z step size to aim for
+Lx_main = 25e-6;        % [m] x side length of main area
+Ly_main = 25e-6;        % [m] y side length of main area
+Nx_main = 400;          % x resolution of main area
+Ny_main = 400;          % y resolution of main area
 
 %% USER DEFINED Solver-related parameters
 useAllCPUs = true;
@@ -82,9 +88,13 @@ alpha = 3e14;             % [1/m^3] "Absorption coefficient" per unit length dis
 
 %% USER DEFINED Visualization parameters
 updatesTotal = 300;            % Number of times to update plot. Must be at least 1, showing the final state.
-colormax = 1e10;          % Maximum to use for the color scale in figure 3a
-downsampleImages = true; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
-
+colormax = 1;          % Maximum to use for the color scale in figure 3a
+downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
+displayScaling = 6;  % Zooms in on figures 1 & 3a,b. Set to 2 for no zooming.  
+if saveVideo
+    video = VideoWriter(videoName);  
+    open(video);
+end
 
 
 
@@ -160,10 +170,19 @@ k_0 = 2*pi/lambda; % [m^-1] Wavenumber
 
 %% Beam initialization
 E = calcInitialE(X,Y,Eparameters); % Call function to initialize E field
-E = complex(single(E/sqrt(dx*dy*sum(abs(E(:)).^2)))); % Normalize and force to be complex single precision
+E = complex(single(E/sqrt(max(abs(E(:)).^2)))); % Normalize and force to be complex single precision
+% E = complex(single(E/sqrt(dx*dy*sum(abs(E(:)).^2)))); % Normalize and force to be complex single precision
+E_0 = E;  % For initial intensity, phase, and power values
 
 %% Figure initialization
 figure(1);clf;
+figure1_Settings = [];
+screenSize = get(0,'MonitorPositions');
+figure1_Settings.monitorNumber = 1; % Main monitor number
+figure1_Settings.size.figureHeight = screenSize(figure1_Settings.monitorNumber,4); % Figure height (pixels)
+figure1_Settings.size.figureWidth = screenSize(figure1_Settings.monitorNumber,3); % Figure width (pixels)
+set(gcf, 'Position',  [0, 0, figure1_Settings.size.figureWidth, figure1_Settings.size.figureHeight]);
+
 subplot(2,2,1)
 if downsampleImages
   h_im1 = imagesc(x_plot,y_plot,zeros(min(500,Ny),min(500,Nx),'single'));
@@ -172,15 +191,16 @@ else
 end
 axis xy
 axis equal
-xlim([-Lx/2 Lx/2]);
-ylim([-Ly/2 Ly/2]);
+xlim([-Lx/displayScaling Lx/displayScaling]);
+ylim([-Ly/displayScaling Ly/displayScaling]);
 colorbar;
 xlabel('x [m]');
 ylabel('y [m]');
 title('Refractive index');
 
 powers = NaN(1,updatesCumSum(end)+1);
-powers(1) = sum(dx*dy*abs(E(:)).^2);
+powers(1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2);
+% powers(1) = sum(dx*dy*abs(E(:)).^2);
 zUpdates = zeros(1,updatesCumSum(end)+1);
 subplot(2,2,2);
 plot(zUpdates,powers,'XDataSource','zUpdates','YDataSource','powers','linewidth',2);
@@ -190,6 +210,7 @@ ylabel('Relative power remaining');
 
 subplot(2,2,3);
 hold on;
+box on;
 if downsampleImages
   h_im3a = imagesc(x_plot,y_plot,abs(E(ix_plot,iy_plot).').^2);
 else
@@ -197,8 +218,8 @@ else
 end
 axis xy;
 axis equal;
-xlim([-Lx/2 Lx/2]);
-ylim([-Ly/2 Ly/2]);
+xlim([-Lx/displayScaling Lx/displayScaling]);
+ylim([-Ly/displayScaling Ly/displayScaling]);
 colorbar;
 caxis('manual');
 xlabel('x [m]');
@@ -209,19 +230,22 @@ line([-Lx_main Lx_main Lx_main -Lx_main -Lx_main]/2,[Ly_main Ly_main -Ly_main -L
 caxis([0 colormax]);
 colormap(gca,GPBGYRcolormap);
 
-subplot(2,2,4);
+h_axis3b = subplot(2,2,4);
 hold on;
+box on;
 if downsampleImages
-  h_im3b = imagesc(x_plot,y_plot,angle(E(ix_plot,iy_plot).'));
+  h_im3b = imagesc(x_plot,y_plot,angle(E(ix_plot,iy_plot).'/E(Nx/2+1+round(shapeParameters{1}(1)/dx),Ny/2+1+round(shapeParameters{1}(2)/dy)))); 
 else
-  h_im3b = imagesc(x,y,angle(E.'));
+  h_im3b = imagesc(x,y,angle(E.'/E(Nx/2+1+round(shapeParameters{1}(1)/dx),Ny/2+1+round(shapeParameters{1}(2)/dy)))); 
 end
+h_axis3b.Color = 0.7*[1 1 1];  % To set the color corresponding to phase outside the cores where there is no field at all
 axis xy;
 axis equal;
-xlim([-Lx/2 Lx/2]);
-ylim([-Ly/2 Ly/2]);
+xlim([-Lx/displayScaling Lx/displayScaling]);
+ylim([-Ly/displayScaling Ly/displayScaling]);
 colorbar;
 caxis([-pi pi]);
+h_im3b.AlphaData = max(0,(1+log10(abs(E.'/max(E(:))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
 % if max(n_mat(:) > min(n_mat(:))); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','w','linestyle','--'); end
 line([-Lx_main Lx_main Lx_main -Lx_main -Lx_main]/2,[Ly_main Ly_main -Ly_main -Ly_main Ly_main]/2,'color','r','linestyle','--');
 xlabel('x [m]');
@@ -230,6 +254,11 @@ title('Phase [rad]');
 colormap(gca,hsv/1.5);
 
 drawnow;
+
+if saveVideo
+    frame = getframe(gcf);  %Get the frames 
+    writeVideo(video,frame);  %Stitch the frames to form a video and save
+end
 
 %% Loop over the segments
 NzTotal = 0;
@@ -301,23 +330,33 @@ for iSeg = 1:numel(Lz) % Segment index
     if downsampleImages
       h_im1.CData = n(ix_plot,iy_plot).'; % Refractive index at this update
       h_im3a.CData = abs(E(ix_plot,iy_plot).').^2; % Intensity at this update
-      h_im3b.CData = angle(E(ix_plot,iy_plot).'); % Phase at this update
+      h_im3b.CData = angle(E(ix_plot,iy_plot).'/E(Nx/2+1+round(shapeParameters{1}(1)/dx),Ny/2+1+round(shapeParameters{1}(2)/dy))); % Phase at this update
     else
       h_im1.CData = n.'; % Refractive index at this update
       h_im3a.CData = abs(E.').^2; % Intensity at this update
-      h_im3b.CData = angle(E.'); % Phase at this update
+      h_im3b.CData = angle(E.'/E(Nx/2+1+round(shapeParameters{1}(1)/dx),Ny/2+1+round(shapeParameters{1}(2)/dy))); % Phase at this update
     end
     
     if iSeg == 1
-      powers(updidx+1) = dx*dy*sum(abs(E(:)).^2);
+      powers(updidx+1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2);
+%       powers(updidx+1) = dx*dy*sum(abs(E(:)).^2);
     else
-      powers(updatesCumSum(iSeg-1) + updidx + 1) = dx*dy*sum(abs(E(:)).^2);
+      powers(updatesCumSum(iSeg-1) + updidx + 1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2);
+%       powers(updatesCumSum(iSeg-1) + updidx + 1) = dx*dy*sum(abs(E(:)).^2);
     end
     refreshdata(1);
     drawnow;
+    if saveVideo
+        frame = getframe(1); 
+        writeVideo(video,frame); 
+    end
   end
 end
 toc
+
+if saveVideo
+	close(video);
+end
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
@@ -325,9 +364,9 @@ function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E
 % amplitude = exp(-((X-Lx_main/10).^2+Y.^2)/w_0^2); % Gaussian field amplitude
 % amplitude = exp(-(X.^2+Y.^2)/w_0^2); % Gaussian field amplitude
 w_0 = Eparameters{1};
-amplitude1 = exp(-((X-1.5e-5).^2+Y.^2)/w_0^2);
-amplitude2 = 2*exp(-((X+12e-6).^2+(Y+7e-6).^2)/w_0^2);
+amplitude1 = exp(-(X.^2+Y.^2)/w_0^2);
+% amplitude2 = 2*exp(-((X+12e-6).^2+(Y+7e-6).^2)/w_0^2);
 phase1 = zeros(size(X));
-phase2 = 8e5*Y;
-E = amplitude1.*exp(1i*phase1) + amplitude2.*exp(1i*phase2); % Electric field
+% phase2 = 8e5*Y;
+E = amplitude1.*exp(1i*phase1);% + amplitude2.*exp(1i*phase2); % Electric field
 end
