@@ -83,6 +83,8 @@ struct parameters {
   floatcomplex *multiplier;
   floatcomplex ax;
   floatcomplex ay;
+  float rho_e;
+  float RoC;
 };
 
 #ifdef __NVCC__ // If compiling for CUDA
@@ -393,8 +395,9 @@ void applyMultiplier(struct parameters *P_global, long iz) {
           }
         }
       }
-      if(iz == P->iz_end-1) P->n_out[i] = n;
-      P->E2[i] *= P->multiplier[i]*CEXPF(I*P->d*(sqrf(n) - sqrf(P->n_0)));
+      float n_eff = n*(1-(sqrf(n)*x/2/P->RoC*P->rho_e))*exp(x/P->RoC);
+      if(iz == P->iz_end-1) P->n_out[i] = n_eff;
+      P->E2[i] *= P->multiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)));
     }
   } else {
   #ifdef __NVCC__
@@ -522,6 +525,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->shapeTypes = (unsigned char *)mxGetData(mxGetField(prhs[1],0,"shapeTypes"));
   P->shapeParameters = (float *)mxGetData(mxGetField(prhs[1],0,"shapeParameters"));
   P->shapeRIs = (float *)mxGetData(mxGetField(prhs[1],0,"shapeRIs"));
+  P->rho_e = *(float *)mxGetData(mxGetField(prhs[1],0,"rho_e"));
+  P->RoC = *(float *)mxGetData(mxGetField(prhs[1],0,"RoC"));
   P->shapexyr = (float *)malloc(P->Nshapes*3*sizeof(float));
   P->E1 = (floatcomplex *)mxGetData(prhs[0]); // Input E field
   mwSize const *dimPtr = mxGetDimensions(prhs[0]);
@@ -568,8 +573,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
             }
           }
         }
-        P->n_out[i] = n;
-        P->multiplier[i] = MatlabMultiplier[i]*CEXPF(I*P->d*(sqrf(n) - sqrf(P->n_0)));
+        float n_eff = n*(1-(sqrf(n)*x/2/P->RoC*P->rho_e))*exp(x/P->RoC);
+        P->n_out[i] = n_eff;
+        P->multiplier[i] = MatlabMultiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)));
       }
     }
   }
