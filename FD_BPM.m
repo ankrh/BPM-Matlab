@@ -21,7 +21,7 @@ saveVideo = false;  % To save the field intensity and phase profiles at differen
 saveData = false;  % To save the required variables from the simulation result
 
 %% USER DEFINED General parameters
-clear Lz taperScaling twistRate shapeTypes shapeParameters shapeRIs
+clear Lz taperScaling twistRate shapeTypes shapeParameters shapeRIs bendingRoC
 
 lambda = 980e-9;          % [m] Wavelength
 w_0 = 13.3e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
@@ -44,20 +44,20 @@ Lz{1} = 0.5e-3; % [m] z propagation distances, one for each segment
 taperScaling{1} = 1;%50/230; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
 twistRate{1} = 0; % Specifies how rapidly the fiber twists, measured in radians per metre
 shapeParameters{1} = [0; % x values
-                                    0; % y values
-                                    20e-6]; % r values 
+                      0; % y values
+                      20e-6]; % r values 
 %                                 getShapeParameters(1,FibreParameters); % Get centre pixels and radius of core(s) for the segment
-shapeTypes{1} = 1*ones(1,length(shapeParameters{1})/3); % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk. length(shapeParameters{1})/3 because the length returns 3 values corresponding to one core (x,y,coreR)
-shapeRIs{1} = n_core*ones(1,length(shapeParameters{1})/3); % Refractive indices to use for the shapes
+shapeTypes{1} = 1*ones(1,size(shapeParameters{1},2)); % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk. length(shapeParameters{1})/3 because the length returns 3 values corresponding to one core (x,y,coreR)
+shapeRIs{1} = n_core*ones(1,size(shapeParameters{1},2)); % Refractive indices to use for the shapes
 bendingRoC{1} = 0.5e-2;  %[m] Bending radius of curvature for the fibre section
 
-% Lz{2} = 0.5e-3; 
-% taperScaling{2} = 1;
-% twistRate{2} = 0; 
-% shapeParameters{2} = []; 
-% shapeTypes{2} = []; 
-% shapeRIs{2} = []; 
-% bendingRoC{2} = 0;  
+Lz{2} = 0.5e-3; 
+taperScaling{2} = 1;
+twistRate{2} = 0; 
+shapeParameters{2} = []; 
+shapeTypes{2} = []; 
+shapeRIs{2} = []; 
+bendingRoC{2} = Inf;  
 
 % Lz{2} = 10e-3;
 % taperScaling{2} = 23/50;
@@ -81,10 +81,11 @@ bendingRoC{1} = 0.5e-2;  %[m] Bending radius of curvature for the fibre section
 %                       0.15*(12e-6)
 %                       0.15*(10e-6)];
 % shapeRIs{4} = [1.465];
+
 if fibreType == 4 % Photonic Lantern
-    Eparameters = {w_0,fibreType,shapeParameters,KK};    % Cell array of parameters that the E field initialization function (defined at the end of this file) will need
+  Eparameters = {w_0,fibreType,shapeParameters,KK};    % Cell array of parameters that the E field initialization function (defined at the end of this file) will need
 else
-    Eparameters = {w_0,fibreType,shapeParameters};
+  Eparameters = {w_0,fibreType,shapeParameters};
 end
 
 %% USER DEFINED Resolution-related parameters
@@ -110,8 +111,8 @@ colormax = 1;          % Maximum to use for the color scale in figure 3a
 downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 displayScaling = 4;  % Zooms in on figures 1 & 3a,b. Set to 2 for no zooming.  
 if saveVideo
-    video = VideoWriter(videoName);  
-    open(video);
+  video = VideoWriter(videoName);
+  open(video);
 end
 
 
@@ -187,7 +188,7 @@ end
 k_0 = 2*pi/lambda; % [m^-1] Wavenumber
 
 %% Beam initialization
-E = calcInitialE(X,Y,Eparameters,Nx,Ny,dx,dy); % Call function to initialize E field
+E = calcInitialE(X,Y,Eparameters); % Call function to initialize E field
 E = complex(single(E/sqrt(max(abs(E(:)).^2)))); % Normalize and force to be complex single precision
 % E = complex(single(E/sqrt(dx*dy*sum(abs(E(:)).^2)))); % Normalize and force to be complex single precision
 E_0 = E;  % For initial intensity, phase, and power values
@@ -253,8 +254,10 @@ hold on;
 box on;
 if downsampleImages
   h_im3b = imagesc(x_plot,y_plot,angle(E(ix_plot,iy_plot).'/E(Nx/2+1+round(shapeParameters{1}(1)/dx),Ny/2+1+round(shapeParameters{1}(2)/dy)))); 
+  h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/max(max(E(ix_plot,iy_plot)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
 else
   h_im3b = imagesc(x,y,angle(E.'/E(Nx/2+1+round(shapeParameters{1}(1)/dx),Ny/2+1+round(shapeParameters{1}(2)/dy)))); 
+  h_im3b.AlphaData = max(0,(1+log10(abs(E.'/max(E(:))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
 end
 h_axis3b.Color = 0.7*[1 1 1];  % To set the color corresponding to phase outside the cores where there is no field at all
 axis xy;
@@ -263,7 +266,6 @@ xlim([-Lx/displayScaling Lx/displayScaling]);
 ylim([-Ly/displayScaling Ly/displayScaling]);
 colorbar;
 caxis([-pi pi]);
-h_im3b.AlphaData = max(0,(1+log10(abs(E.'/max(E(:))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
 % if max(n_mat(:) > min(n_mat(:))); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','w','linestyle','--'); end
 line([-Lx_main Lx_main Lx_main -Lx_main -Lx_main]/2,[Ly_main Ly_main -Ly_main -Ly_main Ly_main]/2,'color','r','linestyle','--');
 xlabel('x [m]');
@@ -274,8 +276,8 @@ colormap(gca,hsv/1.5);
 drawnow;
 
 if saveVideo
-    frame = getframe(gcf);  %Get the frames 
-    writeVideo(video,frame);  %Stitch the frames to form a video and save
+  frame = getframe(gcf);  %Get the frames
+  writeVideo(video,frame);  %Stitch the frames to form a video and save
 end
 
 %% Loop over the segments
@@ -300,16 +302,16 @@ for iSeg = 1:numel(Lz) % Segment index
       scaleFactor = taperScaling{iSeg-1}/taperScaling{iSeg-2};
     end
     oldSegShapeParameters = segShapeParameters;
-    segShapeParameters(:,1) = scaleFactor*(cos(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(:,1) - sin(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(:,2));
-    segShapeParameters(:,2) = scaleFactor*(sin(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(:,1) + cos(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(:,2));
-    segShapeParameters(:,3) = scaleFactor*oldSegShapeParameters(:,3);
+    segShapeParameters(1,:) = scaleFactor*(cos(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(1,:) - sin(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(2,:));
+    segShapeParameters(2,:) = scaleFactor*(sin(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(1,:) + cos(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(2,:));
+    segShapeParameters(3,:) = scaleFactor*oldSegShapeParameters(3,:);
   end
   
   %% Get the bending RoC for the segment
   if ~isempty(bendingRoC{iSeg})
-      RoC = bendingRoC{iSeg};
+    RoC = bendingRoC{iSeg};
   else
-      RoC = 0;
+    RoC = Inf;
   end
   
   %% Calculate z step size and positions
@@ -356,10 +358,12 @@ for iSeg = 1:numel(Lz) % Segment index
       h_im1.CData = n(ix_plot,iy_plot).'; % Refractive index at this update
       h_im3a.CData = abs(E(ix_plot,iy_plot).').^2; % Intensity at this update
       h_im3b.CData = angle(E(ix_plot,iy_plot).'/E(Nx/2+1+round(shapeParameters{1}(1)/dx),Ny/2+1+round(shapeParameters{1}(2)/dy))); % Phase at this update
+      h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/max(max(E(ix_plot,iy_plot)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
     else
       h_im1.CData = n.'; % Refractive index at this update
       h_im3a.CData = abs(E.').^2; % Intensity at this update
       h_im3b.CData = angle(E.'/E(Nx/2+1+round(shapeParameters{1}(1)/dx),Ny/2+1+round(shapeParameters{1}(2)/dy))); % Phase at this update
+      h_im3b.AlphaData = max(0,(1+log10(abs(E.'/max(E(:))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
     end
     
     if iSeg == 1
@@ -372,8 +376,8 @@ for iSeg = 1:numel(Lz) % Segment index
     refreshdata(1);
     drawnow;
     if saveVideo
-        frame = getframe(1); 
-        writeVideo(video,frame); 
+      frame = getframe(1); 
+      writeVideo(video,frame); 
     end
   end
 end
@@ -384,7 +388,10 @@ if saveVideo
 end
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
-function E = calcInitialE(X,Y,Eparameters,Nx,Ny,dx,dy) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
+function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
+[Nx, Ny] = size(X);
+dx = X(2,1) - X(1,1);
+dy = Y(1,2) - Y(1,1);
 % amplitude = exp(-((X-Lx_main/4).^2+Y.^2)/w_0^2) - exp(-((X+Lx_main/4).^2+Y.^2)/w_0^2); % Gaussian field amplitude
 % amplitude = exp(-((X-Lx_main/10).^2+Y.^2)/w_0^2); % Gaussian field amplitude
 % amplitude = exp(-(X.^2+Y.^2)/w_0^2); % Gaussian field amplitude
@@ -393,28 +400,28 @@ fibreType = Eparameters{2};
 shapeParameters = Eparameters{3};
 
 switch fibreType
-    case 1
-        amplitude = exp(-((X-shapeParameters{1}(1)).^2+(Y-shapeParameters{1}(2)).^2)/w_0^2);
-        phase = zeros(size(X));
-    case 2
-        amplitude = zeros(size(X));
-        for i = 1:3:numel(shapeParameters{1})
-            amplitude = amplitude+exp(-((X-shapeParameters{1}(i)).^2+(Y-shapeParameters{1}(i+1)).^2)/w_0^2);
-        end
-        phase = zeros(size(X));
-    case 4
-        KK = Eparameters{4}; % LP11 = Eparameters{5};
-        E = zeros(Nx,Ny);
-        h = 3/2*125e-6;  
-        E(Nx/2+1-ceil(sqrt(3)*h/4/dx)-150:Nx/2+1-ceil(sqrt(3)*h/4/dx)+150,Ny/2+(h/2/dy)-150:Ny/2+(h/2/dy)+150) ...
-            =KK(Nx/2-150:Nx/2+150,Nx/2-150:Nx/2+150);
-        
+  case 1
+    amplitude = exp(-((X-shapeParameters{1}(1)).^2+(Y-shapeParameters{1}(2)).^2)/w_0^2);
+    phase = zeros(size(X));
+  case 2
+    amplitude = zeros(size(X));
+    for i = 1:3:numel(shapeParameters{1})
+      amplitude = amplitude+exp(-((X-shapeParameters{1}(i)).^2+(Y-shapeParameters{1}(i+1)).^2)/w_0^2);
+    end
+    phase = zeros(size(X));
+  case 4
+    KK = Eparameters{4}; % LP11 = Eparameters{5};
+    E = zeros(Nx,Ny);
+    h = 3/2*125e-6;
+    E(Nx/2+1-ceil(sqrt(3)*h/4/dx)-150:Nx/2+1-ceil(sqrt(3)*h/4/dx)+150,Ny/2+(h/2/dy)-150:Ny/2+(h/2/dy)+150) ...
+      =KK(Nx/2-150:Nx/2+150,Nx/2-150:Nx/2+150);
+    
 end
 
 % amplitude2 = 2*exp(-((X+12e-6).^2+(Y+7e-6).^2)/w_0^2);
 % phase2 = 8e5*Y;
 % if ~E
-    E = amplitude.*exp(1i*phase);% + amplitude2.*exp(1i*phase2); % Electric field
+E = amplitude.*exp(1i*phase);% + amplitude2.*exp(1i*phase2); % Electric field
 % end
 end
 
@@ -424,35 +431,35 @@ fibreType = FibreParameters{1};
 numberOfCores = FibreParameters{2};
 pitch = FibreParameters{3};
 switch fibreType
-    case 1
-        shapeParameters{segment} = [0; % x values
-                                                        0; % y values
-                                                        20e-6]; % r values
-    case 2
-        switch numberOfCores
-            case 7
-                shapeParameters{segment} = [0       pitch   pitch/2             -pitch/2              -pitch  -pitch/2              pitch/2;
-                                                        0       0        sqrt(3)*pitch/2  sqrt(3)*pitch/2   0         -sqrt(3)*pitch/2 -sqrt(3)*pitch/2;
-                                                        2e-6*ones(1,numberOfCores)]; %Same core radii for all cores
-            case 19
-                shapeParameters{segment} ... 
-                    = [0 pitch pitch/2  -pitch/2  -pitch  -pitch/2 pitch/2 ...
-                        2*pitch  3*pitch/2  pitch  0  -pitch  -3*pitch/2  -2*pitch  -3*pitch/2  -pitch  0  pitch  3*pitch/2;
-                        0  0  sqrt(3)*pitch/2  sqrt(3)*pitch/2  0  -sqrt(3)*pitch/2  -sqrt(3)*pitch/2 ...
-                        0  sqrt(3)*pitch/2  sqrt(3)*pitch  sqrt(3)*pitch  sqrt(3)*pitch  sqrt(3)*pitch/2  0  -sqrt(3)*pitch/2  -sqrt(3)*pitch  -sqrt(3)*pitch  -sqrt(3)*pitch -sqrt(3)*pitch/2; 
-                        2e-6*ones(1,numberOfCores)]; %Same core radii for all cores
-            otherwise
-%                 coef_a = (3*sqrt(3))/2;
-                disp('The choice of number of cores is not supported.');
-                return;
-        end   
-    case 4
-        h = 3/2*125e-6;
-        shapeParameters{segment} = [-sqrt(3)*h/4    -sqrt(3)*h/4    sqrt(3)*h/4; % x values
-                                                        h/2     -h/2    0; % y values
-                                                        4.5e-6      2.65e-6     2.65e-6]; % r values
-    otherwise
-        disp('This fibre type is not supported');
-        return; 
+  case 1
+    shapeParameters{segment} = [0; % x values
+      0; % y values
+      20e-6]; % r values
+  case 2
+    switch numberOfCores
+      case 7
+        shapeParameters{segment} = [0       pitch   pitch/2             -pitch/2              -pitch  -pitch/2              pitch/2;
+          0       0        sqrt(3)*pitch/2  sqrt(3)*pitch/2   0         -sqrt(3)*pitch/2 -sqrt(3)*pitch/2;
+          2e-6*ones(1,numberOfCores)]; %Same core radii for all cores
+      case 19
+        shapeParameters{segment} ...
+          = [0 pitch pitch/2  -pitch/2  -pitch  -pitch/2 pitch/2 ...
+          2*pitch  3*pitch/2  pitch  0  -pitch  -3*pitch/2  -2*pitch  -3*pitch/2  -pitch  0  pitch  3*pitch/2;
+          0  0  sqrt(3)*pitch/2  sqrt(3)*pitch/2  0  -sqrt(3)*pitch/2  -sqrt(3)*pitch/2 ...
+          0  sqrt(3)*pitch/2  sqrt(3)*pitch  sqrt(3)*pitch  sqrt(3)*pitch  sqrt(3)*pitch/2  0  -sqrt(3)*pitch/2  -sqrt(3)*pitch  -sqrt(3)*pitch  -sqrt(3)*pitch -sqrt(3)*pitch/2;
+          2e-6*ones(1,numberOfCores)]; %Same core radii for all cores
+      otherwise
+        %                 coef_a = (3*sqrt(3))/2;
+        disp('The choice of number of cores is not supported.');
+        return;
+    end
+  case 4
+    h = 3/2*125e-6;
+    shapeParameters{segment} = [-sqrt(3)*h/4    -sqrt(3)*h/4    sqrt(3)*h/4; % x values
+      h/2     -h/2    0; % y values
+      4.5e-6      2.65e-6     2.65e-6]; % r values
+  otherwise
+    disp('This fibre type is not supported');
+    return;
 end
 end
