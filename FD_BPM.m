@@ -14,20 +14,21 @@
 format long
 format compact
 
-FileName = 'MMbend_try';  % File name for the saved video and data files
+FileName = 'MMbend1cm_Sid';  % File name for the saved video and data files
 videoName = [FileName '.avi']; 
  
 saveVideo = false;  % To save the field intensity and phase profiles at different transverse planes
 saveData = false;  % To save the required variables from the simulation result
+intNorm = false; % Choose true for field to be normalized w.r.t. max intensity, false to normalize such that total power is 1
 
 %% USER DEFINED General parameters
 clear Lz taperScaling twistRate shapeTypes shapeParameters shapeRIs bendingRoC
 
-lambda = 980e-9;          % [m] Wavelength
-w_0 = 13.3e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
+lambda = 1050e-9;          % [m] Wavelength
+w_0 = 16.4e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
 
 n_cladding = 1.45;
-n_core = 1.46;
+n_core = 1.4666;
 pitch = 17e-6;  % [m] Intercore separation in multicore fibre
 numberOfCores = 1; % [] Numer of cores in the multicore fibre
 fibreType = 1;  % Type of fibre for E field initialization - 1: Single/Multimode, 2: Hex multicore, 3: Fermat's multicore 4: Photonic Lantern
@@ -40,24 +41,29 @@ photoelasticCoeff = 0.22;  %[] coefficient depending on Poisson’s ratio and comp
 % shapes should simply carry over from the previous segment. Otherwise, new
 % shapes are defined, emulating a fiber splice.
 
-Lz{1} = 0.5e-3; % [m] z propagation distances, one for each segment
-taperScaling{1} = 1;%50/230; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
+Lz{1} = 0.3e-2; % [m] z propagation distances, one for each segment
+taperScaling{1} = 1; %50/230; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
 twistRate{1} = 0; % Specifies how rapidly the fiber twists, measured in radians per metre
-shapeParameters{1} = [0; % x values
-                      0; % y values
-                      20e-6]; % r values 
-%                                 getShapeParameters(1,FibreParameters); % Get centre pixels and radius of core(s) for the segment
+shapeParameters{1} = [0; 0; 25e-6]; %getShapeParameters(1,FibreParameters); % Get centre pixels and radius of core(s) for the segment
 shapeTypes{1} = 1*ones(1,size(shapeParameters{1},2)); % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk. length(shapeParameters{1})/3 because the length returns 3 values corresponding to one core (x,y,coreR)
 shapeRIs{1} = n_core*ones(1,size(shapeParameters{1},2)); % Refractive indices to use for the shapes
-bendingRoC{1} = 0.5e-2;  %[m] Bending radius of curvature for the fibre section
+bendingRoC{1} = Inf;  %[m] Bending radius of curvature for the fibre section
 
-Lz{2} = 0.5e-3; 
+Lz{2} = 0.3e-2; 
 taperScaling{2} = 1;
 twistRate{2} = 0; 
 shapeParameters{2} = []; 
 shapeTypes{2} = []; 
 shapeRIs{2} = []; 
-bendingRoC{2} = Inf;  
+bendingRoC{2} = 1e-2;  
+
+Lz{3} = 0.3e-2; 
+taperScaling{3} = 1;
+twistRate{3} = 0; 
+shapeParameters{3} = []; 
+shapeTypes{3} = []; 
+shapeRIs{3} = []; 
+bendingRoC{3} = Inf;  
 
 % Lz{2} = 10e-3;
 % taperScaling{2} = 23/50;
@@ -83,7 +89,7 @@ bendingRoC{2} = Inf;
 % shapeRIs{4} = [1.465];
 
 if fibreType == 4 % Photonic Lantern
-  Eparameters = {w_0,fibreType,shapeParameters,KK};    % Cell array of parameters that the E field initialization function (defined at the end of this file) will need
+  Eparameters = {w_0,fibreType,shapeParameters,Emat_field{1}};    % Cell array of parameters that the E field initialization function (defined at the end of this file) will need
 else
   Eparameters = {w_0,fibreType,shapeParameters};
 end
@@ -107,7 +113,7 @@ alpha = 3e14;             % [1/m^3] "Absorption coefficient" per unit length dis
 
 %% USER DEFINED Visualization parameters
 updatesTotal = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
-colormax = 1;          % Maximum to use for the color scale in figure 3a
+colormax = 1e-4;          % Maximum to use for the color scale in figure 3a
 downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 displayScaling = 4;  % Zooms in on figures 1 & 3a,b. Set to 2 for no zooming.  
 if saveVideo
@@ -188,8 +194,12 @@ end
 k_0 = 2*pi/lambda; % [m^-1] Wavenumber
 
 %% Beam initialization
-E = calcInitialE(X,Y,Eparameters); % Call function to initialize E field
-E = complex(single(E/sqrt(max(abs(E(:)).^2)))); % Normalize and force to be complex single precision
+E = Emat_field{9}; %calcInitialE(X,Y,Eparameters); % Call function to initialize E field
+if intNorm
+    E = complex(single(E/sqrt(max(abs(E(:)).^2)))); % Normalize and force to be complex single precision
+else
+    E = complex(single(E/sqrt(sum(abs(E(:)).^2)))); % Normalize and force to be complex single precision
+end
 % E = complex(single(E/sqrt(dx*dy*sum(abs(E(:)).^2)))); % Normalize and force to be complex single precision
 E_0 = E;  % For initial intensity, phase, and power values
  
@@ -218,7 +228,11 @@ ylabel('y [m]');
 title('Refractive index');
 
 powers = NaN(1,updatesCumSum(end)+1);
-powers(1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2);
+if intNorm
+    powers(1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2);
+else
+    powers(1) = sum(abs(E(:)).^2);
+end
 % powers(1) = sum(dx*dy*abs(E(:)).^2);
 zUpdates = zeros(1,updatesCumSum(end)+1);
 subplot(2,2,2);
@@ -367,10 +381,12 @@ for iSeg = 1:numel(Lz) % Segment index
     end
     
     if iSeg == 1
-      powers(updidx+1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2);
+      if intNorm powers(updidx+1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2); 
+      else powers(updidx+1) = sum(abs(E(:)).^2); end
 %       powers(updidx+1) = dx*dy*sum(abs(E(:)).^2);
     else
-      powers(updatesCumSum(iSeg-1) + updidx + 1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2);
+      if intNorm  powers(updatesCumSum(iSeg-1) + updidx + 1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2);
+      else powers(updatesCumSum(iSeg-1) + updidx + 1) = sum(abs(E(:)).^2); end
 %       powers(updatesCumSum(iSeg-1) + updidx + 1) = dx*dy*sum(abs(E(:)).^2);
     end
     refreshdata(1);
@@ -385,6 +401,10 @@ toc
 
 if saveVideo
 	close(video);
+end
+
+if saveData
+    save(FileName,'E','Emat_field');
 end
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
@@ -403,25 +423,26 @@ switch fibreType
   case 1
     amplitude = exp(-((X-shapeParameters{1}(1)).^2+(Y-shapeParameters{1}(2)).^2)/w_0^2);
     phase = zeros(size(X));
+    E = amplitude.*exp(1i*phase);
   case 2
     amplitude = zeros(size(X));
     for i = 1:3:numel(shapeParameters{1})
       amplitude = amplitude+exp(-((X-shapeParameters{1}(i)).^2+(Y-shapeParameters{1}(i+1)).^2)/w_0^2);
     end
     phase = zeros(size(X));
+    E = amplitude.*exp(1i*phase);
   case 4
     KK = Eparameters{4}; % LP11 = Eparameters{5};
     E = zeros(Nx,Ny);
     h = 3/2*125e-6;
     E(Nx/2+1-ceil(sqrt(3)*h/4/dx)-150:Nx/2+1-ceil(sqrt(3)*h/4/dx)+150,Ny/2+(h/2/dy)-150:Ny/2+(h/2/dy)+150) ...
       =KK(Nx/2-150:Nx/2+150,Nx/2-150:Nx/2+150);
-    
 end
 
 % amplitude2 = 2*exp(-((X+12e-6).^2+(Y+7e-6).^2)/w_0^2);
 % phase2 = 8e5*Y;
 % if ~E
-E = amplitude.*exp(1i*phase);% + amplitude2.*exp(1i*phase2); % Electric field
+% E = amplitude.*exp(1i*phase);% + amplitude2.*exp(1i*phase2); % Electric field
 % end
 end
 
