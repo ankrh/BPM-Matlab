@@ -14,7 +14,7 @@
 format long
 format compact
 
-FileName = 'MMbend1cm_Sid';  % File name for the saved video and data files
+FileName = 'Test_LP11';  % File name for the saved video and data files
 videoName = [FileName '.avi']; 
  
 saveVideo = false;  % To save the field intensity and phase profiles at different transverse planes
@@ -48,6 +48,7 @@ shapeParameters{1} = [0; 0; 25e-6]; %getShapeParameters(1,FibreParameters); % Ge
 shapeTypes{1} = 1*ones(1,size(shapeParameters{1},2)); % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk. length(shapeParameters{1})/3 because the length returns 3 values corresponding to one core (x,y,coreR)
 shapeRIs{1} = n_core*ones(1,size(shapeParameters{1},2)); % Refractive indices to use for the shapes
 bendingRoC{1} = Inf;  %[m] Bending radius of curvature for the fibre section
+bendDirection{1} = 1;  % [] 1: Bending in x direction, 0: Bending in y direction
 
 Lz{2} = 0.3e-2; 
 taperScaling{2} = 1;
@@ -55,7 +56,8 @@ twistRate{2} = 0;
 shapeParameters{2} = []; 
 shapeTypes{2} = []; 
 shapeRIs{2} = []; 
-bendingRoC{2} = 1e-2;  
+bendingRoC{2} = 0.5e-2;  
+bendDirection{2} = 1;
 
 Lz{3} = 0.3e-2; 
 taperScaling{3} = 1;
@@ -64,6 +66,7 @@ shapeParameters{3} = [];
 shapeTypes{3} = []; 
 shapeRIs{3} = []; 
 bendingRoC{3} = Inf;  
+bendDirection{3} = 1;
 
 % Lz{2} = 10e-3;
 % taperScaling{2} = 23/50;
@@ -113,7 +116,6 @@ alpha = 3e14;             % [1/m^3] "Absorption coefficient" per unit length dis
 
 %% USER DEFINED Visualization parameters
 updatesTotal = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
-colormax = 1e-4;          % Maximum to use for the color scale in figure 3a
 downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 displayScaling = 4;  % Zooms in on figures 1 & 3a,b. Set to 2 for no zooming.  
 if saveVideo
@@ -194,7 +196,7 @@ end
 k_0 = 2*pi/lambda; % [m^-1] Wavenumber
 
 %% Beam initialization
-E = Emat_field{9}; %calcInitialE(X,Y,Eparameters); % Call function to initialize E field
+E = Emat_field{1}; %calcInitialE(X,Y,Eparameters); % Call function to initialize E field
 if intNorm
     E = complex(single(E/sqrt(max(abs(E(:)).^2)))); % Normalize and force to be complex single precision
 else
@@ -202,6 +204,8 @@ else
 end
 % E = complex(single(E/sqrt(dx*dy*sum(abs(E(:)).^2)))); % Normalize and force to be complex single precision
 E_0 = E;  % For initial intensity, phase, and power values
+
+colormax = max(abs(E(:).^2));          % Maximum to use for the color scale in figure 3a
  
 %% Figure initialization
 figure(1);clf;
@@ -228,11 +232,13 @@ ylabel('y [m]');
 title('Refractive index');
 
 powers = NaN(1,updatesCumSum(end)+1);
+modeOverlap = NaN(1,updatesCumSum(end)+1);
 if intNorm
     powers(1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2);
 else
     powers(1) = sum(abs(E(:)).^2);
 end
+modeOverlap(1) = sum(E(:).*conj(E_0(:)));
 % powers(1) = sum(dx*dy*abs(E(:)).^2);
 zUpdates = zeros(1,updatesCumSum(end)+1);
 subplot(2,2,2);
@@ -328,6 +334,12 @@ for iSeg = 1:numel(Lz) % Segment index
     RoC = Inf;
   end
   
+  if ~isempty(bendDirection{iSeg})
+    isBendingX = bendDirection{iSeg};
+  else
+    isBendingX = 1;
+  end
+  
   %% Calculate z step size and positions
   Nz = max(updates{iSeg},round(Lz{iSeg}/targetzstepsize)); % Number of z steps in this segment
   NzTotal = NzTotal + Nz;
@@ -352,7 +364,7 @@ for iSeg = 1:numel(Lz) % Segment index
   %% Load variables into a parameters struct and start looping, one iteration per update
   parameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-segTaperScaling)/Nz),'twistPerStep',single(twistRate{iSeg}*Lz{iSeg}/Nz),...
     'shapeTypes',uint8(segShapeTypes),'shapeParameters',single(segShapeParameters),'shapeRIs',single(segShapeRIs),'n_cladding',single(n_cladding),'multiplier',complex(single(multiplier)),...
-    'd',single(d),'n_0',single(n_0),'ax',single(ax),'ay',single(ay),'useAllCPUs',useAllCPUs,'RoC',single(RoC),'rho_e',single(photoelasticCoeff));
+    'd',single(d),'n_0',single(n_0),'ax',single(ax),'ay',single(ay),'useAllCPUs',useAllCPUs,'RoC',single(RoC),'rho_e',single(photoelasticCoeff),'isBendingX',single(isBendingX));
 
   parameters.iz_start = int32(0); % z index of the first z position to step from for the first call to FDBPMpropagator, in C indexing (starting from 0)
   parameters.iz_end = int32(zUpdateIdxs(1)); % last z index to step into for the first call to FDBPMpropagator, in C indexing (starting from 0)
@@ -384,10 +396,12 @@ for iSeg = 1:numel(Lz) % Segment index
       if intNorm powers(updidx+1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2); 
       else powers(updidx+1) = sum(abs(E(:)).^2); end
 %       powers(updidx+1) = dx*dy*sum(abs(E(:)).^2);
+        modeOverlap(updidx+1) = sum(E(:).*conj(E_0(:)));
     else
       if intNorm  powers(updatesCumSum(iSeg-1) + updidx + 1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2);
       else powers(updatesCumSum(iSeg-1) + updidx + 1) = sum(abs(E(:)).^2); end
 %       powers(updatesCumSum(iSeg-1) + updidx + 1) = dx*dy*sum(abs(E(:)).^2);
+        modeOverlap(updatesCumSum(iSeg-1) + updidx + 1) = sum(E(:).*conj(E_0(:)));
     end
     refreshdata(1);
     drawnow;
@@ -404,9 +418,12 @@ if saveVideo
 end
 
 if saveData
-    save(FileName,'E','Emat_field');
+    save(FileName,'E','Emat_field','modeOverlap','powers');
 end
-
+    
+WarnWave = [sin(1:.6:400), sin(1:.7:400), sin(1:.4:400)];
+Audio = audioplayer(WarnWave, 22050);
+play(Audio);
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
 [Nx, Ny] = size(X);
