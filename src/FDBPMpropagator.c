@@ -85,7 +85,8 @@ struct parameters {
   floatcomplex ay;
   float rho_e;
   float RoC;
-  float isBendingX; 
+  float sinBendDirection; 
+  float cosBendDirection; 
 };
 
 #ifdef __NVCC__ // If compiling for CUDA
@@ -396,7 +397,7 @@ void applyMultiplier(struct parameters *P_global, long iz) {
           }
         }
       }
-      float n_eff = P->isBendingX == 1 ? n*(1-(sqrf(n)*x/2/P->RoC*P->rho_e))*exp(x/P->RoC) : n*(1-(sqrf(n)*y/2/P->RoC*P->rho_e))*exp(y/P->RoC);
+      float n_eff = n*(1-(sqrf(n)*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
       if(iz == P->iz_end-1) P->n_out[i] = n_eff;
       P->E2[i] *= P->multiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)));
     }
@@ -528,7 +529,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->shapeRIs = (float *)mxGetData(mxGetField(prhs[1],0,"shapeRIs"));
   P->rho_e = *(float *)mxGetData(mxGetField(prhs[1],0,"rho_e"));
   P->RoC = *(float *)mxGetData(mxGetField(prhs[1],0,"RoC"));
-  P->isBendingX = *(float *)mxGetData(mxGetField(prhs[1],0,"isBendingX"));
+  P->sinBendDirection = *(float *)mxGetData(mxGetField(prhs[1],0,"sinBendDirection"));
+  P->cosBendDirection = *(float *)mxGetData(mxGetField(prhs[1],0,"cosBendDirection"));
   P->shapexyr = (float *)malloc(P->Nshapes*3*sizeof(float));
   P->E1 = (floatcomplex *)mxGetData(prhs[0]); // Input E field
   mwSize const *dimPtr = mxGetDimensions(prhs[0]);
@@ -575,7 +577,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
             }
           }
         }
-        float n_eff = P->isBendingX == 1 ? n*(1-(sqrf(n)*x/2/P->RoC*P->rho_e))*exp(x/P->RoC) : n*(1-(sqrf(n)*y/2/P->RoC*P->rho_e))*exp(y/P->RoC);
+        float n_eff = n*(1-(sqrf(n)*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
         P->n_out[i] = n_eff;
         P->multiplier[i] = MatlabMultiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)));
       }

@@ -48,7 +48,7 @@ shapeParameters{1} = [0; 0; 25e-6]; %getShapeParameters(1,FibreParameters); % Ge
 shapeTypes{1} = 1*ones(1,size(shapeParameters{1},2)); % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk. length(shapeParameters{1})/3 because the length returns 3 values corresponding to one core (x,y,coreR)
 shapeRIs{1} = n_core*ones(1,size(shapeParameters{1},2)); % Refractive indices to use for the shapes
 bendingRoC{1} = Inf;  %[m] Bending radius of curvature for the fibre section
-bendDirection{1} = 1;  % [] 1: Bending in x direction, 0: Bending in y direction
+bendDirection{1} = 0;  % [deg] The angle of bending direction, 0: bending in +x, 90: bending in +y
 
 Lz{2} = 0.3e-2; 
 taperScaling{2} = 1;
@@ -57,7 +57,7 @@ shapeParameters{2} = [];
 shapeTypes{2} = []; 
 shapeRIs{2} = []; 
 bendingRoC{2} = 0.5e-2;  
-bendDirection{2} = 1;
+bendDirection{2} = 90;
 
 Lz{3} = 0.3e-2; 
 taperScaling{3} = 1;
@@ -66,7 +66,7 @@ shapeParameters{3} = [];
 shapeTypes{3} = []; 
 shapeRIs{3} = []; 
 bendingRoC{3} = Inf;  
-bendDirection{3} = 1;
+bendDirection{3} = 0;
 
 % Lz{2} = 10e-3;
 % taperScaling{2} = 23/50;
@@ -335,9 +335,11 @@ for iSeg = 1:numel(Lz) % Segment index
   end
   
   if ~isempty(bendDirection{iSeg})
-    isBendingX = bendDirection{iSeg};
+    sinBendDirection = sin(bendDirection{iSeg}*pi/180);
+    cosBendDirection = cos(bendDirection{iSeg}*pi/180);
   else
-    isBendingX = 1;
+    sinBendDirection = 0;
+    cosBendDirection = 1;
   end
   
   %% Calculate z step size and positions
@@ -364,7 +366,7 @@ for iSeg = 1:numel(Lz) % Segment index
   %% Load variables into a parameters struct and start looping, one iteration per update
   parameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-segTaperScaling)/Nz),'twistPerStep',single(twistRate{iSeg}*Lz{iSeg}/Nz),...
     'shapeTypes',uint8(segShapeTypes),'shapeParameters',single(segShapeParameters),'shapeRIs',single(segShapeRIs),'n_cladding',single(n_cladding),'multiplier',complex(single(multiplier)),...
-    'd',single(d),'n_0',single(n_0),'ax',single(ax),'ay',single(ay),'useAllCPUs',useAllCPUs,'RoC',single(RoC),'rho_e',single(photoelasticCoeff),'isBendingX',single(isBendingX));
+    'd',single(d),'n_0',single(n_0),'ax',single(ax),'ay',single(ay),'useAllCPUs',useAllCPUs,'RoC',single(RoC),'rho_e',single(photoelasticCoeff),'sinBendDirection',single(sinBendDirection),'cosBendDirection',single(cosBendDirection));
 
   parameters.iz_start = int32(0); % z index of the first z position to step from for the first call to FDBPMpropagator, in C indexing (starting from 0)
   parameters.iz_end = int32(zUpdateIdxs(1)); % last z index to step into for the first call to FDBPMpropagator, in C indexing (starting from 0)
