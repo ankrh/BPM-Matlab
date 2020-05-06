@@ -14,7 +14,7 @@
 format long
 format compact
 
-FileName = 'Test_LP11';  % File name for the saved video and data files
+FileName = 'Test_MCF19';  % File name for the saved video and data files
 videoName = [FileName '.avi']; 
  
 saveVideo = false;  % To save the field intensity and phase profiles at different transverse planes
@@ -24,15 +24,16 @@ intNorm = false; % Choose true for field to be normalized w.r.t. max intensity, 
 %% USER DEFINED General parameters
 clear Lz taperScaling twistRate shapeTypes shapeParameters shapeRIs bendingRoC
 
-lambda = 1050e-9;          % [m] Wavelength
-w_0 = 16.4e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
+lambda = 980e-9;          % [m] Wavelength
+w_0 = 2.35e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
 
 n_cladding = 1.45;
-n_core = 1.4666;
+n_core = 1.46;
 pitch = 17e-6;  % [m] Intercore separation in multicore fibre
-numberOfCores = 1; % [] Numer of cores in the multicore fibre
-fibreType = 1;  % Type of fibre for E field initialization - 1: Single/Multimode, 2: Hex multicore, 3: Fermat's multicore 4: Photonic Lantern
-FibreParameters = {fibreType,numberOfCores,pitch}; 
+numberOfCores = 19; % [] Numer of cores in the multicore fibre
+multiCoreRadius = 2e-6;  %[m] Core radius of the multicore fibre
+fibreType = 2;  % Type of fibre for E field initialization - 1: Single/Multimode, 2: Hex multicore, 3: Fermat's multicore 4: Photonic Lantern
+FibreParameters = {fibreType,numberOfCores,pitch,multiCoreRadius}; 
 photoelasticCoeff = 0.22;  %[] coefficient depending on Poisson’s ratio and componentsof the photoelastic tensor - in bending expression
 
 % Lz, taperScaling, twistRate, shapeTypes, shapeParameters and shapeRIs are
@@ -41,16 +42,16 @@ photoelasticCoeff = 0.22;  %[] coefficient depending on Poisson’s ratio and comp
 % shapes should simply carry over from the previous segment. Otherwise, new
 % shapes are defined, emulating a fiber splice.
 
-Lz{1} = 0.3e-2; % [m] z propagation distances, one for each segment
+Lz{1} = 0.3e-3; % [m] z propagation distances, one for each segment
 taperScaling{1} = 1; %50/230; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
 twistRate{1} = 0; % Specifies how rapidly the fiber twists, measured in radians per metre
-shapeParameters{1} = [0; 0; 25e-6]; %getShapeParameters(1,FibreParameters); % Get centre pixels and radius of core(s) for the segment
+shapeParameters = getShapeParameters(1,FibreParameters); % Get centre pixels and radius of core(s) for the segment
 shapeTypes{1} = 1*ones(1,size(shapeParameters{1},2)); % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk. length(shapeParameters{1})/3 because the length returns 3 values corresponding to one core (x,y,coreR)
 shapeRIs{1} = n_core*ones(1,size(shapeParameters{1},2)); % Refractive indices to use for the shapes
 bendingRoC{1} = Inf;  %[m] Bending radius of curvature for the fibre section
 bendDirection{1} = 0;  % [deg] The angle of bending direction, 0: bending in +x, 90: bending in +y
 
-Lz{2} = 0.3e-2; 
+Lz{2} = 0.3e-3; 
 taperScaling{2} = 1;
 twistRate{2} = 0; 
 shapeParameters{2} = []; 
@@ -59,7 +60,7 @@ shapeRIs{2} = [];
 bendingRoC{2} = 0.5e-2;  
 bendDirection{2} = 90;
 
-Lz{3} = 0.3e-2; 
+Lz{3} = 0.3e-3; 
 taperScaling{3} = 1;
 twistRate{3} = 0; 
 shapeParameters{3} = []; 
@@ -117,7 +118,7 @@ alpha = 3e14;             % [1/m^3] "Absorption coefficient" per unit length dis
 %% USER DEFINED Visualization parameters
 updatesTotal = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
 downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
-displayScaling = 4;  % Zooms in on figures 1 & 3a,b. Set to 2 for no zooming.  
+displayScaling = 2;  % Zooms in on figures 1 & 3a,b. Set to 2 for no zooming.  
 if saveVideo
   video = VideoWriter(videoName);
   open(video);
@@ -196,7 +197,7 @@ end
 k_0 = 2*pi/lambda; % [m^-1] Wavenumber
 
 %% Beam initialization
-E = Emat_field{1}; %calcInitialE(X,Y,Eparameters); % Call function to initialize E field
+E = calcInitialE(X,Y,Eparameters); % Call function to initialize E field
 if intNorm
     E = complex(single(E/sqrt(max(abs(E(:)).^2)))); % Normalize and force to be complex single precision
 else
@@ -468,30 +469,41 @@ end
 %% USER DEFINED SHAPE-PARAMETERS INITIALIZATION FUNCTION FOR MULTICORE FIBRE
 function shapeParameters = getShapeParameters(segment,FibreParameters)
 fibreType = FibreParameters{1};
-numberOfCores = FibreParameters{2};
-pitch = FibreParameters{3};
+
 switch fibreType
   case 1
     shapeParameters{segment} = [0; % x values
       0; % y values
       20e-6]; % r values
   case 2
-    switch numberOfCores
-      case 7
-        shapeParameters{segment} = [0       pitch   pitch/2             -pitch/2              -pitch  -pitch/2              pitch/2;
-          0       0        sqrt(3)*pitch/2  sqrt(3)*pitch/2   0         -sqrt(3)*pitch/2 -sqrt(3)*pitch/2;
-          2e-6*ones(1,numberOfCores)]; %Same core radii for all cores
-      case 19
-        shapeParameters{segment} ...
-          = [0 pitch pitch/2  -pitch/2  -pitch  -pitch/2 pitch/2 ...
-          2*pitch  3*pitch/2  pitch  0  -pitch  -3*pitch/2  -2*pitch  -3*pitch/2  -pitch  0  pitch  3*pitch/2;
-          0  0  sqrt(3)*pitch/2  sqrt(3)*pitch/2  0  -sqrt(3)*pitch/2  -sqrt(3)*pitch/2 ...
-          0  sqrt(3)*pitch/2  sqrt(3)*pitch  sqrt(3)*pitch  sqrt(3)*pitch  sqrt(3)*pitch/2  0  -sqrt(3)*pitch/2  -sqrt(3)*pitch  -sqrt(3)*pitch  -sqrt(3)*pitch -sqrt(3)*pitch/2;
-          2e-6*ones(1,numberOfCores)]; %Same core radii for all cores
-      otherwise
-        %                 coef_a = (3*sqrt(3))/2;
-        disp('The choice of number of cores is not supported.');
-        return;
+	numberOfCores = FibreParameters{2};
+    pitch = FibreParameters{3};
+    R = FibreParameters{4};
+    shapeParameters{segment} = NaN(3,numberOfCores); % Initialize output array
+    shapeParameters{segment}(3,:) = R; % All cores have radius R
+    shapeParameters{segment}(1:2,1) = [0; 0]; % x and y of the center core
+    shellSideIdx = 1; % Which side of the hex are we filling?
+    shellSideCoreIdx = 0; % How many cores on this side have been filled so far?
+    shellNum = 1; % Which shell are we in? The center core is not counted as a shell.
+    for coreIdx = 2:numberOfCores
+      if shellSideCoreIdx == 0 % If this is the first core in this shell
+        shapeParameters{segment}(1:2,coreIdx) = [shellNum*pitch; 0];
+      else % Find new core position by adding onto the previous core's position
+        shapeParameters{segment}(1:2,coreIdx) = shapeParameters{segment}(1:2,coreIdx-1) + [pitch*cos(shellSideIdx*pi/3 + pi/3); pitch*sin(shellSideIdx*pi/3 + pi/3)];
+      end
+      
+      if shellSideCoreIdx == shellNum % If this side has been filled
+        shellSideIdx = shellSideIdx + 1;
+        shellSideCoreIdx = 1;
+      else % Continue filling this side
+        shellSideCoreIdx = shellSideCoreIdx + 1;
+      end
+      
+      if shellSideCoreIdx == shellNum && shellSideIdx == 6 % Last core on last side would be a replicate of the first one drawn in this shell, so skip
+        shellNum = shellNum + 1;
+        shellSideIdx = 1;
+        shellSideCoreIdx = 0;
+      end
     end
   case 4
     h = 3/2*125e-6;
