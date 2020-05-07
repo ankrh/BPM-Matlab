@@ -368,9 +368,9 @@ void applyMultiplier(struct parameters *P_global, long iz) {
   #endif
       // For each pixel, calculate refractive index and multiply
       long ix = i%P->Nx;
-      float x = P->dx*(ix - P->Nx/2.0f);
+      float x = P->dx*(ix - (P->Nx-1)/2.0f);
       long iy = i/P->Nx;
-      float y = P->dy*(iy - P->Ny/2.0f);
+      float y = P->dy*(iy - (P->Ny-1)/2.0f);
 
       float n = P->n_cladding;
       for(long iShape=0;iShape<P->Nshapes;iShape++) {
@@ -548,9 +548,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
     for(long i=0;i<P->Nx*P->Ny;i++) P->multiplier[i] = MatlabMultiplier[i];
   } else {
     for(long ix=0;ix<P->Nx;ix++) {
-      float x = P->dx*(ix - P->Nx/2.0f);
+      float x = P->dx*(ix - (P->Nx-1)/2.0f);
       for(long iy=0;iy<P->Ny;iy++) {
-        float y = P->dy*(iy - P->Ny/2.0f);
+        float y = P->dy*(iy - (P->Ny-1)/2.0f);
         long i = ix + iy*P->Nx;
         float n = P->n_cladding;
         for(long iShape=0;iShape<P->Nshapes;iShape++) {
