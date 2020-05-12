@@ -43,7 +43,7 @@ photoelasticCoeff = 0.22;  %[] coefficient depending on Poisson’s ratio and comp
 % shapes are defined, emulating a fiber splice.
 
 Lz{1} = 0.3e-3; % [m] z propagation distances, one for each segment
-taperScaling{1} = 1; %50/230; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
+taperScaling{1} = 1; %50/230; % Specifies how much the refractive index profile of the last z slice in this segment should be scaled relative to the first z slice in this segment, linearly scaling in between
 twistRate{1} = 0; % Specifies how rapidly the fiber twists, measured in radians per metre
 shapeParameters = getShapeParameters(1,FibreParameters); % Get centre pixels and radius of core(s) for the segment
 shapeTypes{1} = 1*ones(1,size(shapeParameters{1},2)); % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk. length(shapeParameters{1})/3 because the length returns 3 values corresponding to one core (x,y,coreR)
@@ -306,22 +306,24 @@ NzTotal = 0;
 tic;
 for iSeg = 1:numel(Lz) % Segment index
   %% Calculate the segment-by-segment taper scaling factor to pass into the mex function
-  if iSeg == 1
-    segTaperScaling = taperScaling{iSeg};
-  else
-    segTaperScaling = taperScaling{iSeg}/taperScaling{iSeg-1};
-  end
+  segTaperScaling = taperScaling{iSeg};
+%   if iSeg == 1
+%     segTaperScaling = taperScaling{iSeg};
+%   else
+%     segTaperScaling = taperScaling{iSeg}/taperScaling{iSeg-1};
+%   end
   %% Either redefine the shapes defining the RI profile (if this element of shapeTypes is non-empty) or rescale and rotate the previous one
   if ~isempty(shapeTypes{iSeg})
     segShapeTypes = shapeTypes{iSeg};
     segShapeParameters = shapeParameters{iSeg};
     segShapeRIs = shapeRIs{iSeg};
   else
-    if iSeg == 2
-      scaleFactor = taperScaling{iSeg-1};
-    else
-      scaleFactor = taperScaling{iSeg-1}/taperScaling{iSeg-2};
-    end
+    scaleFactor = taperScaling{iSeg-1};
+%     if iSeg == 2
+%       scaleFactor = taperScaling{iSeg-1};
+%     else
+%       scaleFactor = taperScaling{iSeg-1}/taperScaling{iSeg-2};
+%     end
     oldSegShapeParameters = segShapeParameters;
     segShapeParameters(1,:) = scaleFactor*(cos(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(1,:) - sin(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(2,:));
     segShapeParameters(2,:) = scaleFactor*(sin(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(1,:) + cos(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(2,:));
