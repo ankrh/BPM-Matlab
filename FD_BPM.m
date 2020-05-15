@@ -14,7 +14,8 @@
 format long
 format compact
 
-FileName = 'Test_PL_input2';  % File name for the saved video and data files
+FileName = 'MCF_test';  % File name for the saved video and data files for the current simulation
+SavedFileName = 'MCF_test';  % File name of the saved data file from which the phase of E can be programmed (fibreType 21)
 videoName = [FileName '.avi']; 
  
 saveVideo = false;  % To save the field intensity and phase profiles at different transverse planes
@@ -24,18 +25,20 @@ intNorm = false; % Choose true for field to be normalized w.r.t. max intensity, 
 %% USER DEFINED General parameters
 clear Lz taperScaling twistRate shapeTypes shapeParameters shapeRIs bendingRoC bendDirection
 
-lambda = 1550e-9;          % [m] Wavelength
+lambda = 980e-9;          % [m] Wavelength
 w_0 = 2.35e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
+k_0 = 2*pi/lambda; % [m^-1] Wavenumber
 
-n_cladding = 1.0;
-n_core = 1.4492;
-pitch = 17e-6;  % [m] Intercore separation in multicore fibre
+n_cladding = 1.45;
+n_core = 1.46;
+pitch = 30e-6;  % [m] Intercore separation in multicore fibre
 numberOfCores = 19; % [] Numer of cores in the multicore fibre, not used for photonic lantern
 multiCoreRadius = 2e-6;  %[m] Core radius of the multicore fibre
-fibreType = 4;  % Type of fibre for E field initialization - 1: Single/Multimode, 2: Hex multicore, 3: Fermat's multicore 4: Photonic Lantern
+fibreType = 2;  % Type of fibre for E field initialization - 1: Single/Multimode, 2: Hex multicore, 3: Fermat's multicore 4: Photonic Lantern
+                         %  21: Hex multicore with phase programming
 FibreParameters = {fibreType,numberOfCores,pitch,multiCoreRadius}; 
 photoelasticCoeff = 0.22;  %[] coefficient depending on Poisson’s ratio and componentsof the photoelastic tensor - in bending expression
-photonicLanternInput = 2; %[] 1: LP01 input to SSMF, 2: LP01 input to HI1060 on the right, 3: LP01 input to HI1060 below
+photonicLanternInput = 3; %[] 1: LP01 input to SSMF, 2: LP01 input to HI1060 on the right, 3: LP01 input to HI1060 below
 
 % Lz, taperScaling, twistRate, shapeTypes, shapeParameters and shapeRIs are
 % cell arrays in which each element corresponds to a fiber segment in the
@@ -43,46 +46,32 @@ photonicLanternInput = 2; %[] 1: LP01 input to SSMF, 2: LP01 input to HI1060 on 
 % shapes should simply carry over from the previous segment. Otherwise, new
 % shapes are defined, emulating a fiber splice.
 
-Lz{1} = 15e-3; % [m] z propagation distances, one for each segment
-taperScaling{1} = 50/230; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
+Lz{1} = 1e-3; % [m] z propagation distances, one for each segment
+taperScaling{1} = 1; %50/230; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
 twistRate{1} = 0; % Specifies how rapidly the fiber twists, measured in radians per metre
 shapeParameters = getShapeParameters(1,FibreParameters); % Get centre pixels and radius of core(s) for the segment
 shapeTypes{1} = 1*ones(1,size(shapeParameters{1},2)); % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk. length(shapeParameters{1})/3 because the length returns 3 values corresponding to one core (x,y,coreR)
-shapeRIs{1} = [1.4444 1.4492 1.4511 1.4511]; %n_core*ones(1,size(shapeParameters{1},2)); % Refractive indices to use for the shapes
+shapeRIs{1} = n_core*ones(1,size(shapeParameters{1},2)); %[1.0 1.4444 1.4492 1.4511 1.4511]; % Refractive indices to use for the shapes
 bendingRoC{1} = Inf;  %[m] Bending radius of curvature for the fibre section
 bendDirection{1} = 0;  % [deg] The angle of bending direction, 0: bending in +x, 90: bending in +y
  
-Lz{2} = 10e-3; 
-taperScaling{2} = 23/50;
-twistRate{2} = 0; 
-shapeParameters{2} = []; 
-shapeTypes{2} = []; 
-shapeRIs{2} = []; 
-bendingRoC{2} = Inf;  
-bendDirection{2} = 0;
- 
-Lz{3} = 5e-3; 
-taperScaling{3} = 1;
-twistRate{3} = 0; 
-shapeParameters{3} = [0; 0; 9e-6];  %TMSI Fibre 18 um dia
-shapeTypes{3} = [1];   n_cladding = 1.4444;
-shapeRIs{3} = [1.4491]; 
-bendingRoC{3} = Inf;  
-bendDirection{3} = 0;
-
-% Lz{2} = 10e-3;
+% Lz{2} = 10e-3; 
 % taperScaling{2} = 23/50;
 % twistRate{2} = 0; %2*pi/Lz{2};
-% shapeTypes{2} = [];
-% shapeParameters{2} = [];
-% shapeRIs{2} = [];
-% 
-% Lz{3} = 2e-2;
+% shapeParameters{2} = []; 
+% shapeTypes{2} = []; 
+% shapeRIs{2} = []; 
+% bendingRoC{2} = Inf;  
+% bendDirection{2} = 0;
+%  
+% Lz{3} = 5e-3; 
 % taperScaling{3} = 1;
-% twistRate{3} = 0;
-% shapeTypes{3} = [1];
-% shapeParameters{3} = [0; 0; 9e-6];
-% shapeRIs{3} = [1.4491];
+% twistRate{3} = 0; 
+% shapeParameters{3} = [0; 0; 9e-6];  %TMSI Fibre 18 um dia
+% shapeTypes{3} = [1];   n_cladding = 1.4444;
+% shapeRIs{3} = [1.4491]; 
+% bendingRoC{3} = Inf;  
+% bendDirection{3} = 0;
 % 
 % Lz{4} = 3e-3;
 % taperScaling{4} = 0.15;
@@ -94,17 +83,17 @@ bendDirection{3} = 0;
 % shapeRIs{4} = [1.465];
 
 if fibreType == 4 % Photonic Lantern
-  Eparameters = {w_0,fibreType,shapeParameters,Emat_field{1},photonicLanternInput};    % Cell array of parameters that the E field initialization function (defined at the end of this file) will need
+  Eparameters = {w_0,fibreType,shapeParameters,numberOfCores,pitch,k_0,Emat_field{1},photonicLanternInput,SavedFileName};    % Cell array of parameters that the E field initialization function (defined at the end of this file) will need
 else
-  Eparameters = {w_0,fibreType,shapeParameters};
+  Eparameters = {w_0,fibreType,shapeParameters,numberOfCores,pitch,k_0,SavedFileName};
 end
 
 %% USER DEFINED Resolution-related parameters
 targetzstepsize = 2e-6; % [m] z step size to aim for
-Lx_main = 200e-6;        % [m] x side length of main area
-Ly_main = 200e-6;        % [m] y side length of main area
-Nx_main = 200;          % x resolution of main area
-Ny_main = 200;          % y resolution of main area
+Lx_main = 150e-6;        % [m] x side length of main area
+Ly_main = 150e-6;        % [m] y side length of main area
+Nx_main = 400;          % x resolution of main area
+Ny_main = 400;          % y resolution of main area
 
 %% USER DEFINED Solver-related parameters
 useAllCPUs = true;
@@ -119,14 +108,13 @@ alpha = 3e14;             % [1/m^3] "Absorption coefficient" per unit length dis
 %% USER DEFINED Visualization parameters
 updatesTotal = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
 downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
-displayScaling = 2;  % Zooms in on figures 1 & 3a,b. Set to 2 for no zooming.  
+displayScaling = 3;  % Zooms in on figures 1 & 3a,b. Set to 2 for no zooming.  
 if saveVideo
   video = VideoWriter(videoName);
   open(video);
 end
 
-
-
+n_min = 1.45; n_max = 1.46;  % Minimum and maximum caxis for refractive index plot (figure 1)
 
 
 
@@ -195,8 +183,6 @@ if downsampleImages
   y_plot = y(iy_plot);
 end
 
-k_0 = 2*pi/lambda; % [m^-1] Wavenumber
-
 %% Beam initialization
 E = calcInitialE(X,Y,Eparameters); % Call function to initialize E field
 if intNorm
@@ -229,7 +215,7 @@ axis equal
 xlim([-Lx/displayScaling Lx/displayScaling]);
 ylim([-Ly/displayScaling Ly/displayScaling]);
 colorbar;
-caxis([1.44 1.4521])
+caxis([n_min n_max])
 xlabel('x [m]');
 ylabel('y [m]');
 title('Refractive index');
@@ -443,6 +429,11 @@ dy = Y(1,2) - Y(1,1);
 w_0 = Eparameters{1};
 fibreType = Eparameters{2};
 shapeParameters = Eparameters{3};
+numberOfCores = Eparameters{4};
+pitch = Eparameters{5};
+k_0 = Eparameters{6};
+focus = 5e-3; 
+SavedFileName = Eparameters{end}; 
 
 switch fibreType
   case 1
@@ -457,8 +448,8 @@ switch fibreType
     phase = zeros(size(X));
     E = amplitude.*exp(1i*phase);
   case 4
-    LPmode = Eparameters{4}; 
-    photonicLanternInput = Eparameters{5};
+    LPmode = Eparameters{7}; 
+    photonicLanternInput = Eparameters{8};
     E = zeros(size(X));
     h = 3/4*125e-6;
     switch photonicLanternInput
@@ -475,6 +466,21 @@ switch fibreType
     pixelsX = Nx/5/2; pixelsY = Ny/5/2;
     E(Nx/2+1+x_coord_pixel-pixelsX:Nx/2+1+x_coord_pixel+pixelsX,Ny/2+y_coord_pixel-pixelsY:Ny/2+y_coord_pixel+pixelsY) ...
       =LPmode(Nx/2-pixelsX:Nx/2+pixelsX,Nx/2-pixelsY:Nx/2+pixelsY);
+    case 21   % Should have run case 2 before and saved the E data 
+        load([SavedFileName,'.mat']);
+        amplitude = zeros(size(X));
+        for i = 1:3:numel(shapeParameters{1})
+          amplitude = amplitude+exp(-((X-shapeParameters{1}(i)).^2+(Y-shapeParameters{1}(i+1)).^2)/w_0^2);
+        end
+        phase = zeros(size(X));
+        acquiredPhase = NaN(1,numberOfCores);    % Row vector (1D)
+        focusPhase = NaN(1,numberOfCores);    
+        for idx = 1:numberOfCores
+            acquiredPhase(idx) = angle(E(Nx/2+ceil(shapeParameters{1}(idx*2+idx-2)/dx),Ny/2+ceil(shapeParameters{1}(idx*2+idx-1)/dy)));  %Acquired phase of E field at distal end for previous travel through fibre
+            focusPhase(idx) = -k_0*((shapeParameters{1}(idx*2+idx-2)/dx)^2+(shapeParameters{1}(idx*2+idx-1)/dy)^2)/(2*focus);
+            phase(sqrt((X-shapeParameters{1}(idx*2+idx-2)).^2+(Y-shapeParameters{1}(idx*2+idx-1)).^2) < pitch/2) = focusPhase(idx)-acquiredPhase(idx);
+        end
+        E = amplitude.*exp(1i*phase);
 end
 
 % amplitude2 = 2*exp(-((X+12e-6).^2+(Y+7e-6).^2)/w_0^2);
@@ -493,7 +499,7 @@ switch fibreType
     shapeParameters{segment} = [0; % x values
       0; % y values
       20e-6]; % r values
-  case 2
+  case {2, 21}
 	numberOfCores = FibreParameters{2};
     pitch = FibreParameters{3};
     R = FibreParameters{4};
@@ -525,9 +531,9 @@ switch fibreType
     end
   case 4
     h = 3/4*125e-6;   % 3/2 R_clad, R_clad is 125/2 um
-    shapeParameters{segment} = [0   -sqrt(3)*h/4    -sqrt(3)*h/4    sqrt(3)*h/4; % x values
-      0   h/2     -h/2    0; % y values
-      62.5e-6    4.5e-6      2.65e-6     2.65e-6]; % r values
+    shapeParameters{segment} = [0   0   -sqrt(3)*h/4    -sqrt(3)*h/4    sqrt(3)*h/4; % x values
+      0   0   h/2     -h/2    0; % y values
+      1000e-6   62.5e-6    4.5e-6      2.65e-6     2.65e-6]; % r values
   otherwise
     disp('This fibre type is not supported');
     return;
