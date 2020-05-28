@@ -414,7 +414,12 @@ if saveVideo
 end
 
 if saveData
-    save(FileName,'E','E_0','Emat_field','modeOverlap','powers','x','y');
+    switch fibreType
+        case 4
+            save(FileName,'E','E_0','Emat_field','modeOverlap','powers','x','y');
+        otherwise
+            save(FileName,'E','E_0','modeOverlap','powers','x','y');
+    end
 end
     
 WarnWave = [sin(1:.6:400), sin(1:.7:400), sin(1:.4:400)];
