@@ -367,6 +367,7 @@ for iSeg = 1:numel(Lz) % Segment index
       parameters.iz_start = int32(zUpdateIdxs(updidx-1));
       parameters.iz_end   = int32(zUpdateIdxs(updidx));
     end
+    checkInputs(E,parameters);
     if useGPU
       [E,n] = FDBPMpropagator_CUDA(E,parameters);
     else
@@ -419,6 +420,13 @@ end
 WarnWave = [sin(1:.6:400), sin(1:.7:400), sin(1:.4:400)];
 Audio = audioplayer(WarnWave, 22050);
 play(Audio);
+
+function checkInputs(E,parameters)
+assert(all(isfinite(E(:))));
+assert(~isreal(E));
+assert(isa(E,'single'));
+end
+
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
 [Nx, Ny] = size(X);
