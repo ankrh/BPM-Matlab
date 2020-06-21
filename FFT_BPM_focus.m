@@ -16,14 +16,14 @@ focusVideoName = 'Focus5mm_MM_fewModes15_05mm_noBend_APC.avi';
 % E=E_MCfermats_40cores_noBend;
 
 %% User-specified general parameters
-Lx_main = 800e-6;                                                     % [m] x side length of main area
-Ly_main = 800e-6;                                                    % [m] y side length of main area
+Lx_main = 1600e-6;                                                     % [m] x side length of main area
+Ly_main = 1600e-6;                                                    % [m] y side length of main area
 focus = 5e-3;
 Lz = focus;                                                          % [m] z propagation distance
-targetzstepsize = 10e-6;                                          % [m] z step size to aim for
+targetzstepsize = 200e-6;                                          % [m] z step size to aim for
 
-Nx_main = 400;                                                         % x resolution of main area
-Ny_main = 400;                                                             % y resolution of main area
+Nx_main = 800;                                                         % x resolution of main area
+Ny_main = 800;                                                             % y resolution of main area
 
 lambda = 0.98e-6;                                                % [m] Wavelength 
 w = 30e-6;                                                       % [m] Initial waist plane 1/e^2 radius of the gaussian beam
@@ -142,8 +142,10 @@ end
 % figure('Renderer', 'painters', 'Position', [0 0 400 400]); imagesc(x,y,abs((E_ref(100:400,100:400)).').^2); axis tight equal; set(gca,'xtick',[]); set(gca,'ytick',[]);
 if saveFocusData
     E_air_focus = E_ref; 
-    save('Data_MM_fewModes15_05mm_noBend_APC_focus.mat','powers','Lz','z_updates',...
-            'E','n_mat','nx','ny','dx','dy','Lambda','x','y','X','Y','RHO','w_0','k_0','lambda','E_0','num_cores','E_air_focus');
+%     save('Data_MM_fewModes15_05mm_noBend_APC_focus.mat','powers','Lz','z_updates',...
+%             'E','n_mat','nx','ny','dx','dy','Lambda','x','y','X','Y','RHO','w_0','k_0','lambda','E_0','num_cores','E_air_focus');
+save('Data_MCF_Fermats_1cm_30cores_b0_LSx_focus.mat',...
+            'E','Nx','Ny','dx','dy','x','y','E_air_focus');
 end
     
 WarnWave = [sin(1:.6:400), sin(1:.7:400), sin(1:.4:400)];
