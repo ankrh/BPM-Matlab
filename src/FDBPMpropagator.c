@@ -334,7 +334,7 @@ void substep2b(struct parameters *P_global) {
 __global__
 #endif
 void calcShapexyr(struct parameters *P, long iz) { // Called with only one thread
-  // Calculate positions and sizes of geometric shapes (only shapeType 1, 2 and 3 supported thus far)
+  // Calculate positions and sizes of geometric shapes
   float cosvalue = cosf(P->twistPerStep*iz);
   float sinvalue = sinf(P->twistPerStep*iz);
   float scaling = 1 - P->taperPerStep*iz;
@@ -395,13 +395,13 @@ void applyMultiplier(struct parameters *P_global, long iz) {
               n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
             break;
           }
-          case 4: { // Parabolic gradient index lens in y
-              if(sqrf(x - P->shapeParameters[iShape*3]) + sqrf(y - P->shapeParameters[iShape*3+1]) < sqrf(P->shapeParameters[iShape*3+2])) {
-                  float r_ratio_sqr = sqrf(y - P->shapeParameters[iShape*3+1])/sqrf(P->shapeParameters[iShape*3+2]);
-                  if(r_ratio_sqr < 1)
-                    n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
-                }
-              break;
+          case 4: { // Parabolic graded index lens in y
+            if(sqrf(y - P->shapeParameters[iShape*3+1]) < sqrf(P->shapeParameters[iShape*3+2])) {
+              float r_ratio_sqr = sqrf(y - P->shapeParameters[iShape*3+1])/sqrf(P->shapeParameters[iShape*3+2]);
+              if(r_ratio_sqr < 1)
+                n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
+            }
+            break;
           }
         }
       }
@@ -583,12 +583,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
                 n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
               break;
             }
-            case 4: { // Parabolic gradient index lens in y
-              if(sqrf(x - P->shapeParameters[iShape*3]) + sqrf(y - P->shapeParameters[iShape*3+1]) < sqrf(P->shapeParameters[iShape*3+2])) {
-                  float r_ratio_sqr = sqrf(y - P->shapeParameters[iShape*3+1])/sqrf(P->shapeParameters[iShape*3+2]);
-                  if(r_ratio_sqr < 1)
-                    n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
-                }
+            case 4: { // Parabolic graded index lens in y
+              if(sqrf(y - P->shapeParameters[iShape*3+1]) < sqrf(P->shapeParameters[iShape*3+2])) {
+                float r_ratio_sqr = sqrf(y - P->shapeParameters[iShape*3+1])/sqrf(P->shapeParameters[iShape*3+2]);
+                if(r_ratio_sqr < 1)
+                  n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
+              }
               break;
             }
           }

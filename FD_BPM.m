@@ -26,7 +26,7 @@ intNorm = false; % Choose true for field to be normalized w.r.t. max intensity, 
 clear Lz taperScaling twistRate shapeTypes shapeParameters shapeRIs bendingRoC bendDirection
 
 lambda = 1050e-9;          % [m] Wavelength
-w_0 = 17e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
+w_0 = 5e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
 k_0 = 2*pi/lambda; % [m^-1] Wavenumber
 
 n_cladding = 1.45;
@@ -83,11 +83,11 @@ bendDirection{1} = 0;  % [deg] The angle of bending direction, 0: bending in +x,
 % shapeRIs{4} = [1.465];
 
 if fibreType == 4 % Photonic Lantern
-    Eparameters = {w_0,fibreType,shapeParameters,numberOfCores,pitch,k_0,lambda,Ecell_modeA{1,9},photonicLanternInput,SavedFileName};    % Cell array of parameters that the E field initialization function (defined at the end of this file) will need
+  Eparameters = {w_0,fibreType,shapeParameters,numberOfCores,pitch,k_0,lambda,Ecell_modeA{1,9},photonicLanternInput,SavedFileName};    % Cell array of parameters that the E field initialization function (defined at the end of this file) will need
 elseif exist('Ecell_modeA','var') % For LP mode propagation through MMF or SMF
-    Eparameters = {w_0,fibreType,shapeParameters,numberOfCores,pitch,k_0,lambda,Ecell_modeA{1,1},SavedFileName};  %9 input fields
+  Eparameters = {w_0,fibreType,shapeParameters,numberOfCores,pitch,k_0,lambda,Ecell_modeA{1,1},SavedFileName};  %9 input fields
 else
-    Eparameters = {w_0,fibreType,shapeParameters,numberOfCores,pitch,k_0,lambda,SavedFileName};  %8 input fields
+  Eparameters = {w_0,fibreType,shapeParameters,numberOfCores,pitch,k_0,lambda,SavedFileName};  %8 input fields
 end
 
 %% USER DEFINED Resolution-related parameters
@@ -189,9 +189,9 @@ end
 %% Beam initialization
 E = calcInitialE(X,Y,Eparameters); % Call function to initialize E field
 if intNorm
-    E = complex(single(E/sqrt(max(abs(E(:)).^2)))); % Normalize and force to be complex single precision
+  E = complex(single(E/sqrt(max(abs(E(:)).^2)))); % Normalize and force to be complex single precision
 else
-    E = complex(single(E/sqrt(sum(abs(E(:)).^2)))); % Normalize and force to be complex single precision
+  E = complex(single(E/sqrt(sum(abs(E(:)).^2)))); % Normalize and force to be complex single precision
 end
 % E = complex(single(E/sqrt(dx*dy*sum(abs(E(:)).^2)))); % Normalize and force to be complex single precision
 E_0 = E;  % For initial intensity, phase, and power values
@@ -199,13 +199,8 @@ E_0 = E;  % For initial intensity, phase, and power values
 colormax = max(abs(E(:).^2));          % Maximum to use for the color scale in figure 3a
  
 %% Figure initialization
-figure(1);clf;
-figure1_Settings = [];
-screenSize = get(0,'MonitorPositions');
-figure1_Settings.monitorNumber = 1; % Main monitor number
-figure1_Settings.size.figureHeight = screenSize(figure1_Settings.monitorNumber,4); % Figure height (pixels)
-figure1_Settings.size.figureWidth = screenSize(figure1_Settings.monitorNumber,3); % Figure width (pixels)
-set(gcf, 'Position',  [0, 0, figure1_Settings.size.figureWidth, figure1_Settings.size.figureHeight]);
+h_f = figure(1);clf;
+h_f.WindowState = 'maximized';
 
 subplot(2,2,1)
 if downsampleImages
@@ -298,11 +293,6 @@ tic;
 for iSeg = 1:numel(Lz) % Segment index
   %% Calculate the segment-by-segment taper scaling factor to pass into the mex function
   segTaperScaling = taperScaling{iSeg};
-%   if iSeg == 1
-%     segTaperScaling = taperScaling{iSeg};
-%   else
-%     segTaperScaling = taperScaling{iSeg}/taperScaling{iSeg-1};
-%   end
   %% Either redefine the shapes defining the RI profile (if this element of shapeTypes is non-empty) or rescale and rotate the previous one
   if ~isempty(shapeTypes{iSeg})
     segShapeTypes = shapeTypes{iSeg};
@@ -310,11 +300,6 @@ for iSeg = 1:numel(Lz) % Segment index
     segShapeRIs = shapeRIs{iSeg};
   else
     scaleFactor = taperScaling{iSeg-1};
-%     if iSeg == 2
-%       scaleFactor = taperScaling{iSeg-1};
-%     else
-%       scaleFactor = taperScaling{iSeg-1}/taperScaling{iSeg-2};
-%     end
     oldSegShapeParameters = segShapeParameters;
     segShapeParameters(1,:) = scaleFactor*(cos(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(1,:) - sin(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(2,:));
     segShapeParameters(2,:) = scaleFactor*(sin(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(1,:) + cos(twistRate{iSeg-1}*Lz{iSeg-1})*oldSegShapeParameters(2,:));
@@ -416,17 +401,17 @@ if saveVideo
 end
 
 if saveData
-    switch fibreType
-        case 4
-            save(FileName,'E','E_0','Emat_field','modeOverlap','powers','x','y','Lz','taperScaling','twistRate','shapeParameters','shapeTypes','shapeRIs','bendingRoC','bendDirection','X','Y');
-        otherwise
-            save(FileName,'E','E_0','modeOverlap','powers','x','y','Lz','taperScaling','twistRate','shapeParameters','shapeTypes','shapeRIs','bendingRoC','bendDirection','X','Y');
-    end
+  switch fibreType
+    case 4
+      save(FileName,'E','E_0','Emat_field','modeOverlap','powers','x','y','Lz','taperScaling','twistRate','shapeParameters','shapeTypes','shapeRIs','bendingRoC','bendDirection','X','Y');
+    otherwise
+      save(FileName,'E','E_0','modeOverlap','powers','x','y','Lz','taperScaling','twistRate','shapeParameters','shapeTypes','shapeRIs','bendingRoC','bendDirection','X','Y');
+  end
 end
-    
-WarnWave = [sin(1:.6:400), sin(1:.7:400), sin(1:.4:400)];
-Audio = audioplayer(WarnWave, 22050);
-play(Audio);
+
+S = load('train');
+sound(S.y,S.Fs);
+
 
 function checkInputs(E,parameters)
 assert(all(isfinite(E(:))));
@@ -456,10 +441,10 @@ switch fibreType
   case 1
     E = Eparameters{8}; % LP mode for SMF and MMF
     if size(E,1) == 1 % when it is savedFileName
-        disp('New field is calculated to propagate through the fibre with the given w_0, not the LP mode. If you need to input LP mode, please run Example_LPmodes.m');
-        amplitude = exp(-((X-shapeParameters{1}(1)).^2+(Y-shapeParameters{1}(2)).^2)/w_0^2);
-        phase = zeros(size(X));
-        E = amplitude.*exp(1i*phase);
+      disp('New field is calculated to propagate through the fibre with the given w_0, not the LP mode. If you need to input LP mode, please run Example_LPmodes.m');
+      amplitude = exp(-((X-shapeParameters{1}(1)).^2+(Y-shapeParameters{1}(2)).^2)/w_0^2);
+      phase = zeros(size(X));
+      E = amplitude.*exp(1i*phase);
     end
   case {2, 3}
     amplitude = zeros(size(X));
@@ -469,7 +454,7 @@ switch fibreType
     phase = zeros(size(X));
     E = amplitude.*exp(1i*phase);
   case 4
-    LPmode = Eparameters{8}; 
+    LPmode = Eparameters{8};
     photonicLanternInput = Eparameters{9};
     E = zeros(size(X));
     pixelsX = Nx/10; pixelsY = Ny/10;
@@ -477,39 +462,39 @@ switch fibreType
     x_coord_pixel_2  = ceil(pitch/sqrt(3)/dx);               y_coord_pixel_2 = 0;
     x_coord_pixel_3  = -ceil(pitch/2/sqrt(3)/dx);           y_coord_pixel_3 = -(pitch/2/dy);
     switch photonicLanternInput
-        case 1
-            E(Nx/2+1+x_coord_pixel_1-pixelsX:Nx/2+1+x_coord_pixel_1+pixelsX,Ny/2+y_coord_pixel_1-pixelsY:Ny/2+y_coord_pixel_1+pixelsY) ...
-                =LPmode(Nx/2-pixelsX:Nx/2+pixelsX,Nx/2-pixelsY:Nx/2+pixelsY);
-        case 2
-            E(Nx/2+1+x_coord_pixel_2-pixelsX:Nx/2+1+x_coord_pixel_2+pixelsX,Ny/2+y_coord_pixel_2-pixelsY:Ny/2+y_coord_pixel_2+pixelsY) ...
-                =LPmode(Nx/2-pixelsX:Nx/2+pixelsX,Nx/2-pixelsY:Nx/2+pixelsY);
-        case 3
-            E(Nx/2+1+x_coord_pixel_3-pixelsX:Nx/2+1+x_coord_pixel_3+pixelsX,Ny/2+y_coord_pixel_3-pixelsY:Ny/2+y_coord_pixel_3+pixelsY) ...
-                =LPmode(Nx/2-pixelsX:Nx/2+pixelsX,Nx/2-pixelsY:Nx/2+pixelsY);
-        case 23     %Simulataneously exciting 2 and 3 input fibres
-            E(Nx/2+1+x_coord_pixel_2-pixelsX:Nx/2+1+x_coord_pixel_2+pixelsX,Ny/2+y_coord_pixel_2-pixelsY:Ny/2+y_coord_pixel_2+pixelsY) ...
-                =LPmode(Nx/2-pixelsX:Nx/2+pixelsX,Nx/2-pixelsY:Nx/2+pixelsY);
-            E(Nx/2+1+x_coord_pixel_3-pixelsX:Nx/2+1+x_coord_pixel_3+pixelsX,Ny/2+y_coord_pixel_3-pixelsY:Ny/2+y_coord_pixel_3+pixelsY) ...
-                =LPmode(Nx/2-pixelsX:Nx/2+pixelsX,Nx/2-pixelsY:Nx/2+pixelsY); 
+      case 1
+        E(Nx/2+1+x_coord_pixel_1-pixelsX:Nx/2+1+x_coord_pixel_1+pixelsX,Ny/2+y_coord_pixel_1-pixelsY:Ny/2+y_coord_pixel_1+pixelsY) ...
+          =LPmode(Nx/2-pixelsX:Nx/2+pixelsX,Nx/2-pixelsY:Nx/2+pixelsY);
+      case 2
+        E(Nx/2+1+x_coord_pixel_2-pixelsX:Nx/2+1+x_coord_pixel_2+pixelsX,Ny/2+y_coord_pixel_2-pixelsY:Ny/2+y_coord_pixel_2+pixelsY) ...
+          =LPmode(Nx/2-pixelsX:Nx/2+pixelsX,Nx/2-pixelsY:Nx/2+pixelsY);
+      case 3
+        E(Nx/2+1+x_coord_pixel_3-pixelsX:Nx/2+1+x_coord_pixel_3+pixelsX,Ny/2+y_coord_pixel_3-pixelsY:Ny/2+y_coord_pixel_3+pixelsY) ...
+          =LPmode(Nx/2-pixelsX:Nx/2+pixelsX,Nx/2-pixelsY:Nx/2+pixelsY);
+      case 23     %Simulataneously exciting 2 and 3 input fibres
+        E(Nx/2+1+x_coord_pixel_2-pixelsX:Nx/2+1+x_coord_pixel_2+pixelsX,Ny/2+y_coord_pixel_2-pixelsY:Ny/2+y_coord_pixel_2+pixelsY) ...
+          =LPmode(Nx/2-pixelsX:Nx/2+pixelsX,Nx/2-pixelsY:Nx/2+pixelsY);
+        E(Nx/2+1+x_coord_pixel_3-pixelsX:Nx/2+1+x_coord_pixel_3+pixelsX,Ny/2+y_coord_pixel_3-pixelsY:Ny/2+y_coord_pixel_3+pixelsY) ...
+          =LPmode(Nx/2-pixelsX:Nx/2+pixelsX,Nx/2-pixelsY:Nx/2+pixelsY);
     end
-
-    case {21, 31}   % Should have run case 2 or 3 before and saved the E data 
-        load([SavedFileName,'.mat']);
-        amplitude = zeros(size(X));
-        for i = 1:3:numel(shapeParameters{1})
-          amplitude = amplitude+exp(-((X-shapeParameters{1}(i)).^2+(Y-shapeParameters{1}(i+1)).^2)/w_0^2);
-        end
-        phase = zeros(size(X));
-        acquiredPhase = NaN(1,numberOfCores);    % Row vector (1D)
-        focusPhase = NaN(1,numberOfCores);    
-        
-        for idx = 1:numberOfCores
-            acquiredPhase(idx) = angle(E(Nx/2+ceil(shapeParameters{1}(idx*2+idx-2)/dx),Ny/2+ceil(shapeParameters{1}(idx*2+idx-1)/dy)));  %Acquired phase of E field at distal end for previous travel through fibre
-            focusPhase(idx) = -k_0*((shapeParameters{1}(idx*2+idx-2))^2+(shapeParameters{1}(idx*2+idx-1))^2)/(2*focus);  %Focusing phase for point focus
-%             focusPhase(idx) = -k_0*(shapeParameters{1}(idx*2+idx-1))^2/(2*focus);  %Focusing phase for horizontal line focus
-            phase(sqrt((X-shapeParameters{1}(idx*2+idx-2)).^2+(Y-shapeParameters{1}(idx*2+idx-1)).^2) < pitch/2) = focusPhase(idx)-acquiredPhase(idx);
-        end
-        E = amplitude.*exp(1i*phase);
+    
+  case {21, 31}   % Should have run case 2 or 3 before and saved the E data
+    load([SavedFileName,'.mat']);
+    amplitude = zeros(size(X));
+    for i = 1:3:numel(shapeParameters{1})
+      amplitude = amplitude+exp(-((X-shapeParameters{1}(i)).^2+(Y-shapeParameters{1}(i+1)).^2)/w_0^2);
+    end
+    phase = zeros(size(X));
+    acquiredPhase = NaN(1,numberOfCores);    % Row vector (1D)
+    focusPhase = NaN(1,numberOfCores);
+    
+    for idx = 1:numberOfCores
+      acquiredPhase(idx) = angle(E(Nx/2+ceil(shapeParameters{1}(idx*2+idx-2)/dx),Ny/2+ceil(shapeParameters{1}(idx*2+idx-1)/dy)));  %Acquired phase of E field at distal end for previous travel through fibre
+      focusPhase(idx) = -k_0*((shapeParameters{1}(idx*2+idx-2))^2+(shapeParameters{1}(idx*2+idx-1))^2)/(2*focus);  %Focusing phase for point focus
+      %             focusPhase(idx) = -k_0*(shapeParameters{1}(idx*2+idx-1))^2/(2*focus);  %Focusing phase for horizontal line focus
+      phase(sqrt((X-shapeParameters{1}(idx*2+idx-2)).^2+(Y-shapeParameters{1}(idx*2+idx-1)).^2) < pitch/2) = focusPhase(idx)-acquiredPhase(idx);
+    end
+    E = amplitude.*exp(1i*phase);
 end
 
 % amplitude2 = 2*exp(-((X+12e-6).^2+(Y+7e-6).^2)/w_0^2);
@@ -584,10 +569,10 @@ end
 end
 
 function shapeRIs = getShapeRIs(segment,fibreType,shapeParameters,n_core)
-    switch fibreType
-        case 4
-            shapeRIs{segment} = [1.4444 1.4444 1.4444 1.4492 1.4511 1.4511]; %
-        otherwise
-            shapeRIs{segment} = n_core*ones(1,size(shapeParameters{1},2)); 
-    end
+switch fibreType
+  case 4
+    shapeRIs{segment} = [1.4444 1.4444 1.4444 1.4492 1.4511 1.4511]; %
+  otherwise
+    shapeRIs{segment} = n_core*ones(1,size(shapeParameters{1},2));
+end
 end
