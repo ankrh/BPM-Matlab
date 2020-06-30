@@ -456,7 +456,7 @@ switch fibreType
   case 1
     E = Eparameters{8}; % LP mode for SMF and MMF
     if size(E,1) == 1 % when it is savedFileName
-        disp('New field is calculated to propagate through the fibre with the given w_0, not the LP mode');
+        disp('New field is calculated to propagate through the fibre with the given w_0, not the LP mode. If you need to input LP mode, please run Example_LPmodes.m');
         amplitude = exp(-((X-shapeParameters{1}(1)).^2+(Y-shapeParameters{1}(2)).^2)/w_0^2);
         phase = zeros(size(X));
         E = amplitude.*exp(1i*phase);
