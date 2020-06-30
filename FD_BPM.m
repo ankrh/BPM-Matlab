@@ -25,17 +25,17 @@ intNorm = false; % Choose true for field to be normalized w.r.t. max intensity, 
 %% USER DEFINED General parameters
 clear Lz taperScaling twistRate shapeTypes shapeParameters shapeRIs bendingRoC bendDirection
 
-lambda = 1050e-9;          % [m] Wavelength
-w_0 = 5e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
+lambda = 810e-9;          % [m] Wavelength
+w_0 = 50e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
 k_0 = 2*pi/lambda; % [m^-1] Wavenumber
 
-n_cladding = 1.45;
-n_core = 1.4666;
+n_cladding = 1.4715675;
+n_core = 1.521;
 pitch = 20e-6;  % 3/4*125e-6; % [m] Intercore separation in multicore fibre, in photonic lantern h=3/2 R_clad, R_clad is 125/2 um
 numberOfCores =37; % [] Numer of cores in the multicore fibre, not used for photonic lantern
-coreRadius = 25e-6;  %[m] Core radius of the multicore fibre
-fibreType = 1;  % Type of fibre for E field initialization - 1: Single/Multimode, 2: Hex multicore, 3: Fermat's multicore 4: Photonic Lantern
-                         %  21/31: Hex/Fermat's multicore with phase programming
+coreRadius = 0.5e-3;  %[m] Core radius of the SMF/MMF/MCF/GRIN lens
+fibreType = 5;  % Type of fibre for E field initialization - 1: Single/Multimode, 2: Hex multicore, 3: Fermat's multicore 4: Photonic Lantern
+                         %  21/31: Hex/Fermat's multicore with phase programming, 5: GRIN Lens
 FibreParameters = {fibreType,numberOfCores,pitch,coreRadius}; 
 photoelasticCoeff = 0.22;  %[] coefficient depending on Poisson’s ratio and componentsof the photoelastic tensor - in bending expression
 photonicLanternInput = 2; %[] 1: LP01 input to SSMF, 2: LP01 input to HI1060 on the right, 3: LP01 input to HI1060 below
@@ -46,11 +46,11 @@ photonicLanternInput = 2; %[] 1: LP01 input to SSMF, 2: LP01 input to HI1060 on 
 % shapes should simply carry over from the previous segment. Otherwise, new
 % shapes are defined, emulating a fiber splice.
 
-Lz{1} = 1e-3; % [m] z propagation distances, one for each segment
+Lz{1} = 6.05e-3; % [m] z propagation distances, one for each segment
 taperScaling{1} = 1; %50/230; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
 twistRate{1} = 0; %2*pi/0.01; % Specifies how rapidly the fiber twists, measured in radians per metre
 shapeParameters = getShapeParameters(1,FibreParameters); % Get centre pixels and radius of core(s) for the segment
-shapeTypes{1} = 4*ones(1,size(shapeParameters{1},2)); % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk, 4: Parabolic GRIN lens in y. length(shapeParameters{1})/3 because the length returns 3 values corresponding to one core (x,y,coreR)
+shapeTypes{1} = 4*ones(1,size(shapeParameters{1},2)); % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk, 4: Parabolic GRIN lens. length(shapeParameters{1})/3 because the length returns 3 values corresponding to one core (x,y,coreR)
 shapeRIs = getShapeRIs(1,fibreType,shapeParameters,n_core); %Refractive indices to use for the shapes
 bendingRoC{1} = Inf;  %[m] Bending radius of curvature for the fibre section
 bendDirection{1} = 0;  % [deg] The angle of bending direction, 0: bending in +x, 90: bending in +y
@@ -92,10 +92,10 @@ end
 
 %% USER DEFINED Resolution-related parameters
 targetzstepsize = 1e-6; % [m] z step size to aim for
-Lx_main = 90e-6;        % [m] x side length of main area
-Ly_main = 90e-6;        % [m] y side length of main area
-Nx_main = 400;          % x resolution of main area
-Ny_main = 400;          % y resolution of main area
+Lx_main = 1e-3;        % [m] x side length of main area
+Ly_main =1e-3;        % [m] y side length of main area
+Nx_main = 500;          % x resolution of main area
+Ny_main = 500;          % y resolution of main area
 
 %% USER DEFINED Solver-related parameters
 useAllCPUs = true;
@@ -410,7 +410,7 @@ if saveData
 end
 
 S = load('train');
-sound(S.y,S.Fs);
+sound(S.y.*0.1,S.Fs);
 
 
 function checkInputs(E,parameters)
@@ -495,6 +495,10 @@ switch fibreType
       phase(sqrt((X-shapeParameters{1}(idx*2+idx-2)).^2+(Y-shapeParameters{1}(idx*2+idx-1)).^2) < pitch/2) = focusPhase(idx)-acquiredPhase(idx);
     end
     E = amplitude.*exp(1i*phase);
+    case 5
+      amplitude = exp(-((X-shapeParameters{1}(1)).^2+(Y-shapeParameters{1}(2)).^2)/w_0^2);
+      phase = zeros(size(X));
+      E = amplitude.*exp(1i*phase);
 end
 
 % amplitude2 = 2*exp(-((X+12e-6).^2+(Y+7e-6).^2)/w_0^2);
@@ -562,6 +566,11 @@ switch fibreType
     shapeParameters{segment} = [-pitch/2/sqrt(3)    pitch/sqrt(3)     -pitch/2/sqrt(3)    -pitch/2/sqrt(3)    pitch/sqrt(3)     -pitch/2/sqrt(3);  % x values
       pitch/2     0    -pitch/2     pitch/2    0     -pitch/2; % y values
       62.5e-6   62.5e-6   62.5e-6   4.5e-6      2.65e-6     2.65e-6]; % r values
+  case 5
+    R = FibreParameters{4};
+    shapeParameters{segment} = [0; % x values
+      0; % y values
+      R]; % r values
   otherwise
     disp('This fibre type is not supported');
     return;
