@@ -73,6 +73,7 @@ struct parameters {
   unsigned char *shapeTypes;
   float *shapeParameters;
   float *shapeRIs;
+  float *gParameters; 
   float *shapexyr;
   floatcomplex *Efinal;
   floatcomplex *E1;
@@ -395,10 +396,11 @@ void applyMultiplier(struct parameters *P_global, long iz) {
               n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
             break;
           }
-          case 4: { // Parabolic graded index lens in x and y
-              float r_ratio_sqr = (sqrf(x - P->shapeParameters[iShape*3])+sqrf(y - P->shapeParameters[iShape*3+1]))/sqrf(P->shapeParameters[iShape*3+2]);
+          case 4: { // 2D Hyperbolic GRIN lens
+              float r_ratio_sqr = (sqrf(x - P->shapexyr[iShape*3])+sqrf(y - P->shapexyr[iShape*3+1]))/sqrf(P->shapexyr[iShape*3+2]);
+              float r_abs = sqrtf(sqrf(x - P->shapexyr[iShape*3])+sqrf(y - P->shapexyr[iShape*3+1]));
               if(r_ratio_sqr < 1)
-                n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
+                n =  2*P->shapeRIs[iShape] * exp(P->gParameters[iShape]*r_abs) / (exp(2*P->gParameters[iShape]*r_abs)+1); // GRINTECH: n = n_0 * sech(gr)
             break;
           }
         }
@@ -533,6 +535,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->shapeTypes = (unsigned char *)mxGetData(mxGetField(prhs[1],0,"shapeTypes"));
   P->shapeParameters = (float *)mxGetData(mxGetField(prhs[1],0,"shapeParameters"));
   P->shapeRIs = (float *)mxGetData(mxGetField(prhs[1],0,"shapeRIs"));
+  P->gParameters = (float *)mxGetData(mxGetField(prhs[1],0,"gParameters"));
   P->rho_e = *(float *)mxGetData(mxGetField(prhs[1],0,"rho_e"));
   P->RoC = *(float *)mxGetData(mxGetField(prhs[1],0,"RoC"));
   P->sinBendDirection = *(float *)mxGetData(mxGetField(prhs[1],0,"sinBendDirection"));
@@ -581,10 +584,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
                 n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
               break;
             }
-            case 4: { // Parabolic graded index lens in x and y
+            case 4: { // 2D Hyperbolic GRIN lens
               float r_ratio_sqr = (sqrf(x - P->shapeParameters[iShape*3])+sqrf(y - P->shapeParameters[iShape*3+1]))/sqrf(P->shapeParameters[iShape*3+2]);
-                if(r_ratio_sqr < 1)
-                  n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
+              float r_abs = sqrtf(sqrf(x - P->shapeParameters[iShape*3])+sqrf(y - P->shapeParameters[iShape*3+1]));
+              if(r_ratio_sqr < 1)
+                n =  2*P->shapeRIs[iShape] * exp(P->gParameters[iShape]*r_abs) / (exp(2*P->gParameters[iShape]*r_abs)+1);  // GRINTECH: n = n_0 * sech(gr) = n_0*2*exp(gr)/(exp(2gr)+1)
               break;
             }
           }

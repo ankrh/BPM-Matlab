@@ -4,32 +4,26 @@
 % To propagate the beam from fibre distal end to the focus point 
 % ***************************************************************************************************
 
-% clear all; 
 close all;
-saveFocusVideo = false; 
+saveFocusVideo = true; 
 saveFocusData = false; 
-% FileName = 'MCF6_twist_8,2mm_1000nm_APC';
-% focusVideoName = ['Data_' today '/' FileName '.avi'];
-% load([FileName '.mat']');
-focusVideoName = 'Focus5mm_MM_fewModes15_05mm_noBend_APC.avi';
-% load('Data_MC_Fermats40_testPointMove_noBend_phased.mat');
-% E=E_MCfermats_40cores_noBend;
+focusVideoName = 'GRIN_collimatedBeam_air'; 
 
 %% User-specified general parameters
-Lx_main = 1600e-6;                                                     % [m] x side length of main area
-Ly_main = 1600e-6;                                                    % [m] y side length of main area
-focus = 5e-3;
+Lx_main = 300e-6;                                                     % [m] x side length of main area
+Ly_main = 300e-6;                                                    % [m] y side length of main area
+focus = 50e-3;
 Lz = focus;                                                          % [m] z propagation distance
-targetzstepsize = 200e-6;                                          % [m] z step size to aim for
+targetzstepsize = 10e-6;                                          % [m] z step size to aim for
 
-Nx_main = 800;                                                         % x resolution of main area
-Ny_main = 800;                                                             % y resolution of main area
+Nx_main = 1000;                                                         % x resolution of main area
+Ny_main = 1000;                                                             % y resolution of main area
 
 lambda = 0.98e-6;                                                % [m] Wavelength 
 w = 30e-6;                                                       % [m] Initial waist plane 1/e^2 radius of the gaussian beam
 
 updates = 200;          % Number of times to update plot. If set higher than Nz (such as Inf), script will simply update every step.
-displayScaling = 2;
+displayScaling = 3;
 
 absorbertype = 4; % 1: No absorber, 2: constant absorber, 3: linear absorber, 4: quadratic absorber
 targetLx = 3*Lx_main; % [m] Full area x side length
@@ -81,7 +75,7 @@ end
 % phase = 0*X;                                         % Phase
 % E_ref = interp2(X.',Y.',amplitude.*exp(1i*phase),X_fft.',Y_fft.','linear',0);                      % Electric field
 
-E_ref = interp2(X.',Y.',E,X_fft.',Y_fft.','linear',0);                      % Electric field
+E_ref = interp2(X.',Y.',E,X_fft.',Y_fft.','linear',0);                      % Electric field, E from the FD_BPM.m output
 
 if saveFocusVideo
     video = VideoWriter(focusVideoName);                   %For saving the propagation frames as a video
@@ -97,12 +91,23 @@ figure1_Settings.monitorNumber = 1; % Main monitor number
 figure1_Settings.size.figureHeight = screenSize(figure1_Settings.monitorNumber,4); % Figure height (pixels)
 figure1_Settings.size.figureWidth = screenSize(figure1_Settings.monitorNumber,3); % Figure width (pixels)
 set(gcf, 'Position',  [0, 0, figure1_Settings.size.figureWidth, figure1_Settings.size.figureHeight]);
-h_im = imagesc(x,y,abs(E_ref.').^2);
+
+subplot(1,2,1);
+h_im_I = imagesc(x,y,abs(E_ref.').^2);
 colormap(jet);
-% h_im1_xticklabel = get(gca,'XTickLabel');
-% set(gca,'XTickLabel',h_im1_xticklabel,'FontSize',10,'fontweight','bold')
-h_imtitle = title({'Intensity profile',' at z = 0 m'});
-h_imtitle.FontSize = 20;
+h_imItitle = title({'Intensity profile',' at z = 0 m'});
+h_imItitle.FontSize = 20;
+axis xy
+axis equal
+xlim([-Lx/displayScaling Lx/displayScaling]);
+ylim([-Ly/displayScaling Ly/displayScaling]);
+colorbar;
+
+subplot(1,2,2);
+h_im_phi = imagesc(x,y,angle(E_ref.'));
+colormap(gca,hsv/1.5);
+h_imPhiTitle = title({'Phase profile',' at z = 0 m'});
+h_imPhiTitle.FontSize = 20;
 axis xy
 axis equal
 xlim([-Lx/displayScaling Lx/displayScaling]);
@@ -119,12 +124,13 @@ nextupdatesliceindicesindex = 1;
 
 tic
 for zidx = 1:Nz
-%     pause(0.05);
     E_ref = absorber.*ifft2(fft2(E_ref).*prop_kernel);
     
     if zidx == updatesliceindices(nextupdatesliceindicesindex)
-        h_im.CData = abs(E_ref.').^2;
-        h_imtitle.String = {['Intensity profile'];['at z = ' num2str(zidx*dz_air,'%.1e') ' m']};
+        h_im_I.CData = abs(E_ref.').^2;
+        h_imItitle.String = {['Intensity profile'];['at z = ' num2str(zidx*dz_air,'%.1e') ' m']};
+        h_im_phi.CData = angle(E_ref.');
+        h_imPhiTitle.String = {['Phase profile'];['at z = ' num2str(zidx*dz_air,'%.1e') ' m']};
 
         nextupdatesliceindicesindex = nextupdatesliceindicesindex + 1;
         drawnow;
@@ -139,15 +145,14 @@ toc
 if saveFocusVideo
 	close(video);
 end
-% figure('Renderer', 'painters', 'Position', [0 0 400 400]); imagesc(x,y,abs((E_ref(100:400,100:400)).').^2); axis tight equal; set(gca,'xtick',[]); set(gca,'ytick',[]);
+
 if saveFocusData
     E_air_focus = E_ref; 
-%     save('Data_MM_fewModes15_05mm_noBend_APC_focus.mat','powers','Lz','z_updates',...
+%     save('FileName.mat','powers','Lz','z_updates',...
 %             'E','n_mat','nx','ny','dx','dy','Lambda','x','y','X','Y','RHO','w_0','k_0','lambda','E_0','num_cores','E_air_focus');
-save('Data_MCF_Fermats_1cm_30cores_b0_LSx_focus.mat',...
+save('Data_GRIN_lens_collimated_air.mat',...
             'E','Nx','Ny','dx','dy','x','y','E_air_focus');
 end
     
-WarnWave = [sin(1:.6:400), sin(1:.7:400), sin(1:.4:400)];
-Audio = audioplayer(WarnWave, 22050);
-play(Audio);
+S = load('train');
+sound(S.y.*0.1,S.Fs);
