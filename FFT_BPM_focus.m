@@ -5,35 +5,35 @@
 % ***************************************************************************************************
 
 close all;
-saveFocusVideo = false; 
-saveFocusData = false; 
-focusVideoName = 'GRIN_collimatedBeam_air_2D'; 
+saveFFTvideo = false;  % To save the field intensity and phase profiles at different transverse planes
+saveFFTdata = false;  % To save the required variables from the simulation result
+FFTfileName = 'GRIN_collimatedBeam_air_1D';  % File name for the saved video and data files for the current simulation
+FFTvideoName = [FFTfileName '.avi'];  
 
 %% User-specified general parameters
-Lx_main = 300e-6;                                                     % [m] x side length of main area
-Ly_main = 300e-6;                                                    % [m] y side length of main area
-focus = 8e-3;
-Lz = focus;                                                          % [m] z propagation distance
-targetzstepsize = 400e-6;                                          % [m] z step size to aim for
+Lx_main = 800e-6;  % [m] x side length of main area
+Ly_main = 800e-6;  % [m] y side length of main area
+Lz = 8e-3;  % [m] z propagation distance
+targetzstepsize = 400e-6;  % [m] z step size to aim for
 
-Nx_main = 1000;                                                         % x resolution of main area
-Ny_main = 1000;                                                             % y resolution of main area
+Nx_main = 1000;  % x resolution of main area
+Ny_main = 1000;  % y resolution of main area
 
-lambda = 0.98e-6;                                                % [m] Wavelength 
-w = 30e-6;                                                       % [m] Initial waist plane 1/e^2 radius of the gaussian beam
+lambda = 0.98e-6;  % [m] Wavelength 
+w = 30e-6;  % [m] Initial waist plane 1/e^2 radius of the gaussian beam
 
-updates = 200;          % Number of times to update plot. If set higher than Nz (such as Inf), script will simply update every step.
-displayScaling = 3;
+updates = 200;  % Number of times to update plot. If set higher than Nz (such as Inf), script will simply update every step.
+displayScaling = 2;  % Zooms in on figures 1a,b. Set to 1 for no zooming. 
 
 absorbertype = 4; % 1: No absorber, 2: constant absorber, 3: linear absorber, 4: quadratic absorber
-targetLx = 3*Lx_main; % [m] Full area x side length
-targetLy = 3*Ly_main;    % [m] Full area y side length
+targetLx = 3*Lx_main;  % [m] Full area x side length
+targetLy = 3*Ly_main;  % [m] Full area y side length
 alpha = 10e1; % [1/m] "Absorption coefficient", used for absorbertype 2
 beta = 10e4; % [1/m^2] "Absorption coefficient" per unit length distance out from edge of main area, used for absorbertype 3
-gamma = 3e8; % [1/m^3] "Absorption coefficient" per unit length distance out from edge of main area, squared, used for absorbertype 4
+gamma = 3e14; % [1/m^3] "Absorption coefficient" per unit length distance out from edge of main area, squared, used for absorbertype 4
 
 %% Initialization of space and frequency grids
-Nz = round(Lz/targetzstepsize);                                       % Number of z steps
+Nz = round(Lz/targetzstepsize);  % [] Number of z steps
 
 dx_air = Lx_main/Nx_main;
 dy_air = Ly_main/Ny_main;
@@ -77,8 +77,8 @@ end
 
 E_ref = interp2(X.',Y.',E,X_fft.',Y_fft.','linear',0);                      % Electric field, E from the FD_BPM.m output
 
-if saveFocusVideo
-    video = VideoWriter(focusVideoName);                   %For saving the propagation frames as a video
+if saveFFTvideo
+    video = VideoWriter(FFTvideoName);                   %For saving the propagation frames as a video
     open(video);
 end
 %% Fresnel Propagation and plotting
@@ -99,8 +99,8 @@ h_imItitle = title({'Intensity profile',' at z = 0 m'});
 h_imItitle.FontSize = 20;
 axis xy
 axis equal
-xlim([-Lx/displayScaling Lx/displayScaling]);
-ylim([-Ly/displayScaling Ly/displayScaling]);
+xlim([-Lx/(2*displayScaling) Lx/(2*displayScaling)]);
+ylim([-Ly/(2*displayScaling) Ly/(2*displayScaling)]);
 colorbar;
 
 subplot(1,2,2);
@@ -110,11 +110,11 @@ h_imPhiTitle = title({'Phase profile',' at z = 0 m'});
 h_imPhiTitle.FontSize = 20;
 axis xy
 axis equal
-xlim([-Lx/displayScaling Lx/displayScaling]);
-ylim([-Ly/displayScaling Ly/displayScaling]);
+xlim([-Lx/(2*displayScaling) Lx/(2*displayScaling)]);
+ylim([-Ly/(2*displayScaling) Ly/(2*displayScaling)]);
 colorbar;
 
-if saveFocusVideo
+if saveFFTvideo
     frame = getframe(gcf);                                     %Get the frames 
     writeVideo(video,frame);                                  %Stitch the frames to form a video and save
 end
@@ -134,7 +134,7 @@ for zidx = 1:Nz
 
         nextupdatesliceindicesindex = nextupdatesliceindicesindex + 1;
         drawnow;
-        if saveFocusVideo
+        if saveFFTvideo
             frame = getframe(gcf);                                     %Get the frames 
             writeVideo(video,frame);                                  %Stitch the frames to form a video and save
         end
@@ -142,16 +142,15 @@ for zidx = 1:Nz
 end
 toc
 
-if saveFocusVideo
+if saveFFTvideo
 	close(video);
 end
 
-if saveFocusData
+if saveFFTdata
     E_air_focus = E_ref; 
-%     save('FileName.mat','powers','Lz','z_updates',...
+%     save('FFTfileName.mat','powers','Lz','z_updates',...
 %             'E','n_mat','nx','ny','dx','dy','Lambda','x','y','X','Y','RHO','w_0','k_0','lambda','E_0','num_cores','E_air_focus');
-save('Data_GRIN_lens_collimated_air.mat',...
-            'E','Nx','Ny','dx','dy','x','y','E_air_focus');
+    save(FFTfileName,'E','Nx','Ny','dx','dy','x','y','E_air_focus');
 end
     
 S = load('train');

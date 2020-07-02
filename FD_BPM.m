@@ -14,7 +14,7 @@
 format long
 format compact
 
-FileName = 'GRIN_GT-CFRL-100-025-20-CC_810';  % File name for the saved video and data files for the current simulation1
+FileName = 'GRIN_GT-CFRL-100-025-20-CC_810';  % File name for the saved video and data files for the current simulation
 SavedFileName = 'MCF_Hex37_1cm_noTwist_noBend_NxNy400_dz1um_1';  % File name of the saved data file from which the phase of E can be programmed (fibreType 21 or 31)
 videoName = [FileName '.avi']; 
  
@@ -25,16 +25,16 @@ intNorm = false; % Choose true for field to be normalized w.r.t. max intensity, 
 %% USER DEFINED General parameters
 clear Lz taperScaling twistRate shapeTypes shapeParameters shapeRIs bendingRoC bendDirection
 
-lambda = 810e-9;          % [m] Wavelength
-w_0 = 5e-6;             % [m] Initial waist plane 1/e^2 radius of the gaussian beam
-k_0 = 2*pi/lambda; % [m^-1] Wavenumber
+lambda = 810e-9;  % [m] Wavelength
+w_0 = 5e-6;  % [m] Initial waist plane 1/e^2 radius of the gaussian beam
+k_0 = 2*pi/lambda;  % [m^-1] Wavenumber
 
-n_cladding = 1.0;
-n_core = 1.521;
+n_cladding = 1.0;  % [] Cladding refractive index
+n_core = 1.521;  % [] Core refractive index
 pitch = 20e-6;  % 3/4*125e-6; % [m] Intercore separation in multicore fibre, in photonic lantern h=3/2 R_clad, R_clad is 125/2 um
 numberOfCores =37; % [] Numer of cores in the multicore fibre, not used for photonic lantern
 coreRadius = 0.5e-3;  %[m] Core radius of the SMF/MMF/MCF/GRIN lens
-fibreType = 4;  % Type of fibre for E field initialization - 1: Single/Multimode, 2: Hex multicore, 3: Fermat's multicore 4: Photonic Lantern
+fibreType = 5;  % Type of fibre for E field initialization - 1: Single/Multimode, 2: Hex multicore, 3: Fermat's multicore 4: Photonic Lantern
                          %  21/31: Hex/Fermat's multicore with phase programming, 5: GRIN Lens
 FibreParameters = {fibreType,numberOfCores,pitch,coreRadius}; 
 photoelasticCoeff = 0.22;  %[] coefficient depending on Poisson’s ratio and componentsof the photoelastic tensor - in bending expression
@@ -111,7 +111,7 @@ alpha = 3e14;             % [1/m^3] "Absorption coefficient" per unit length dis
 %% USER DEFINED Visualization parameters
 updatesTotal = 150;            % Number of times to update plot. Must be at least 1, showing the final state.
 downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
-displayScaling = 2;  % Zooms in on figures 1 & 3a,b. Set to 2 for no zooming.  
+displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
 if saveVideo
   video = VideoWriter(videoName);
   open(video);
@@ -211,8 +211,8 @@ else
 end
 axis xy
 axis equal
-xlim([-Lx/displayScaling Lx/displayScaling]);
-ylim([-Ly/displayScaling Ly/displayScaling]);
+xlim([-Lx/(2*displayScaling) Lx/(2*displayScaling)]);
+ylim([-Ly/(2*displayScaling) Ly/(2*displayScaling)]);
 colorbar;
 caxis([n_min n_max])
 xlabel('x [m]');
@@ -245,8 +245,8 @@ else
 end
 axis xy;
 axis equal;
-xlim([-Lx/displayScaling Lx/displayScaling]);
-ylim([-Ly/displayScaling Ly/displayScaling]);
+xlim([-Lx/(2*displayScaling) Lx/(2*displayScaling)]);
+ylim([-Ly/(2*displayScaling) Ly/(2*displayScaling)]);
 colorbar;
 caxis('manual');
 xlabel('x [m]');
@@ -270,8 +270,8 @@ end
 h_axis3b.Color = 0.7*[1 1 1];  % To set the color corresponding to phase outside the cores where there is no field at all
 axis xy;
 axis equal;
-xlim([-Lx/displayScaling Lx/displayScaling]);
-ylim([-Ly/displayScaling Ly/displayScaling]);
+xlim([-Lx/(2*displayScaling) Lx/(2*displayScaling)]);
+ylim([-Ly/(2*displayScaling) Ly/(2*displayScaling)]);
 colorbar;
 caxis([-pi pi]);
 % if max(n_mat(:) > min(n_mat(:))); contour(X,Y,n_mat,(n_cladding+eps(n_cladding))*[1 1],'color','w','linestyle','--'); end
