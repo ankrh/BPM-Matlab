@@ -14,7 +14,7 @@
 format long
 format compact
 
-FileName = 'GRIN_GT-CFRL-100-025-20-CC_810';  % File name for the saved video and data files for the current simulation
+FileName = 'GRIN_GT-CFRL-100-025-20-CC_810';  % File name for the saved video and data files for the current simulation1
 SavedFileName = 'MCF_Hex37_1cm_noTwist_noBend_NxNy400_dz1um_1';  % File name of the saved data file from which the phase of E can be programmed (fibreType 21 or 31)
 videoName = [FileName '.avi']; 
  
@@ -34,7 +34,7 @@ n_core = 1.521;
 pitch = 20e-6;  % 3/4*125e-6; % [m] Intercore separation in multicore fibre, in photonic lantern h=3/2 R_clad, R_clad is 125/2 um
 numberOfCores =37; % [] Numer of cores in the multicore fibre, not used for photonic lantern
 coreRadius = 0.5e-3;  %[m] Core radius of the SMF/MMF/MCF/GRIN lens
-fibreType = 5;  % Type of fibre for E field initialization - 1: Single/Multimode, 2: Hex multicore, 3: Fermat's multicore 4: Photonic Lantern
+fibreType = 4;  % Type of fibre for E field initialization - 1: Single/Multimode, 2: Hex multicore, 3: Fermat's multicore 4: Photonic Lantern
                          %  21/31: Hex/Fermat's multicore with phase programming, 5: GRIN Lens
 FibreParameters = {fibreType,numberOfCores,pitch,coreRadius}; 
 photoelasticCoeff = 0.22;  %[] coefficient depending on Poisson’s ratio and componentsof the photoelastic tensor - in bending expression
@@ -92,7 +92,7 @@ else
 end
 
 %% USER DEFINED Resolution-related parameters
-targetzstepsize = 1e-6; % [m] z step size to aim for
+targetzstepsize = 0.5e-6; % [m] z step size to aim for
 Lx_main = 0.7e-3;        % [m] x side length of main area
 Ly_main = 0.7e-3;        % [m] y side length of main area
 Nx_main = 700;          % x resolution of main area

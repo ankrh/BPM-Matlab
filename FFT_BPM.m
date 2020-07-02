@@ -16,7 +16,7 @@ Ly = 300e-6;                                                         % [m] y sid
 Lz = 2e-3;                                                       % [m] z propagation distance
 
 lambda = 632.8e-9;                                               % [m] Wavelength 
-w = 10e-6;                                                       % [m] Initial waist plane 1/e^2 radius of the gaussian beam
+w = 100e-6;                                                       % [m] Initial waist plane 1/e^2 radius of the gaussian beam
 
 %% Initialization of space and frequency grids
 dx = Lx/Nx;
@@ -32,33 +32,36 @@ ky = 2*pi/Ly*(-Ny/2:Ny/2-1);
 [kX,kY] = ndgrid(kx,ky);
 
 %% Beam initialization
-amplitude = exp(-(X.^2+Y.^2)/w^2);                             % Gaussian field amplitude
-phase = zeros(Nx,Ny);                                            % Phase
-E = amplitude.*exp(1i*phase);                                    % Electric field
+% amplitude = exp(-(X.^2+Y.^2)/w^2);                             % Gaussian field amplitude
+% phase = zeros(Nx,Ny);                                            % Phase
+% E_prop = amplitude.*exp(1i*phase);                                    % Electric field
+E_ref = interp2(X.',Y.',E,X_fft.',Y_fft.','linear',0);                      % Electric field, E from the FD_BPM.m output
 
 %% Figure initialization
 h_fig1 = figure(1);
 set(h_fig1,'Position',[50 50 Nx+150 Ny/2+150]); clf;
 h_ax1 = axes('Units','pixels','Position', [50 75 Nx/2 Ny/2]);
-h_im1 = imagesc(x,y,abs(E.').^2);
+h_im1 = imagesc(x,y,abs(E_prop.').^2);
 axis xy
 set(h_ax1, 'xlimmode','manual', 'ylimmode','manual');
+colormap(jet)
 
 h_ax2 = axes('Units','pixels','Position', [Nx/2+100 75 Nx/2 Ny/2]);
-h_im2 = imagesc(x,y,angle(E.'));
+h_im2 = imagesc(x,y,angle(E_prop.'));
 axis xy
 set(h_ax2, 'xlimmode','manual', 'ylimmode','manual');
+colormap(gca,hsv/1.5);
        
 %% Fresnel Propagation and plotting
 prop_kernel = ifftshift(exp(-1i*dz*(kX.^2 + kY.^2)*lambda/(4*pi))); % Fresnel propagation kernel
 
 for zidx = 1:Nz
-    E = ifft2(fft2(E).*prop_kernel);
+    E_prop = ifft2(fft2(E_prop).*prop_kernel);
     
     h_ax1.Title.String = ['Intensity at z = ' num2str(zidx*dz,'%.1e') ' m'];
-    h_im1.CData = abs(E.').^2;
+    h_im1.CData = abs(E_prop.').^2;
     h_ax2.Title.String = ['Phase at z = ' num2str(zidx*dz,'%.1e') ' m'];
-    h_im2.CData = angle(E.');
+    h_im2.CData = angle(E_prop.');
     drawnow;
 end
 

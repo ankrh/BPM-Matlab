@@ -5,16 +5,16 @@
 % ***************************************************************************************************
 
 close all;
-saveFocusVideo = true; 
+saveFocusVideo = false; 
 saveFocusData = false; 
-focusVideoName = 'GRIN_collimatedBeam_air'; 
+focusVideoName = 'GRIN_collimatedBeam_air_2D'; 
 
 %% User-specified general parameters
 Lx_main = 300e-6;                                                     % [m] x side length of main area
 Ly_main = 300e-6;                                                    % [m] y side length of main area
-focus = 50e-3;
+focus = 8e-3;
 Lz = focus;                                                          % [m] z propagation distance
-targetzstepsize = 10e-6;                                          % [m] z step size to aim for
+targetzstepsize = 400e-6;                                          % [m] z step size to aim for
 
 Nx_main = 1000;                                                         % x resolution of main area
 Ny_main = 1000;                                                             % y resolution of main area
@@ -82,7 +82,7 @@ if saveFocusVideo
     open(video);
 end
 %% Fresnel Propagation and plotting
-prop_kernel = exp(-1i*dz_air*(kX.^2+kY.^2)*lambda/(4*pi)); % Fresnel propagation kernel
+prop_kernel = exp(1i*dz_air*(kX.^2+kY.^2)*lambda/(4*pi)); % Fresnel propagation kernel
 
 figure(1);
 figure1_Settings = [];
