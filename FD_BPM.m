@@ -18,7 +18,7 @@ FileName = 'GRIN_GT-CFRL-100-025-20-CC_810';  % File name for the saved video an
 SavedFileName = 'MCF_Hex37_1cm_noTwist_noBend_NxNy400_dz1um_1';  % File name of the saved data file from which the phase of E can be programmed (fibreType 21 or 31)
 videoName = [FileName '.avi']; 
  
-saveVideo = true;  % To save the field intensity and phase profiles at different transverse planes
+saveVideo = false;  % To save the field intensity and phase profiles at different transverse planes
 saveData = false;  % To save the required variables from the simulation result
 intNorm = false; % Choose true for field to be normalized w.r.t. max intensity, false to normalize such that total power is 1
 
@@ -50,7 +50,7 @@ Lz{1} = 6.05e-3; % [m] z propagation distances, one for each segment
 taperScaling{1} = 1; %50/230; % Specifies how much the refractive index profile of the last z slice should be scaled relative to the first z slice, linearly scaling in between
 twistRate{1} = 0; %2*pi/0.01; % Specifies how rapidly the fiber twists, measured in radians per metre
 shapeParameters = getShapeParameters(1,FibreParameters); % Get centre x,y [m] centre values and radius of core(s) for the segment
-shapeTypes{1} = 4*ones(1,size(shapeParameters{1},2)); % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk, 4: 2D Hyperbolic GRIN lens, 5: 1D Hyperbolic sech GRIN lens. length(shapeParameters{1})/3 because the length returns 3 values corresponding to one core (x,y,coreR)
+shapeTypes{1} = 5*ones(1,size(shapeParameters{1},2)); % Shape types for each segment. An empty array in a cell means that the previous shapes carry over. Shape types are 1: Circular step-index disk, 2: Antialiased circular step-index disk, 3: Parabolic graded index disk, 4: 2D Hyperbolic GRIN lens, 5: 1D Hyperbolic sech GRIN lens. length(shapeParameters{1})/3 because the length returns 3 values corresponding to one core (x,y,coreR)
 shapeRIs = getShapeRIs(1,fibreType,shapeParameters,n_core); %Refractive indices to use for the shapes
 gParameters{1} = 260*ones(1,size(shapeParameters{1},2)); % [m^-1] Gradient constant (g) values for GRIN lens. Applicable for shapeTypes 4 and 5. 
 bendingRoC{1} = Inf;  %[m] Bending radius of curvature for the fibre section
