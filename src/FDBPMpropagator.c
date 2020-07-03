@@ -473,13 +473,21 @@ void createDeviceStructs(struct parameters *P, struct parameters **P_devptr,
   long N = P->Nx*P->Ny;
   struct parameters P_tempvar = *P;
 
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeTypes,P->Nshapes*sizeof(unsigned char)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapeTypes,P->shapeTypes,P->Nshapes*sizeof(unsigned char),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeParameters,P->Nshapes*3*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapeParameters,P->shapeParameters,P->Nshapes*3*sizeof(float),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapexs,P->Nshapes*sizeof(float)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapexs,P->shapexs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeys,P->Nshapes*sizeof(float)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapeys,P->shapeys,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeRs,P->Nshapes*sizeof(float)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapeRs,P->shapeRs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeTypes,P->Nshapes*sizeof(float)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapeTypes,P->shapeTypes,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
   gpuErrchk(cudaMalloc(&P_tempvar.shapeRIs,P->Nshapes*sizeof(float)));
   gpuErrchk(cudaMemcpy(P_tempvar.shapeRIs,P->shapeRIs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapexyr,P->Nshapes*3*sizeof(float)));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapegs,P->Nshapes*sizeof(float)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapegs,P->shapegs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapexs_transformed,P->Nshapes*sizeof(float)));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeys_transformed,P->Nshapes*sizeof(float)));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeRs_transformed,P->Nshapes*sizeof(float)));
 
   gpuErrchk(cudaMalloc(&P_tempvar.E1,N*sizeof(floatcomplex)));
   gpuErrchk(cudaMemcpy(P_tempvar.E1,P->E1,N*sizeof(floatcomplex),cudaMemcpyHostToDevice));
@@ -511,10 +519,15 @@ void retrieveAndFreeDeviceStructs(struct parameters *P, struct parameters *P_dev
     gpuErrchk(cudaFree(P_temp.n_out));
   }
 
+  gpuErrchk(cudaFree(P_temp.shapexs));
+  gpuErrchk(cudaFree(P_temp.shapeys));
+  gpuErrchk(cudaFree(P_temp.shapeRs));
   gpuErrchk(cudaFree(P_temp.shapeTypes));
-  gpuErrchk(cudaFree(P_temp.shapeParameters));
   gpuErrchk(cudaFree(P_temp.shapeRIs));
-  gpuErrchk(cudaFree(P_temp.shapexyr));
+  gpuErrchk(cudaFree(P_temp.shapegs));
+  gpuErrchk(cudaFree(P_temp.shapexs_transformed));
+  gpuErrchk(cudaFree(P_temp.shapeys_transformed));
+  gpuErrchk(cudaFree(P_temp.shapeRs_transformed));
 
   gpuErrchk(cudaFree(P_temp.E1));
   gpuErrchk(cudaFree(P_temp.E2));
