@@ -1,5 +1,9 @@
 clear P % Parameters struct
 
+% This example shows a basic case of launching an off-center Gaussian beam
+% into a multimode step index fiber core and watching as the modes beat
+% with each other.
+
 %% General and solver-related settings
 P.name = mfilename;
 P.useAllCPUs = true;
@@ -7,11 +11,12 @@ P.useGPU = false;
 P.intNorm = false; % Choose true for field to be normalized w.r.t. max intensity, false to normalize such that total power is 1
 
 %% Visualization parameters
+P.figNum = 1;
 P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
 P.updates = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
 P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
-P.plotEmax = 5e-4; % Max of color scale in the intensity plot 
+P.plotEmax = 0.5; % Max of color scale in the intensity plot 
 
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 20e-6;        % [m] x side length of main area

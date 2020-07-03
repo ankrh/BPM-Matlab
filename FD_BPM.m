@@ -18,6 +18,12 @@ format compact
 k_0 = 2*pi/P.lambda;  % [m^-1] Wavenumber
 videoName = [P.name '.avi'];
 
+if isempty(P.shapes)
+  P.shapes = [0 0 -1 1 0];
+end
+if ~isfield(P,'figNum')
+  P.figNum = 1;
+end
 if ~isfield(P,'Eparameters')
   P.Eparameters = {};
 end
@@ -122,12 +128,9 @@ else % Interpolate source E field to new grid
   E = interp2(X_source.',Y_source.',P.E.field.',X.',Y.','linear',0).';
 end
 
-if P.intNorm
-  E = complex(single(E/sqrt(max(abs(E(:)).^2)))); % Normalize and force to be complex single precision
-else
-  E = complex(single(E/sqrt(sum(abs(E(:)).^2)))); % Normalize and force to be complex single precision
-end
+E = complex(single(E)); % Force to be complex single precision
 E_0 = E;  % For initial intensity, phase, and power values
+P_0 = sum(abs(E_0(:)).^2);
 
 %% Calculate z step size and positions
 Nz = max(P.updates,round(P.Lz/P.dz_target)); % Number of z steps in this segment
@@ -146,7 +149,7 @@ absorber = exp(-dz*max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.al
 multiplier = absorber; % This could also include a phase gradient due to bending
 
 %% Figure initialization
-h_f = figure(1);clf;
+h_f = figure(P.figNum);clf;
 h_f.WindowState = 'maximized';
 
 subplot(2,2,1)
@@ -157,9 +160,10 @@ else
 end
 axis xy
 axis equal
-xlim([-Lx/(2*P.displayScaling) Lx/(2*P.displayScaling)]);
-ylim([-Ly/(2*P.displayScaling) Ly/(2*P.displayScaling)]);
+xlim([-1 1]*Lx/(2*P.displayScaling));
+ylim([-1 1]*Ly/(2*P.displayScaling));
 colorbar;
+colormap(parula);
 if isfield(P,'n_colorlimits')
   caxis(P.n_colorlimits);
 end
@@ -168,11 +172,7 @@ ylabel('y [m]');
 title('Refractive index');
 
 powers = NaN(1,P.updates+1);
-if P.intNorm
-  powers(1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2);
-else
-  powers(1) = sum(abs(E(:)).^2);
-end
+powers(1) = sum(abs(E(:)).^2)/P_0;
 subplot(2,2,2);
 h_plot2 = plot(zUpdates,powers,'linewidth',2);
 xlim([0 P.Lz]);
@@ -189,8 +189,8 @@ else
 end
 axis xy;
 axis equal;
-xlim([-Lx/(2*P.displayScaling) Lx/(2*P.displayScaling)]);
-ylim([-Ly/(2*P.displayScaling) Ly/(2*P.displayScaling)]);
+xlim([-1 1]*Lx/(2*P.displayScaling));
+ylim([-1 1]*Ly/(2*P.displayScaling));
 colorbar;
 xlabel('x [m]');
 ylabel('y [m]');
@@ -218,8 +218,8 @@ end
 h_axis3b.Color = 0.7*[1 1 1];  % To set the color corresponding to phase outside the cores where there is no field at all
 axis xy;
 axis equal;
-xlim([-Lx/(2*P.displayScaling) Lx/(2*P.displayScaling)]);
-ylim([-Ly/(2*P.displayScaling) Ly/(2*P.displayScaling)]);
+xlim([-1 1]*Lx/(2*P.displayScaling));
+ylim([-1 1]*Ly/(2*P.displayScaling));
 colorbar;
 caxis([-pi pi]);
 line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
@@ -235,7 +235,7 @@ if P.saveVideo
   writeVideo(video,frame);  %Stitch the frames to form a video and save
 end
 
-tic;
+% tic;
 %% Load variables into a parameters struct and start looping, one iteration per update
 mexParameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
   'shapes',single(P.shapes),'n_cladding',single(P.n_cladding),'multiplier',complex(single(multiplier)),'d',single(d),'n_0',single(P.n_0),...
@@ -260,19 +260,18 @@ for updidx = 1:length(zUpdateIdxs)
     h_im1.CData = n(ix_plot,iy_plot).'; % Refractive index at this update
     h_im3a.CData = abs(E(ix_plot,iy_plot).').^2; % Intensity at this update
     h_im3b.CData = angle(E(ix_plot,iy_plot).'/maxE0); % Phase at this update
-    h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/maxE0).^2)/3));  %Logarithmic transparency in displaying phase outside cores
+    h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
   else
     h_im1.CData = n.'; % Refractive index at this update
     h_im3a.CData = abs(E.').^2; % Intensity at this update
     h_im3b.CData = angle(E.'/maxE0); % Phase at this update
-    h_im3b.AlphaData = max(0,(1+log10(abs(E.'/maxE0).^2)/3));  %Logarithmic transparency in displaying phase outside cores
+    h_im3b.AlphaData = max(0,(1+log10(abs(E.'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
   end
-
-  if P.intNorm
-    powers(updidx+1) = sum(abs(E(:)).^2)/sum(abs(E_0(:)).^2); 
-  else
-    powers(updidx+1) = sum(abs(E(:)).^2);
+  if ~isfield(P,'plotEmax')
+    h_axis3a.CLim = [0 max(h_im3a.CData(:))];
   end
+  
+  powers(updidx+1) = sum(abs(E(:)).^2)/P_0; 
   h_plot2.YData = powers;
   drawnow;
   
@@ -281,7 +280,7 @@ for updidx = 1:length(zUpdateIdxs)
     writeVideo(video,frame); 
   end
 end
-toc
+% toc
 
 if P.saveVideo
 	close(video);
@@ -289,8 +288,8 @@ end
 
 Estruct = struct('field',E,'Lx',Lx,'Ly',Ly);
 
-S = load('train');
-sound(S.y.*0.1,S.Fs);
+% S = load('train');
+% sound(S.y.*0.1,S.Fs);
 end
 
 function checkMexInputs(E,parameters)
