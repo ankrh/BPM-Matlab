@@ -19,6 +19,7 @@
 #include <math.h>
 #include <stdint.h>
 #include "mex.h"
+#define PI acosf(-1.0f)
 #ifdef _OPENMP
   #include "omp.h"
 #endif
@@ -70,11 +71,15 @@ struct parameters {
   float n_cladding;
   float n_0;
   long Nshapes;
-  unsigned char *shapeTypes;
-  float *shapeParameters;
+  float *shapexs;
+  float *shapeys;
+  float *shapeRs;
+  float *shapeTypes;
   float *shapeRIs;
-  float *gParameters; 
-  float *shapexyr;
+  float *shapegs;
+  float *shapexs_transformed;
+  float *shapeys_transformed;
+  float *shapeRs_transformed;
   floatcomplex *Efinal;
   floatcomplex *E1;
   floatcomplex *E2;
@@ -340,9 +345,9 @@ void calcShapexyr(struct parameters *P, long iz) { // Called with only one threa
   float sinvalue = sinf(P->twistPerStep*iz);
   float scaling = 1 - P->taperPerStep*iz;
   for(long iShape=0;iShape<P->Nshapes;iShape++) {
-    P->shapexyr[iShape*3  ] = scaling*(cosvalue*P->shapeParameters[iShape*3] - sinvalue*P->shapeParameters[iShape*3+1]);
-    P->shapexyr[iShape*3+1] = scaling*(sinvalue*P->shapeParameters[iShape*3] + cosvalue*P->shapeParameters[iShape*3+1]);
-    P->shapexyr[iShape*3+2] = scaling*P->shapeParameters[iShape*3+2];
+    P->shapexs_transformed[iShape] = scaling*(cosvalue*P->shapexs[iShape] - sinvalue*P->shapeys[iShape]);
+    P->shapeys_transformed[iShape] = scaling*(sinvalue*P->shapexs[iShape] + cosvalue*P->shapeys[iShape]);
+    P->shapeRs_transformed[iShape] = scaling*P->shapeRs[iShape];
   }
 }
 
@@ -375,14 +380,14 @@ void applyMultiplier(struct parameters *P_global, long iz) {
 
       float n = P->n_cladding;
       for(long iShape=0;iShape<P->Nshapes;iShape++) {
-        switch(P->shapeTypes[iShape]) {
+        switch((int)P->shapeTypes[iShape]) {
           case 1: // Step-index disk
-            if(sqrf(x - P->shapexyr[iShape*3]) + sqrf(y - P->shapexyr[iShape*3+1]) < sqrf(P->shapexyr[iShape*3+2]))
+            if(sqrf(x - P->shapexs_transformed[iShape]) + sqrf(y - P->shapeys_transformed[iShape]) < sqrf(P->shapeRs_transformed[iShape]))
               n = P->shapeRIs[iShape];
             break;
           case 2: { // Antialiased step-index disk
             float delta = MAX(P->dx,P->dy); // Width of antialiasing slope
-            float r_diff = sqrtf(sqrf(x - P->shapexyr[iShape*3]) + sqrf(y - P->shapexyr[iShape*3+1])) - P->shapexyr[iShape*3+2] + delta/2.0f;
+            float r_diff = sqrtf(sqrf(x - P->shapexs_transformed[iShape]) + sqrf(y - P->shapeys_transformed[iShape])) - P->shapeRs_transformed[iShape] + delta/2.0f;
             if(r_diff < 0) {
               n = P->shapeRIs[iShape];
             } else if(r_diff < delta) {
@@ -391,23 +396,23 @@ void applyMultiplier(struct parameters *P_global, long iz) {
             break;
           }
           case 3: { // Parabolic graded index disk
-            float r_ratio_sqr = (sqrf(x - P->shapexyr[iShape*3]) + sqrf(y - P->shapexyr[iShape*3+1]))/sqrf(P->shapexyr[iShape*3+2]);
+            float r_ratio_sqr = (sqrf(x - P->shapexs_transformed[iShape]) + sqrf(y - P->shapeys_transformed[iShape]))/sqrf(P->shapeRs_transformed[iShape]);
             if(r_ratio_sqr < 1)
               n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
             break;
           }
           case 4: { // 2D Hyperbolic GRIN lens
-              float r_ratio_sqr = (sqrf(x - P->shapexyr[iShape*3])+sqrf(y - P->shapexyr[iShape*3+1]))/sqrf(P->shapexyr[iShape*3+2]);
-              float r_abs = sqrtf(sqrf(x - P->shapexyr[iShape*3])+sqrf(y - P->shapexyr[iShape*3+1]));
+              float r_ratio_sqr = (sqrf(x - P->shapexs_transformed[iShape])+sqrf(y - P->shapeys_transformed[iShape]))/sqrf(P->shapeRs_transformed[iShape]);
+              float r_abs = sqrtf(sqrf(x - P->shapexs_transformed[iShape])+sqrf(y - P->shapeys_transformed[iShape]));
               if(r_ratio_sqr < 1)
-                n =  2*P->shapeRIs[iShape] * exp(P->gParameters[iShape]*r_abs) / (exp(2*P->gParameters[iShape]*r_abs)+1); // GRINTECH: n = n_0 * sech(gr)
+                n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1); // GRINTECH: n = n_0 * sech(gr)
             break;
           }
           case 5: { // 1D (y) Hyperbolic GRIN lens
-              float r_ratio_sqr = sqrf(y - P->shapexyr[iShape*3+1])/sqrf(P->shapexyr[iShape*3+2]);
-              float r_abs = y - P->shapexyr[iShape*3+1];
+              float r_ratio_sqr = sqrf(y - P->shapeys_transformed[iShape])/sqrf(P->shapeRs_transformed[iShape]);
+              float r_abs = y - P->shapeys_transformed[iShape];
               if(r_ratio_sqr < 1)
-                n =  2*P->shapeRIs[iShape] * exp(P->gParameters[iShape]*r_abs) / (exp(2*P->gParameters[iShape]*r_abs)+1); 
+                n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1); 
             break;
           }
         }
@@ -538,16 +543,20 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->d = *(float *)mxGetData(mxGetField(prhs[1],0,"d"));
   P->n_cladding = *(float *)mxGetData(mxGetField(prhs[1],0,"n_cladding"));
   P->n_0 = *(float *)mxGetData(mxGetField(prhs[1],0,"n_0"));
-  P->Nshapes = (long)mxGetN(mxGetField(prhs[1],0,"shapeTypes"));
-  P->shapeTypes = (unsigned char *)mxGetData(mxGetField(prhs[1],0,"shapeTypes"));
-  P->shapeParameters = (float *)mxGetData(mxGetField(prhs[1],0,"shapeParameters"));
-  P->shapeRIs = (float *)mxGetData(mxGetField(prhs[1],0,"shapeRIs"));
-  P->gParameters = (float *)mxGetData(mxGetField(prhs[1],0,"gParameters"));
+  P->Nshapes = (long)mxGetM(mxGetField(prhs[1],0,"shapes"));
+  P->shapexs = (float *)mxGetData(mxGetField(prhs[1],0,"shapes"));
+  P->shapeys = P->shapexs + P->Nshapes;
+  P->shapeRs = P->shapeys + P->Nshapes;
+  P->shapeTypes = P->shapeRs + P->Nshapes;
+  P->shapeRIs = P->shapeTypes + P->Nshapes;
+  P->shapegs = P->shapeRIs + P->Nshapes;
   P->rho_e = *(float *)mxGetData(mxGetField(prhs[1],0,"rho_e"));
   P->RoC = *(float *)mxGetData(mxGetField(prhs[1],0,"RoC"));
-  P->sinBendDirection = *(float *)mxGetData(mxGetField(prhs[1],0,"sinBendDirection"));
-  P->cosBendDirection = *(float *)mxGetData(mxGetField(prhs[1],0,"cosBendDirection"));
-  P->shapexyr = (float *)malloc(P->Nshapes*3*sizeof(float));
+  P->sinBendDirection = sin(*(float *)mxGetData(mxGetField(prhs[1],0,"bendDirection"))/180*PI);
+  P->cosBendDirection = cos(*(float *)mxGetData(mxGetField(prhs[1],0,"bendDirection"))/180*PI);
+  P->shapexs_transformed = (float *)malloc(P->Nshapes*sizeof(float));
+  P->shapeys_transformed = (float *)malloc(P->Nshapes*sizeof(float));
+  P->shapeRs_transformed = (float *)malloc(P->Nshapes*sizeof(float));
   P->E1 = (floatcomplex *)mxGetData(prhs[0]); // Input E field
   mwSize const *dimPtr = mxGetDimensions(prhs[0]);
   P->Efinal = (floatcomplex *)mxGetData(plhs[0] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxCOMPLEX)); // Output E field
@@ -570,14 +579,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
         long i = ix + iy*P->Nx;
         float n = P->n_cladding;
         for(long iShape=0;iShape<P->Nshapes;iShape++) {
-          switch(P->shapeTypes[iShape]) {
+          switch((int)P->shapeTypes[iShape]) {
             case 1: // Step-index disk
-              if(sqrf(x - P->shapeParameters[iShape*3]) + sqrf(y - P->shapeParameters[iShape*3+1]) < sqrf(P->shapeParameters[iShape*3+2]))
+              if(sqrf(x - P->shapexs[iShape]) + sqrf(y - P->shapeys[iShape]) < sqrf(P->shapeRs[iShape]))
                 n = P->shapeRIs[iShape];
               break;
             case 2: { // Antialiased step-index disk
               float delta = MAX(P->dx,P->dy); // Width of antialiasing slope
-              float r_diff = sqrtf(sqrf(x - P->shapeParameters[iShape*3]) + sqrf(y - P->shapeParameters[iShape*3+1])) - P->shapeParameters[iShape*3+2] + delta/2.0f;
+              float r_diff = sqrtf(sqrf(x - P->shapexs[iShape]) + sqrf(y - P->shapeys[iShape])) - P->shapeRs[iShape] + delta/2.0f;
               if(r_diff < 0) {
                 n = P->shapeRIs[iShape];
               } else if(r_diff < delta) {
@@ -586,23 +595,23 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
               break;
             }
             case 3: { // Parabolic graded index disk
-              float r_ratio_sqr = (sqrf(x - P->shapeParameters[iShape*3]) + sqrf(y - P->shapeParameters[iShape*3+1]))/sqrf(P->shapeParameters[iShape*3+2]);
+              float r_ratio_sqr = (sqrf(x - P->shapexs[iShape]) + sqrf(y - P->shapeys[iShape]))/sqrf(P->shapeRs[iShape]);
               if(r_ratio_sqr < 1)
                 n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
               break;
             }
             case 4: { // 2D Hyperbolic GRIN lens
-              float r_ratio_sqr = (sqrf(x - P->shapeParameters[iShape*3])+sqrf(y - P->shapeParameters[iShape*3+1]))/sqrf(P->shapeParameters[iShape*3+2]);
-              float r_abs = sqrtf(sqrf(x - P->shapeParameters[iShape*3])+sqrf(y - P->shapeParameters[iShape*3+1]));
+              float r_ratio_sqr = (sqrf(x - P->shapexs[iShape])+sqrf(y - P->shapeys[iShape]))/sqrf(P->shapeRs[iShape]);
+              float r_abs = sqrtf(sqrf(x - P->shapexs[iShape])+sqrf(y - P->shapeys[iShape]));
               if(r_ratio_sqr < 1)
-                n =  2*P->shapeRIs[iShape] * exp(P->gParameters[iShape]*r_abs) / (exp(2*P->gParameters[iShape]*r_abs)+1);  // GRINTECH: n = n_0 * sech(gr) = n_0*2*exp(gr)/(exp(2gr)+1)
+                n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1);  // GRINTECH: n = n_0 * sech(gr) = n_0*2*exp(gr)/(exp(2gr)+1)
               break;
             }
             case 5: { // 1D (y) Hyperbolic GRIN lens
-              float r_ratio_sqr = sqrf(y - P->shapeParameters[iShape*3+1])/sqrf(P->shapeParameters[iShape*3+2]);
-              float r_abs = y - P->shapeParameters[iShape*3+1];
+              float r_ratio_sqr = sqrf(y - P->shapeys[iShape])/sqrf(P->shapeRs[iShape]);
+              float r_abs = y - P->shapeys[iShape];
               if(r_ratio_sqr < 1)
-                n =  2*P->shapeRIs[iShape] * exp(P->gParameters[iShape]*r_abs) / (exp(2*P->gParameters[iShape]*r_abs)+1); 
+                n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1); 
               break;
             }
           }
@@ -688,7 +697,9 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   #else
   if(P->E1 != mxGetData(prhs[0]) && P->E1 != P->Efinal) free(P->E1); // Part of the reason for checking this is to properly handle ctrl-c cases
   free(P->b);
-  free(P->shapexyr);
+  free(P->shapexs_transformed);
+  free(P->shapeys_transformed);
+  free(P->shapeRs_transformed);
   free(P->multiplier);
   #endif
   return;
