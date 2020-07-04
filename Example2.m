@@ -14,7 +14,6 @@ clear P % Parameters struct
 P.name = mfilename;
 P.useAllCPUs = true;
 P.useGPU = false;
-P.intNorm = false; % Choose true for field to be normalized w.r.t. max intensity, false to normalize such that total power is 1
 
 %% Visualization parameters
 P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
@@ -36,6 +35,8 @@ P.lambda = 1000e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46;
 P.Lz = 2e-3; % [m] z propagation distances for this segment
+P.taperScaling = 1;
+P.twistRate = 0;
 
 % In the shapes 2D array, each row is a shape such as a core in a fiber.
 % Column 1 are the x coordinates, column 2 are the y coordinates, column 3
@@ -51,14 +52,14 @@ P.shapes = [ -7e-6   -7e-6    10e-6  1  1.46;
               2e-6   12e-6    10e-6  3  1.465];
 
 % P.E can be either a function that takes X, Y and Eparameters as inputs
-% and provides the complex E field as output, or it can be a (2x1) cell array in
-% which the first cell is a complex E field matrix and the second cell is a
-% (2x1) array [Lx, Ly] that describe the side lengths of the provided E
-% matrix. In the case of a cell array, the provided E field will be adapted
-% to the new grid using the interp2 function.
+% and provides the complex E field as output, or it can be a struct with 3
+% fields: a 'field' field which is the complex E-field matrix, and 'Lx' and
+% 'Ly' fields that describe the side lengths of the provided E matrix. In
+% the case of a struct, the provided E field will be adapted to the new
+% grid using the interp2 function.
 P.E = @calcInitialE; % Defined at the end of this file
 
-%% Run solver
+% Run solver
 [E_out,shapes_out] = FD_BPM(P);
 
 %% Next segment
@@ -68,7 +69,7 @@ P.twistRate = 2*pi/P.Lz;
 P.shapes = shapes_out;
 P.E = E_out;
 
-%% Run solver
+% Run solver
 [E_out,shapes_out] = FD_BPM(P);
 
 %% Next segment
@@ -78,18 +79,16 @@ P.twistRate = 0;
 P.shapes = shapes_out;
 P.E = E_out;
 
-%% Run solver
+% Run solver
 [E_out,shapes_out] = FD_BPM(P);
 
 %% Next segment
 P.Lz = 3e-3;
-P.taperScaling = 1;
-P.twistRate = 0;
 P.shapes = shapes_out(3,:);
 P.E = E_out;
 
-%% Run solver
-[E_out,shapes_out] = FD_BPM(P);
+% Run solver
+FD_BPM(P);
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size

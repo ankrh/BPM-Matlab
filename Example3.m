@@ -12,7 +12,6 @@ clear P % Parameters struct
 P.name = mfilename;
 P.useAllCPUs = true;
 P.useGPU = false;
-P.intNorm = false; % Choose true for field to be normalized w.r.t. max intensity, false to normalize such that total power is 1
 
 %% Visualization parameters
 P.figNum = 1;
@@ -48,20 +47,18 @@ P.Lz = 2e-3; % [m] z propagation distances for this segment
 P.shapes = [ 0 0 5e-6  2  1.46];
 
 % P.E can be either a function that takes X, Y and Eparameters as inputs
-% and provides the complex E field as output, or it can be a (2x1) cell array in
-% which the first cell is a complex E field matrix and the second cell is a
-% (2x1) array [Lx, Ly] that describe the side lengths of the provided E
-% matrix. In the case of a cell array, the provided E field will be adapted
-% to the new grid using the interp2 function.
+% and provides the complex E field as output, or it can be a struct with 3
+% fields: a 'field' field which is the complex E-field matrix, and 'Lx' and
+% 'Ly' fields that describe the side lengths of the provided E matrix. In
+% the case of a struct, the provided E field will be adapted to the new
+% grid using the interp2 function.
 P.E = @calcInitialE; % Defined at the end of this file
 
-%% Run solver
-[E_out,shapes_out] = FD_BPM(P);
+% Run solver
+[E_out,~] = FD_BPM(P);
 
 %% Part 2 run with FDBPM
 P.figNum = 2;
-P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
-P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
 
 P.n_0 = 1.45;
 P.shapes = []; % Remove the shape
@@ -70,32 +67,19 @@ P.Lx_main = 100e-6;        % [m] x side length of main area
 P.Ly_main = 100e-6;        % [m] y side length of main area
 P.Nx_main = 500;          % x resolution of main area
 P.Ny_main = 500;          % y resolution of main area
-P.dz_target = 1e-6; % [m] z step size to aim for
 P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
 
 P.Lz = 2e-4; % [m] z propagation distances for this segment
 
 P.E = E_out;
 
-%% Run solver
-[~,~] = FD_BPM(P);
+% Run solver
+FD_BPM(P);
 
 %% Part 2 run with FFTBPM for comparison
 P.figNum = 3;
-P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
-P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
 
-P.Lx_main = 100e-6;        % [m] x side length of main area
-P.Ly_main = 100e-6;        % [m] y side length of main area
-P.Nx_main = 500;          % x resolution of main area
-P.Ny_main = 500;          % y resolution of main area
-P.dz_target = 1e-4; % [m] z step size to aim for
-P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
-P.Lz = 2e-4; % [m] z propagation distances for this segment
-
-P.E = E_out;
-
-%% Run solver
+% Run solver
 [E_out] = FFT_BPM(P);
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION

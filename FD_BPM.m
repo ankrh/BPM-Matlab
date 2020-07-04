@@ -19,10 +19,25 @@ k_0 = 2*pi/P.lambda;  % [m^-1] Wavenumber
 videoName = [P.name '.avi'];
 
 if isempty(P.shapes)
-  P.shapes = [0 0 -1 1 0];
+  P.shapes = [0 0 0 1 0];
 end
 if ~isfield(P,'figNum')
   P.figNum = 1;
+end
+if ~isfield(P,'saveVideo')
+  P.saveVideo = false;
+end
+if ~isfield(P,'useGPU')
+  P.useGPU = false;
+end
+if ~isfield(P,'useAllCPUs')
+  P.useAllCPUs = false;
+end
+if ~isfield(P,'downsampleImages')
+  P.downsampleImages = false;
+end
+if ~isfield(P,'displayScaling')
+  P.displayScaling = 1;
 end
 if ~isfield(P,'Eparameters')
   P.Eparameters = {};
@@ -152,7 +167,7 @@ multiplier = absorber; % This could also include a phase gradient due to bending
 h_f = figure(P.figNum);clf;
 h_f.WindowState = 'maximized';
 
-subplot(2,2,1)
+h_axis1 = subplot(2,2,1);
 if P.downsampleImages
   h_im1 = imagesc(x_plot,y_plot,zeros(min(500,Ny),min(500,Nx),'single'));
 else
@@ -201,7 +216,7 @@ if isfield(P,'plotEmax')
   caxis('manual');
   caxis([0 P.plotEmax]);
 else
-  caxis([0 max(abs(E(:).^2))]);
+  caxis('auto');
 end
 
 h_axis3b = subplot(2,2,4);
@@ -267,8 +282,11 @@ for updidx = 1:length(zUpdateIdxs)
     h_im3b.CData = angle(E.'/maxE0); % Phase at this update
     h_im3b.AlphaData = max(0,(1+log10(abs(E.'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
   end
+  if updidx == 1
+    caxis(h_axis1,'auto'); % To refresh the numbers on the color bar
+  end
   if ~isfield(P,'plotEmax')
-    h_axis3a.CLim = [0 max(h_im3a.CData(:))];
+    caxis(h_axis3a,'auto');
   end
   
   powers(updidx+1) = sum(abs(E(:)).^2)/P_0; 

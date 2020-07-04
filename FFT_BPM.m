@@ -14,7 +14,7 @@ if ~isfield(P,'Eparameters')
 end
 
 %% Initialization of space and frequency grids
-Nz = max(P.updates,round(P.Lz/P.dz_target)); % Number of z steps in this segment
+Nz = P.updates; % Number of z steps in this segment
 
 targetLx = P.padfactor*P.Lx_main;
 targetLy = P.padfactor*P.Ly_main;
@@ -67,8 +67,14 @@ end
 h_f = figure(P.figNum);clf;
 h_f.WindowState = 'maximized';
 
-subplot(1,2,1);
+h_ax1 = subplot(1,2,1);
 h_im_I = imagesc(x,y,abs(E.').^2);
+if isfield(P,'plotEmax')
+  caxis('manual');
+  caxis([0 P.plotEmax]);
+else
+  caxis('auto');
+end
 colormap(gca,GPBGYRcolormap);
 h_imItitle = title({'Intensity profile',' at z = 0 m'});
 h_imItitle.FontSize = 20;
@@ -79,10 +85,10 @@ ylim([-1 1]*Ly/(2*P.displayScaling));
 line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
 colorbar;
 
-h_ax = subplot(1,2,2);
+h_ax2 = subplot(1,2,2);
 h_im_phi = imagesc(x,y,angle(E.'));
 h_im_phi.AlphaData = max(0,(1+log10(abs(E.'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
-h_ax.Color = 0.7*[1 1 1];
+h_ax2.Color = 0.7*[1 1 1];
 colormap(gca,hsv/1.5);
 h_imPhiTitle = title({'Phase profile',' at z = 0 m'});
 h_imPhiTitle.FontSize = 20;
@@ -107,10 +113,13 @@ for zidx = 1:Nz
   
   if zidx == updatesliceindices(nextupdatesliceindicesindex)
     h_im_I.CData = abs(E.').^2;
-    h_imItitle.String = {['Intensity profile'];['at z = ' num2str(zidx*dz,'%.1e') ' m']};
+    if ~isfield(P,'plotEmax')
+      caxis(h_ax1,'auto'); %  To refresh the numbers on the color bar
+    end
+    h_imItitle.String = {'Intensity profile';['at z = ' num2str(zidx*dz,'%.1e') ' m']};
     h_im_phi.CData = angle(E.');
     h_im_phi.AlphaData = max(0,(1+log10(abs(E.'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
-    h_imPhiTitle.String = {['Phase profile'];['at z = ' num2str(zidx*dz,'%.1e') ' m']};
+    h_imPhiTitle.String = {'Phase profile';['at z = ' num2str(zidx*dz,'%.1e') ' m']};
     
     nextupdatesliceindicesindex = nextupdatesliceindicesindex + 1;
     drawnow;
@@ -130,3 +139,4 @@ Estruct = struct('field',E,'Lx',Lx,'Ly',Ly);
 
 % S = load('train');
 % sound(S.y.*0.1,S.Fs);
+end
