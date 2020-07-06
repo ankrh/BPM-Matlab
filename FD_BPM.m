@@ -17,6 +17,7 @@ format compact
 
 k_0 = 2*pi/P.lambda;  % [m^-1] Wavenumber
 videoName = [P.name '.avi'];
+dataName = [P.name '.mat'];
 
 if isempty(P.shapes)
   P.shapes = [0 0 0 1 0];
@@ -26,6 +27,9 @@ if ~isfield(P,'figNum')
 end
 if ~isfield(P,'saveVideo')
   P.saveVideo = false;
+end
+if ~isfield(P,'saveData')
+  P.saveData = false;
 end
 if ~isfield(P,'useGPU')
   P.useGPU = false;
@@ -304,7 +308,11 @@ if P.saveVideo
 	close(video);
 end
 
-Estruct = struct('field',E,'Lx',Lx,'Ly',Ly);
+Estruct = struct('field',E,'Lx',Lx,'Ly',Ly,'x',x,'y',y);
+
+if P.saveData
+	save(dataName, 'P','Estruct','shapes_out');
+end
 
 % S = load('train');
 % sound(S.y.*0.1,S.Fs);

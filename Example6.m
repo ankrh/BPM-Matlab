@@ -12,6 +12,7 @@ P.useGPU = false;
 
 %% Visualization parameters
 P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
+P.saveData = false; % To save the struct P  
 P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
 P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
@@ -73,7 +74,7 @@ P.E = @calcInitialE; % Defined at the end of this file
 P.Lz = 2e-3;
 P.taperScaling = 1;
 P.twistRate = 0;
-P.bendingRoC = 2e-2;
+P.bendingRoC = Inf;
 P.bendDirection = 0;
 P.shapes = shapes_out;
 P.E = E_out;
