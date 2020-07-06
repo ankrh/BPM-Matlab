@@ -1,6 +1,6 @@
 clear P % Parameters struct
 
-% This example consists of multiple segments of hexagonal multicore fiber.
+% This example consists of multiple segments of Fermat's golden spiral multicore fiber.
 % Segments 1-3 are straight fibres of equal lengths (Lz/3). Bending could
 % be introduced to segment 2 for verifying bending-related field variations
 % in the multicore fibre. 
@@ -17,10 +17,10 @@ P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when h
 P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
 
 %% Resolution-related parameters (check for convergence)
-P.Lx_main = 120e-6;        % [m] x side length of main area
-P.Ly_main = 120e-6;        % [m] y side length of main area
-P.Nx_main = 500;          % x resolution of main area
-P.Ny_main = 500;          % y resolution of main area
+P.Lx_main = 150e-6;        % [m] x side length of main area
+P.Ly_main = 150e-6;        % [m] y side length of main area
+P.Nx_main = 600;          % x resolution of main area
+P.Ny_main = 600;          % y resolution of main area
 P.padfactor = 1.5;  % How much absorbing padding to add on the sides of the main area (1 means no padding, 2 means the absorbing padding on both sides is of thickness Lx_main/2)
 P.dz_target = 1e-6; % [m] z step size to aim for
 P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
@@ -35,7 +35,7 @@ P.twistRate = 0;
 P.bendingRoC = Inf;
 P.bendDirection = 0;
 numberOfCores = 19;  %[] Number of cores in the multicore fibre
-pitch = 20e-6; % [m] Intercore spacing
+pitch = 15e-6; % [m] Intercore spacing
 R = 2e-6; % [m] Core radius
 n_core = 1.46; % Cores' refractive index 
 w_0 = 2.35e-6; % [m] Input Gaussian waist
@@ -114,33 +114,16 @@ pitch = FibreParameters{2};
 R = FibreParameters{3};
 n_core = FibreParameters{4};
 shapeType = FibreParameters{5};
+rho_n = pitch*sqrt(1:numberOfCores);
+theta_n = (1:numberOfCores)*pi*(3-sqrt(5));
+x_n = rho_n.*cos(theta_n);
+y_n = rho_n.*sin(theta_n);
 shapeParameters = NaN(5,numberOfCores); % Initialize output array
 shapeParameters(3,:) = R; % All cores have radius R
 shapeParameters(4,:) = shapeType; % All cores have the same shape type
 shapeParameters(5,:) = n_core; % All cores have the same refractive index
-shapeParameters(1:2,1) = [0; 0]; % x and y of the center core
-shellSideIdx = 1; % Which side of the hex are we filling?
-shellSideCoreIdx = 0; % How many cores on this side have been filled so far?
-shellNum = 1; % Which shell are we in? The center core is not counted as a shell.
-for coreIdx = 2:numberOfCores
-  if shellSideCoreIdx == 0 % If this is the first core in this shell
-    shapeParameters(1:2,coreIdx) = [shellNum*pitch; 0];
-  else % Find new core position by adding onto the previous core's position
-    shapeParameters(1:2,coreIdx) = shapeParameters(1:2,coreIdx-1) + [pitch*cos(shellSideIdx*pi/3 + pi/3); pitch*sin(shellSideIdx*pi/3 + pi/3)];
-  end
-
-  if shellSideCoreIdx == shellNum % If this side has been filled
-    shellSideIdx = shellSideIdx + 1;
-    shellSideCoreIdx = 1;
-  else % Continue filling this side
-    shellSideCoreIdx = shellSideCoreIdx + 1;
-  end
-
-  if shellSideCoreIdx == shellNum && shellSideIdx == 6 % Last core on last side would be a replicate of the first one drawn in this shell, so skip
-    shellNum = shellNum + 1;
-    shellSideIdx = 1;
-    shellSideCoreIdx = 0;
-  end
+for coreIdx = 1:numberOfCores
+    shapeParameters(1:2,coreIdx) = [x_n(coreIdx); y_n(coreIdx)];
 end
 shapeParameters = shapeParameters.'; % Format: x y R shapeType n_core: in one row
 end
