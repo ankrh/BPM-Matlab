@@ -27,6 +27,7 @@ P.dz_target = 1e-6; % [m] z step size to aim for
 P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
 
 %% Problem definition - straight multicore fibre
+P.figTitle = 'Segment 1';
 P.lambda = 1000e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46;
@@ -74,6 +75,7 @@ P.E = @calcInitialE; % Defined at the end of this file
 [E_out,shapes_out] = FD_BPM(P);
 
 %% Second segment - bent multicore fibre
+P.figTitle = 'Segment 2';
 P.Lz = 2e-3;
 P.taperScaling = 1;
 P.twistRate = 0;
@@ -86,6 +88,7 @@ P.E = E_out;
 [E_out,shapes_out] = FD_BPM(P);
 
 %% Third segment - straight multicore fibre
+P.figTitle = 'Segment 3';
 P.Lz = 2e-3;
 P.taperScaling = 1;
 P.twistRate = 0;
@@ -105,6 +108,7 @@ P.Ny_main = 2000;          % y resolution of main area
 P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
 
 P.figNum = 2;
+P.figTitle = 'In air';
 P.Lz = focalLength;
 P.E = E_out;
 

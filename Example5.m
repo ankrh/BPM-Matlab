@@ -13,6 +13,7 @@ P.useGPU = false;
 
 %% Visualization parameters
 P.figNum = 1;
+P.figTitle = 'In GRIN Lens';
 P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
 P.updates = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
 P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
@@ -57,6 +58,7 @@ P.E = @calcInitialE; % Defined at the end of this file
 
 %% Output E from FDBPM propagating in air with FFTBPM
 P.figNum = 2;
+P.figTitle = 'In air';
 P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
 P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
 

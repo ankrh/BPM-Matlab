@@ -9,6 +9,9 @@ videoName = [P.name '.avi'];
 if ~isfield(P,'figNum')
   P.figNum = 1;
 end
+if ~isfield(P,'figTitle')
+  P.figTitle = '';
+end
 if ~isfield(P,'Eparameters')
   P.Eparameters = {};
 end
@@ -103,6 +106,8 @@ if P.saveVideo
   frame = getframe(gcf);                                     %Get the frames
   writeVideo(video,frame);                                  %Stitch the frames to form a video and save
 end
+
+sgtitle(P.figTitle,'FontSize',20,'FontWeight','bold');
 
 updatesliceindices = unique(round(linspace(1,Nz,min(Nz,P.updates))));
 nextupdatesliceindicesindex = 1;

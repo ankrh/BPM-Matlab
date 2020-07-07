@@ -12,7 +12,7 @@ P.useGPU = false;
 
 %% Visualization parameters
 P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
-P.saveData = true; % To save the struct P  
+P.saveData = true; % To save the struct P and output E field
 P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
 P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
@@ -27,6 +27,7 @@ P.dz_target = 1e-6; % [m] z step size to aim for
 P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
 
 %% Problem definition - straight multicore fibre
+P.figTitle = 'Segment 1';
 P.lambda = 980e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46;
@@ -71,6 +72,7 @@ P.E = @calcInitialE; % Defined at the end of this file
 [E_out,shapes_out] = FD_BPM(P);
 
 %% Second segment - bent multicore fibre
+P.figTitle = 'Segment 2';
 P.Lz = 2e-3;
 P.taperScaling = 1;
 P.twistRate = 0;
@@ -83,6 +85,7 @@ P.E = E_out;
 [E_out,shapes_out] = FD_BPM(P);
 
 %% Third segment - straight multicore fibre
+P.figTitle = 'Segment 3';
 P.Lz = 2e-3;
 P.taperScaling = 1;
 P.twistRate = 0;

@@ -34,6 +34,7 @@ P.lambda = 1000e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46;
 P.Lz = 2e-3; % [m] z propagation distances for this segment
+P.figTitle = 'Example 1';
 
 % In the shapes 2D array, each row is a shape such as a core in a fiber.
 % Column 1 are the x coordinates, column 2 are the y coordinates, column 3
@@ -59,6 +60,7 @@ P.E = @calcInitialE; % Defined at the end of this file
 
 %% Part 2 run with FDBPM
 P.figNum = 2;
+P.figTitle = 'FD BPM';
 
 P.n_0 = 1.45;
 P.shapes = []; % Remove the shape
@@ -78,6 +80,7 @@ FD_BPM(P);
 
 %% Part 2 run with FFTBPM for comparison
 P.figNum = 3;
+P.figTitle = 'FFT BPM';
 
 % Run solver
 [E_out] = FFT_BPM(P);

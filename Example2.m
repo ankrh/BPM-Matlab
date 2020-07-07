@@ -37,6 +37,7 @@ P.n_0 = 1.46;
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 P.taperScaling = 1;
 P.twistRate = 0;
+P.figTitle = 'Segment 1';
 
 % In the shapes 2D array, each row is a shape such as a core in a fiber.
 % Column 1 are the x coordinates, column 2 are the y coordinates, column 3
@@ -63,6 +64,7 @@ P.E = @calcInitialE; % Defined at the end of this file
 [E_out,shapes_out] = FD_BPM(P);
 
 %% Next segment
+P.figTitle = 'Segment 2';
 P.Lz = 5e-3;
 P.taperScaling = 0.15;
 P.twistRate = 2*pi/P.Lz;
@@ -73,6 +75,7 @@ P.E = E_out;
 [E_out,shapes_out] = FD_BPM(P);
 
 %% Next segment
+P.figTitle = 'Segment 3';
 P.Lz = 2e-3;
 P.taperScaling = 1;
 P.twistRate = 0;
@@ -83,6 +86,7 @@ P.E = E_out;
 [E_out,shapes_out] = FD_BPM(P);
 
 %% Next segment
+P.figTitle = 'Segment 4';
 P.Lz = 3e-3;
 P.shapes = shapes_out(3,:);
 P.E = E_out;

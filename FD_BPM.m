@@ -25,6 +25,9 @@ end
 if ~isfield(P,'figNum')
   P.figNum = 1;
 end
+if ~isfield(P,'figTitle')
+  P.figTitle = '';
+end
 if ~isfield(P,'saveVideo')
   P.saveVideo = false;
 end
@@ -247,6 +250,7 @@ ylabel('y [m]');
 title('Phase [rad]');
 colormap(gca,hsv/1.5);
 
+sgtitle(P.figTitle,'FontSize',15,'FontWeight','bold');
 drawnow;
 
 if P.saveVideo
