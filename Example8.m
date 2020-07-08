@@ -54,9 +54,6 @@ focalLength = 5e-3; % [m] Focal length of applied phase
 % Shape types are 1: Circular step-index disk, 2: Antialiased circular
 % step-index disk, 3: Parabolic graded index disk, 4: GRIN lens focusing in
 % both x and y, 5: GRIN lens focusing only in y.
-% P.shapes = [ -7e-6   -7e-6    10e-6  1  1.46;
-%              15e-6    0     1.25e-6  2  1.46;
-%               2e-6   12e-6    10e-6  3  1.465];
 shapeType = 2; % [] Shape type of all the cores
 
 FibreParameters = {numberOfCores, pitch, R, n_core, shapeType}; 

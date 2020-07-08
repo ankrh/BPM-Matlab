@@ -1,6 +1,6 @@
 clear P % Parameters struct
 
-% This example consists of multiple segments of Fermat's golden spiral multicore fiber.
+% This example consists of multiple segments of hexagonal multicore fiber.
 % Segments 1-3 are straight fibres of equal lengths (Lz/3). Bending could
 % be introduced to segment 2 for verifying bending-related field variations
 % in the multicore fibre. 
@@ -12,7 +12,7 @@ P.useGPU = false;
 
 %% Visualization parameters
 P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
-P.saveData = true; % To save the struct P and output E field
+P.saveData = false; % To save the struct P  
 P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
 P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
@@ -41,6 +41,9 @@ pitch = 15e-6; % [m] Intercore spacing
 R = 2e-6; % [m] Core radius
 n_core = 1.46; % Cores' refractive index 
 w_0 = 2.35e-6; % [m] Input Gaussian waist
+focusType = 1; % [] 1: Point focus, 2: Cylindrical focus at fibre distal end
+k_0 = 2*pi/P.lambda; 
+focalLength = 5e-3; % [m] Focal length of applied phase
 
 % In the shapes 2D array, each row is a shape such as a core in a fiber.
 % Column 1 are the x coordinates, column 2 are the y coordinates, column 3
@@ -62,7 +65,7 @@ P.shapes = getShapeParameters(FibreParameters);  % Defined at the end of this fi
 % 'Ly' fields that describe the side lengths of the provided E matrix. In
 % the case of a struct, the provided E field will be adapted to the new
 % grid using the interp2 function.
-P.Eparameters = {w_0, numberOfCores, P.shapes};
+P.Eparameters = {w_0, numberOfCores, P.shapes, k_0, focusType, focalLength, pitch};
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
@@ -94,17 +97,57 @@ P.E = E_out;
 % Run solver
 [E_out,shapes_out] = FD_BPM(P);
 
+%% Fourth segment - Free space FFTBPM propagation from fibre distal end
+P.Lx_main = 1200e-6;        % [m] x side length of main area
+P.Ly_main = 1200e-6;        % [m] y side length of main area
+P.Nx_main = 2000;          % x resolution of main area
+P.Ny_main = 2000;          % y resolution of main area
+P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
+
+P.figNum = 2;
+P.figTitle = 'In air';
+P.Lz = focalLength;
+P.E = E_out;
+
+% Run solver
+[E_out_fft] = FFT_BPM(P);
+
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
 w_0 = Eparameters{1};
 numberOfCores = Eparameters{2};
 shapeParameters = Eparameters{3};
+k_0 = Eparameters{4};
+focusType = Eparameters{5};
+focalLength = Eparameters{6};
+pitch = Eparameters{7};
+Nx= size(X,1); Ny= size(Y,1);
+dx = X(2,1) - X(1,1);
+dy = Y(1,2) - Y(1,1);
+try
+    load(['Example7.mat']);  % Load the output E field data after propagating through a straight multicore fiber
+catch
+    error('You need to run Example7.m and save the data before Example9.m');
+end
 amplitude = zeros(size(X));
 for i = 1:numberOfCores
     amplitude = amplitude+exp(-((X-shapeParameters(i)).^2+(Y-shapeParameters(i+numberOfCores)).^2)/w_0^2);
 end
 phase = zeros(size(X));
+acquiredPhase = NaN(1,numberOfCores);    % Row vector (1D)
+focusPhase = NaN(1,numberOfCores);
+
+for idx = 1:numberOfCores
+  acquiredPhase(idx) = angle(Estruct.field(Nx/2+ceil(shapeParameters(idx)/dx),Ny/2+ceil(shapeParameters(idx+numberOfCores)/dy)));  %Acquired phase of E field (Estruct.field) at distal end for previous travel through straight fibre
+  switch focusType
+      case 1
+          focusPhase(idx) = -k_0*((shapeParameters(idx))^2+(shapeParameters(idx+numberOfCores))^2)/(2*focalLength);  %Focusing phase for point focus
+      case 2
+          focusPhase(idx) = -k_0*(shapeParameters(idx))^2/(2*focalLength);  %Focusing phase for horizontal line focus
+  end           
+  phase(sqrt((X-shapeParameters(idx)).^2+(Y-shapeParameters(idx+numberOfCores)).^2) < pitch/2) = focusPhase(idx)-acquiredPhase(idx);
+end
 E = amplitude.*exp(1i*phase);
 end
 
