@@ -1,21 +1,25 @@
 clear P % Parameters struct
 
 % This example consists of multiple segments of hexagonal multicore fiber.
-% Segments 1-3 are straight fibres of equal lengths (Lz/3). Bending could
-% be introduced to segment 2 for verifying bending-related field variations
-% in the multicore fibre. 
+% Segments 1-3 are straight fibres of equal lengths (Lz/3). This example is
+% meant to propagate the field without any input phase applied to the proximal
+% end so as to retrieve the acquired phase at the fiber distal end upon
+% propagation in Example 8
 
 %% General and solver-related settings
-P.name = mfilename;
+P.name = [mfilename, '_NoInputPhase'];
 P.useAllCPUs = true;
 P.useGPU = false;
 
 %% Visualization parameters
-P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
+P.saveVideo = true; % To save the field intensity and phase profiles at different transverse planes
 P.saveData = true; % To save the struct P and output E field
-P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
+P.updates = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
 P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
+dataName = [P.name '.mat'];
+E_final = {};  % Initialising Eoutput array which is finally saved after all segment simulations 
+powers_final = {}; 
 
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 120e-6;        % [m] x side length of main area
@@ -31,7 +35,7 @@ P.figTitle = 'Segment 1';
 P.lambda = 980e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46;
-P.Lz = 2e-3; % [m] z propagation distances for this segment
+P.Lz = 1e-2; % [m] z propagation distances for this segment
 P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
@@ -66,11 +70,12 @@ P.Eparameters = {w_0, numberOfCores, P.shapes};
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
-[E_out,shapes_out] = FD_BPM(P);
+[E_out,shapes_out,powers_out] = FD_BPM(P);
+[E_final, powers_final] = addToSaveData(1, E_out, powers_out, E_final, powers_final);
 
 %% Second segment - bent multicore fibre
 P.figTitle = 'Segment 2';
-P.Lz = 2e-3;
+P.Lz = 1e-2;
 P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
@@ -79,11 +84,12 @@ P.shapes = shapes_out;
 P.E = E_out;
 
 % Run solver
-[E_out,shapes_out] = FD_BPM(P);
+[E_out,shapes_out,powers_out] = FD_BPM(P);
+[E_final, powers_final] = addToSaveData(2, E_out, powers_out, E_final, powers_final);
 
 %% Third segment - straight multicore fibre
 P.figTitle = 'Segment 3';
-P.Lz = 2e-3;
+P.Lz = 1e-2;
 P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
@@ -92,8 +98,12 @@ P.shapes = shapes_out;
 P.E = E_out;
 
 % Run solver
-[E_out,shapes_out] = FD_BPM(P);
+[E_out,shapes_out,powers_out] = FD_BPM(P);
+[E_final, powers_final] = addToSaveData(3, E_out, powers_out, E_final, powers_final);
 
+if P.saveData 
+    save(dataName, 'P','E_final','powers_final','shapes_out');
+end
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
@@ -144,4 +154,9 @@ for coreIdx = 2:numberOfCores
   end
 end
 shapeParameters = shapeParameters.'; % Format: x y R shapeType n_core: in one row
+end
+
+function [E_output, powers_output] = addToSaveData(segment, E_out, powers_out, E_output, powers_output)
+    E_output{segment} = E_out; 
+    powers_output{segment} = powers_out; 
 end

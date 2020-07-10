@@ -140,7 +140,7 @@ if P.saveVideo
   close(video);
 end
 
-Estruct = struct('field',E,'Lx',Lx,'Ly',Ly);
+Estruct = struct('field',E,'Lx',Lx,'Ly',Ly,'x',x,'y',y);
 
 % S = load('train');
 % sound(S.y.*0.1,S.Fs);
