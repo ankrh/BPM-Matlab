@@ -1,4 +1,4 @@
-function [Estruct,shapes_out,powers] = FD_BPM(P)
+function [Estruct,shapes_out,powers,P] = FD_BPM(P)
 % Authors: Madhu Veetikazhy and Anders K. Hansen
 % DTU Health and DTU Fotonik
 % 
@@ -139,6 +139,7 @@ shapes_out(:,3) = P.taperScaling*P.shapes(:,3);
 %% Beam initialization
 if isa(P.E,'function_handle')
   E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
+  P.E_0 = E; % E_0 variable is only for powers measurement, when FDBPM is called from multiple segments
 else % Interpolate source E field to new grid
   [Nx_Esource,Ny_Esource] = size(P.E.field);
   dx_Esource = P.E.Lx/Nx_Esource;
@@ -150,8 +151,7 @@ else % Interpolate source E field to new grid
 end
 
 E = complex(single(E)); % Force to be complex single precision
-E_0 = E;  % For initial intensity, phase, and power values
-P_0 = sum(abs(E_0(:)).^2);
+P_0 = sum(abs(P.E_0(:)).^2);  % For powers w.r.t. the input E field from segment 1
 
 %% Calculate z step size and positions
 Nz = max(P.updates,round(P.Lz/P.dz_target)); % Number of z steps in this segment
