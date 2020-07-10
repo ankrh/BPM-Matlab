@@ -11,14 +11,19 @@ P.useAllCPUs = true;
 P.useGPU = false;
 
 %% Visualization parameters
-P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
+P.saveVideo = true; % To save the field intensity and phase profiles at different transverse planes
 P.saveData = false; % To save the struct P  
 P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
 P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
 dataName = [P.name '.mat'];
+P.videoName = [P.name '.avi'];
 E_final = {};  % Initialising Eoutput array which is finally saved after all segment simulations 
 powers_final = {}; 
+if P.saveVideo 
+  P.videoHandle = VideoWriter(P.videoName);
+  open(P.videoHandle);
+end
 
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 150e-6;        % [m] x side length of main area
@@ -121,6 +126,9 @@ P.E = E_out;
 
 if P.saveData 
     save(dataName, 'P','E_final','powers_final','shapes_out');
+end
+if P.saveVideo
+	close(P.videoHandle);
 end
 
 

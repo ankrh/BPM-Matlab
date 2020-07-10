@@ -4,8 +4,6 @@ function [Estruct] = FFT_BPM(P)
 % Date: 12 July 2019
 % ***************************************************************************************************
 
-videoName = [P.name '.avi'];
-
 if ~isfield(P,'figNum')
   P.figNum = 1;
 end
@@ -14,6 +12,9 @@ if ~isfield(P,'figTitle')
 end
 if ~isfield(P,'Eparameters')
   P.Eparameters = {};
+end
+if ~isfield(P,'videoName')
+  P.videoName = [P.name '.avi'];
 end
 
 %% Initialization of space and frequency grids
@@ -62,9 +63,11 @@ else % Interpolate source E field to new grid
 end
 
 %% Fresnel Propagation and plotting
-if P.saveVideo
-  video = VideoWriter(videoName);                   %For saving the propagation frames as a video
+if P.saveVideo && ~isfield(P,'videoHandle')
+  video = VideoWriter(P.videoName);  %For saving the propagation frames as a video
   open(video);
+elseif P.saveVideo
+  video = P.videoHandle;  %videoHandle is passed from Example.m file
 end
 
 h_f = figure(P.figNum);clf;
@@ -136,7 +139,7 @@ for zidx = 1:Nz
 end
 % toc
 
-if P.saveVideo
+if P.saveVideo && ~isfield(P,'videoHandle')
   close(video);
 end
 

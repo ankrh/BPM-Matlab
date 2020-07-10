@@ -16,7 +16,6 @@ format long
 format compact
 
 k_0 = 2*pi/P.lambda;  % [m^-1] Wavenumber
-videoName = [P.name '.avi'];
 
 if isempty(P.shapes)
   P.shapes = [0 0 0 1 0];
@@ -70,10 +69,15 @@ if size(P.shapes,2) == 5
     P.shapes(:,6) = NaN;
   end
 end
+if ~isfield(P,'videoName')
+  P.videoName = [P.name '.avi'];
+end
 
-if P.saveVideo
-  video = VideoWriter(videoName);
+if P.saveVideo && ~isfield(P,'videoHandle')
+  video = VideoWriter(P.videoName);  % If videoHandle is not passed from Example.m file, video of only the last segment will be saved
   open(video);
+elseif P.saveVideo
+  video = P.videoHandle;  %videoHandle is passed from Example.m file
 end
 
 %% Check for GPU compatibility if needed
@@ -307,7 +311,7 @@ for updidx = 1:length(zUpdateIdxs)
 end
 % toc
 
-if P.saveVideo
+if P.saveVideo && ~isfield(P,'videoHandle')
 	close(video);
 end
 
