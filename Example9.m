@@ -3,16 +3,19 @@ clear P % Parameters struct
 % This example consists of multiple segments of hexagonal multicore fiber.
 % Segments 1-3 are straight fibres of equal lengths (Lz/3). Bending could
 % be introduced to segment 2 for verifying bending-related field variations
-% in the multicore fibre. 
+% in the multicore fibre. Running Example7.m is a prerequisite, from which
+% the acquired phase upon propagation is obtained
 
 %% General and solver-related settings
-P.name = mfilename;
+savedCaseName = 'Example7_noInputPhase';
+currentTestCaseName = '_withInputPhase';
+P.name = [mfilename, currentTestCaseName];
 P.useAllCPUs = true;
 P.useGPU = false;
 
 %% Visualization parameters
-P.saveVideo = true; % To save the field intensity and phase profiles at different transverse planes
-P.saveData = false; % To save the struct P  
+P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
+P.saveData = true; % To save the struct P  
 P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
 P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
@@ -26,25 +29,25 @@ if P.saveVideo
 end
 
 %% Resolution-related parameters (check for convergence)
-P.Lx_main = 150e-6;        % [m] x side length of main area
-P.Ly_main = 150e-6;        % [m] y side length of main area
+P.Lx_main = 200e-6;        % [m] x side length of main area
+P.Ly_main = 200e-6;        % [m] y side length of main area
 P.Nx_main = 600;          % x resolution of main area
 P.Ny_main = 600;          % y resolution of main area
 P.padfactor = 1.5;  % How much absorbing padding to add on the sides of the main area (1 means no padding, 2 means the absorbing padding on both sides is of thickness Lx_main/2)
 P.dz_target = 1e-6; % [m] z step size to aim for
 P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
-
+tic
 %% Problem definition - straight multicore fibre
 P.figTitle = 'Segment 1';
 P.lambda = 980e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46;
-P.Lz = 0.5e-3; % [m] z propagation distances for this segment
+P.Lz = 0.2e-3; % [m] z propagation distances for this segment
 P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
 P.bendDirection = 0;
-numberOfCores = 19;  %[] Number of cores in the multicore fibre
+numberOfCores = 30;  %[] Number of cores in the multicore fibre
 pitch = 15e-6; % [m] Intercore spacing
 R = 2e-6; % [m] Core radius
 n_core = 1.46; % Cores' refractive index 
@@ -73,7 +76,7 @@ P.shapes = getShapeParameters(FibreParameters);  % Defined at the end of this fi
 % 'Ly' fields that describe the side lengths of the provided E matrix. In
 % the case of a struct, the provided E field will be adapted to the new
 % grid using the interp2 function.
-P.Eparameters = {w_0, numberOfCores, P.shapes, k_0, focusType, focalLength, pitch};
+P.Eparameters = {w_0, numberOfCores, P.shapes, k_0, focusType, focalLength, pitch, savedCaseName};
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
@@ -82,7 +85,7 @@ P.E = @calcInitialE; % Defined at the end of this file
 
 %% Second segment - bent multicore fibre
 P.figTitle = 'Segment 2';
-P.Lz = 0.5e-3;
+P.Lz = 0.2e-3;
 P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
@@ -96,7 +99,7 @@ P.E = E_out;
 
 %% Third segment - straight multicore fibre
 P.figTitle = 'Segment 3';
-P.Lz = 0.5e-3;
+P.Lz = 0.2e-3;
 P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
@@ -130,7 +133,9 @@ end
 if P.saveVideo
 	close(P.videoHandle);
 end
-
+toc
+S = load('train');
+sound(S.y.*0.3,S.Fs);
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
@@ -141,11 +146,12 @@ k_0 = Eparameters{4};
 focusType = Eparameters{5};
 focalLength = Eparameters{6};
 pitch = Eparameters{7};
+savedCaseName = Eparameters{8};
 Nx= size(X,1); Ny= size(Y,1);
 dx = X(2,1) - X(1,1);
 dy = Y(1,2) - Y(1,1);
 try
-    load(['Example7.mat']);  % Load the output E field data after propagating through a straight multicore fiber
+    load([savedCaseName]);  % Load the output E field data after propagating through a straight multicore fiber
 catch
     error('You need to run Example7.m and save the data before Example9.m');
 end
@@ -161,9 +167,9 @@ for idx = 1:numberOfCores
   acquiredPhase(idx) = angle(E_final{end}.field(Nx/2+ceil(shapeParameters(idx)/dx),Ny/2+ceil(shapeParameters(idx+numberOfCores)/dy)));  %Acquired phase of E field (Estruct.field) at distal end for previous travel through straight fibre
   switch focusType
       case 1
-          focusPhase(idx) = -k_0*((shapeParameters(idx))^2+(shapeParameters(idx+numberOfCores))^2)/(2*focalLength);  %Focusing phase for point focus
+          focusPhase(idx) = k_0*((shapeParameters(idx))^2+(shapeParameters(idx+numberOfCores))^2)/(2*focalLength);  %Focusing phase for point focus
       case 2
-          focusPhase(idx) = -k_0*(shapeParameters(idx))^2/(2*focalLength);  %Focusing phase for horizontal line focus
+          focusPhase(idx) = k_0*(shapeParameters(idx))^2/(2*focalLength);  %Focusing phase for horizontal line focus
   end           
   phase(sqrt((X-shapeParameters(idx)).^2+(Y-shapeParameters(idx+numberOfCores)).^2) < pitch/2) = focusPhase(idx)-acquiredPhase(idx);
 end

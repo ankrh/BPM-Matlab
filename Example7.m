@@ -6,7 +6,7 @@ clear P % Parameters struct
 % in the multicore fibre. 
 
 %% General and solver-related settings
-P.name = mfilename;
+P.name = [mfilename, '_noInputPhase'];
 P.useAllCPUs = true;
 P.useGPU = false;
 
@@ -21,25 +21,25 @@ E_final = {};  % Initialising Eoutput array which is finally saved after all seg
 powers_final = {}; 
 
 %% Resolution-related parameters (check for convergence)
-P.Lx_main = 150e-6;        % [m] x side length of main area
-P.Ly_main = 150e-6;        % [m] y side length of main area
+P.Lx_main = 200e-6;        % [m] x side length of main area
+P.Ly_main = 200e-6;        % [m] y side length of main area
 P.Nx_main = 600;          % x resolution of main area
 P.Ny_main = 600;          % y resolution of main area
 P.padfactor = 1.5;  % How much absorbing padding to add on the sides of the main area (1 means no padding, 2 means the absorbing padding on both sides is of thickness Lx_main/2)
 P.dz_target = 1e-6; % [m] z step size to aim for
 P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
-
+tic
 %% Problem definition - straight multicore fibre
 P.figTitle = 'Segment 1';
 P.lambda = 980e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46;
-P.Lz = 0.5e-3; % [m] z propagation distances for this segment
+P.Lz = 0.2e-3; % [m] z propagation distances for this segment
 P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
 P.bendDirection = 0;
-numberOfCores = 19;  %[] Number of cores in the multicore fibre
+numberOfCores = 30;  %[] Number of cores in the multicore fibre
 pitch = 15e-6; % [m] Intercore spacing
 R = 2e-6; % [m] Core radius
 n_core = 1.46; % Cores' refractive index 
@@ -74,7 +74,7 @@ P.E = @calcInitialE; % Defined at the end of this file
 
 %% Second segment - bent multicore fibre
 P.figTitle = 'Segment 2';
-P.Lz = 0.5e-3;
+P.Lz = 0.2e-3;
 P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
@@ -88,7 +88,7 @@ P.E = E_out;
 
 %% Third segment - straight multicore fibre
 P.figTitle = 'Segment 3';
-P.Lz = 0.5e-3;
+P.Lz = 0.2e-3;
 P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
@@ -103,7 +103,9 @@ P.E = E_out;
 if P.saveData 
     save(dataName, 'P','E_final','powers_final','shapes_out');
 end
-
+toc
+S = load('train');
+sound(S.y.*0.3,S.Fs);
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
