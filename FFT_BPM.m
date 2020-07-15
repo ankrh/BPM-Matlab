@@ -16,6 +16,12 @@ end
 if ~isfield(P,'videoName')
   P.videoName = [P.name '.avi'];
 end
+if ~isfield(P,'Intensity_colormap')
+  P.Intensity_colormap = 1;
+end
+if ~isfield(P,'Phase_colormap')
+  P.Phase_colormap = 2;
+end
 
 %% Initialization of space and frequency grids
 Nz = P.updates; % Number of z steps in this segment
@@ -81,7 +87,7 @@ if isfield(P,'plotEmax')
 else
   caxis('auto');
 end
-colormap(gca,GPBGYRcolormap);
+setColormap(gca,P.Intensity_colormap);
 h_imItitle = title({'Intensity profile',' at z = 0 m'});
 h_imItitle.FontSize = 20;
 axis xy
@@ -95,7 +101,7 @@ h_ax2 = subplot(1,2,2);
 h_im_phi = imagesc(x,y,angle(E.'));
 h_im_phi.AlphaData = max(0,(1+log10(abs(E.'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
 h_ax2.Color = 0.7*[1 1 1];
-colormap(gca,hsv/1.5);
+setColormap(gca,P.Phase_colormap);
 h_imPhiTitle = title({'Phase profile',' at z = 0 m'});
 h_imPhiTitle.FontSize = 20;
 axis xy
@@ -147,4 +153,19 @@ Estruct = struct('field',E,'Lx',Lx,'Ly',Ly,'x',x,'y',y);
 
 % S = load('train');
 % sound(S.y.*0.1,S.Fs);
+
+function setColormap(gca,colormapType)
+    switch colormapType
+     case 1
+        colormap(gca,GPBGYRcolormap);
+     case 2
+        colormap(gca,hsv/1.5);
+     case 3
+        colormap(gca,parula);
+     case 4
+        colormap(gca,gray);
+     case 5
+        colormap(gca,cividisColormap);
+    end
+end
 end

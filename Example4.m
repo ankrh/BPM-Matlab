@@ -19,6 +19,12 @@ P.updates = 100;            % Number of times to update plot. Must be at least 1
 P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
 
+%The colormap options for the different subplots are 
+%1: GBP, 2: HSV, 3:parula, 4: gray, 5: cividis
+P.Intensity_colormap = 4; 
+P.Phase_colormap = 2; 
+P.n_colormap = 3; 
+
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 0.7e-3;        % [m] x side length of main area
 P.Ly_main = 0.7e-3;        % [m] y side length of main area
@@ -60,6 +66,7 @@ P.E = @calcInitialE; % Defined at the end of this file
 P.figNum = 2;
 P.figTitle = 'In air';
 P.n_0 = 1;
+P.Intensity_colormap = 1; 
 
 P.Lx_main = 700e-6;        % [m] x side length of main area
 P.Ly_main = 700e-6;        % [m] y side length of main area

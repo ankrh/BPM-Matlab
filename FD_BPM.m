@@ -72,6 +72,15 @@ end
 if ~isfield(P,'videoName')
   P.videoName = [P.name '.avi'];
 end
+if ~isfield(P,'Intensity_colormap')
+  P.Intensity_colormap = 1;
+end
+if ~isfield(P,'Phase_colormap')
+  P.Phase_colormap = 2;
+end
+if ~isfield(P,'n_colormap')
+  P.n_colormap = 3;
+end
 
 if P.saveVideo && ~isfield(P,'videoHandle')
   video = VideoWriter(P.videoName);  % If videoHandle is not passed from Example.m file, video of only the last segment will be saved
@@ -155,7 +164,11 @@ else % Interpolate source E field to new grid
 end
 
 E = complex(single(E)); % Force to be complex single precision
-P_0 = sum(abs(P.E_0(:)).^2);  % For powers w.r.t. the input E field from segment 1
+if isfield(P,'E_0')
+    P_0 = sum(abs(P.E_0(:)).^2);  % For powers w.r.t. the input E field from segment 1
+else
+    P_0 = sum(abs(E(:)).^2);  % If the input E from segment 1 is missing, use the current E as initial field
+end
 
 %% Calculate z step size and positions
 Nz = max(P.updates,round(P.Lz/P.dz_target)); % Number of z steps in this segment
@@ -188,7 +201,7 @@ axis equal
 xlim([-1 1]*Lx/(2*P.displayScaling));
 ylim([-1 1]*Ly/(2*P.displayScaling));
 colorbar;
-colormap(parula);
+setColormap(gca,P.n_colormap);
 if isfield(P,'n_colorlimits')
   caxis(P.n_colorlimits);
 end
@@ -221,7 +234,7 @@ xlabel('x [m]');
 ylabel('y [m]');
 title('Intensity [W/m^2]');
 line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
-colormap(gca,GPBGYRcolormap);
+setColormap(gca,P.Intensity_colormap);
 if isfield(P,'plotEmax')
   caxis('manual');
   caxis([0 P.plotEmax]);
@@ -251,7 +264,7 @@ line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_ma
 xlabel('x [m]');
 ylabel('y [m]');
 title('Phase [rad]');
-colormap(gca,hsv/1.5);
+setColormap(gca,P.Phase_colormap);
 
 sgtitle(P.figTitle,'FontSize',15,'FontWeight','bold');
 drawnow;
@@ -325,4 +338,19 @@ function checkMexInputs(E,parameters)
 assert(all(isfinite(E(:))));
 assert(~isreal(E));
 assert(isa(E,'single'));
+end
+
+function setColormap(gca,colormapType)
+    switch colormapType
+     case 1
+        colormap(gca,GPBGYRcolormap);
+     case 2
+        colormap(gca,hsv/1.5);
+     case 3
+        colormap(gca,parula);
+     case 4
+        colormap(gca,gray);
+     case 5
+        colormap(gca,cividisColormap);
+    end
 end
