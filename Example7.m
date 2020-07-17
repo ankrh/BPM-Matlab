@@ -1,9 +1,10 @@
 clear P % Parameters struct
 
 % This example consists of multiple segments of Fermat's golden spiral multicore fiber.
-% Segments 1-3 are straight fibres of equal lengths (Lz/3). Bending could
-% be introduced to segment 2 for verifying bending-related field variations
-% in the multicore fibre. 
+% Segments 1-3 are straight fibres of equal lengths (Lz/3). This example is
+% meant to propagate the field without any input phase applied to the proximal
+% end so as to retrieve the acquired phase at the fiber distal end upon
+% propagation in Example 9
 
 %% General and solver-related settings
 P.name = [mfilename, '_noInputPhase'];
@@ -32,7 +33,7 @@ P.Ly_main = 200e-6;        % [m] y side length of main area
 P.Nx_main = 600;          % x resolution of main area
 P.Ny_main = 600;          % y resolution of main area
 P.padfactor = 1.5;  % How much absorbing padding to add on the sides of the main area (1 means no padding, 2 means the absorbing padding on both sides is of thickness Lx_main/2)
-P.dz_target = 0.5e-6; % [m] z step size to aim for
+P.dz_target = 0.4e-6; % [m] z step size to aim for
 P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
 tic
 %% Problem definition - straight multicore fibre
@@ -40,7 +41,7 @@ P.figTitle = 'Segment 1';
 P.lambda = 980e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46;
-P.Lz = 0.05e-3; % [m] z propagation distances for this segment
+P.Lz = 0.1e-3; % [m] z propagation distances for this segment
 P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
@@ -80,7 +81,7 @@ P.E = @calcInitialE; % Defined at the end of this file
 
 %% Second segment - bent multicore fibre
 P.figTitle = 'Segment 2';
-P.Lz = 0.2e-3;
+P.Lz = 0.1e-3;
 P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
@@ -94,7 +95,7 @@ P.E = E_out;
 
 %% Third segment - straight multicore fibre
 P.figTitle = 'Segment 3';
-P.Lz = 0.2e-3;
+P.Lz = 0.1e-3;
 P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;

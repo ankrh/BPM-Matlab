@@ -112,7 +112,7 @@ line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_ma
 colorbar;
 
 if P.saveVideo
-  frame = getframe(gcf);                                     %Get the frames
+  frame = getframe(h_f);                                     %Get the frames
   writeVideo(video,frame);                                  %Stitch the frames to form a video and save
 end
 
@@ -138,7 +138,7 @@ for zidx = 1:Nz
     nextupdatesliceindicesindex = nextupdatesliceindicesindex + 1;
     drawnow;
     if P.saveVideo
-      frame = getframe(gcf);                                     %Get the frames
+      frame = getframe(h_f);                                     %Get the frames
       writeVideo(video,frame);                                  %Stitch the frames to form a video and save
     end
   end

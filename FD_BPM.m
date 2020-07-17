@@ -270,7 +270,7 @@ sgtitle(P.figTitle,'FontSize',15,'FontWeight','bold');
 drawnow;
 
 if P.saveVideo
-  frame = getframe(gcf);  %Get the frames
+  frame = getframe(h_f);  %Get the frames
   writeVideo(video,frame);  %Stitch the frames to form a video and save
 end
 
@@ -318,7 +318,7 @@ for updidx = 1:length(zUpdateIdxs)
   drawnow;
   
   if P.saveVideo
-    frame = getframe(1); 
+    frame = getframe(h_f); 
     writeVideo(video,frame); 
   end
 end
