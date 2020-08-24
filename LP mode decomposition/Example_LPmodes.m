@@ -89,7 +89,7 @@ Ecell_modeB=Ecell_modesAB{2,1};
 % In this section the mode overlap is calculated for each mode determined
 % by LPmodeCalc.m. 
 % Loading calculated distal end electric field data from a FD_BPM script.
-load('Video_FG050LGA_1050nm_1cm_3cmy_LP09','E') % Loading data set for mode overlap calculation. 
+load('Video_FG050LGA_1050nm_1cm_2cmx_LP11','E') %load('Video_FG050LGA_1050nm_1cm_3cmy_LP09','E') % Loading data set for mode overlap calculation. 
 Ecell_data=E; % 
 [Ccell_outA] = ModeOverlap(Ecell_data,Ecell_modeA);
 [Ccell_outB] = ModeOverlap(Ecell_data,Ecell_modeB);
