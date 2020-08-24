@@ -61,7 +61,7 @@ P.shapes = [ -7e-6   -7e-6    10e-6  1  1.46;
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
-[E_out,shapes_out] = FD_BPM(P);
+[E_out,shapes_out,~,~,P] = FD_BPM(P);
 
 %% Next segment
 P.figTitle = 'Segment 2';
@@ -72,7 +72,7 @@ P.shapes = shapes_out;
 P.E = E_out;
 
 % Run solver
-[E_out,shapes_out] = FD_BPM(P);
+[E_out,shapes_out,~,~,P] = FD_BPM(P);
 
 %% Next segment
 P.figTitle = 'Segment 3';
@@ -83,7 +83,7 @@ P.shapes = shapes_out;
 P.E = E_out;
 
 % Run solver
-[E_out,shapes_out] = FD_BPM(P);
+[E_out,shapes_out,~,~,P] = FD_BPM(P);
 
 %% Next segment
 P.figTitle = 'Segment 4';

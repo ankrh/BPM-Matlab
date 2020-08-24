@@ -1,4 +1,4 @@
-function [Estruct,shapes_out,powers,P] = FD_BPM(P)
+function [Estruct,shapes_out,powers,modeOverlap,P] = FD_BPM(P)
 % Authors: Madhu Veetikazhy and Anders K. Hansen
 % DTU Health and DTU Fotonik
 % 
@@ -152,7 +152,7 @@ shapes_out(:,3) = P.taperScaling*P.shapes(:,3);
 %% Beam initialization
 if isa(P.E,'function_handle')
   E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
-  P.E_0 = E; % E_0 variable is only for powers measurement, when FDBPM is called from multiple segments
+  P.E_0 = E; % E_0 variable is for powers measurement when FDBPM is called from multiple segments, and for mode overlap calculations
 else % Interpolate source E field to new grid
   [Nx_Esource,Ny_Esource] = size(P.E.field);
   dx_Esource = P.E.Lx/Nx_Esource;
@@ -166,8 +166,10 @@ end
 E = complex(single(E)); % Force to be complex single precision
 if isfield(P,'E_0')
     P_0 = sum(abs(P.E_0(:)).^2);  % For powers w.r.t. the input E field from segment 1
+    conj_E0 = conj(P.E_0(:));  % Calculate mode overlap w.r.t. input E from segment 1
 else
     P_0 = sum(abs(E(:)).^2);  % If the input E from segment 1 is missing, use the current E as initial field
+    conj_E0 = conj(P.E(:));  % % Calculate mode overlap w.r.t. initial E of current segment if P is not returned earlier
 end
 
 %% Calculate z step size and positions
@@ -216,6 +218,9 @@ h_plot2 = plot(zUpdates,powers,'linewidth',2);
 xlim([0 P.Lz]);
 xlabel('Propagation distance [m]');
 ylabel('Relative power remaining');
+
+modeOverlap = NaN(1,P.updates+1);
+modeOverlap(1) = abs(sum(E(:).*conj_E0)).^2; % The overlap integral calculation
 
 h_axis3a = subplot(2,2,3);
 hold on;
@@ -316,6 +321,8 @@ for updidx = 1:length(zUpdateIdxs)
   powers(updidx+1) = sum(abs(E(:)).^2)/P_0; 
   h_plot2.YData = powers;
   drawnow;
+  
+  modeOverlap(updidx+1) = abs(sum(E(:).*conj(P.E_0(:)))).^2; % The overlap integral calculation
   
   if P.saveVideo
     frame = getframe(h_f); 

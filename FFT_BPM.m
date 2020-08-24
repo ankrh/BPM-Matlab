@@ -1,4 +1,4 @@
-function [Estruct] = FFT_BPM(P)
+function [Estruct, P] = FFT_BPM(P)
 %%
 % Author: Madhu Veettikazhy
 % Date: 12 July 2019
@@ -58,6 +58,7 @@ prop_kernel = exp(1i*dz*(kX.^2+kY.^2)*P.lambda/(4*pi*P.n_0)); % Fresnel propagat
 %% Beam initialization
 if isa(P.E,'function_handle')
   E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
+  P.E_0 = E; % To save the initial electric field
 else % Interpolate source E field to new grid
   [Nx_Esource,Ny_Esource] = size(P.E.field);
   dx_Esource = P.E.Lx/Nx_Esource;
