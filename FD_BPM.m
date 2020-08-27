@@ -151,6 +151,12 @@ shapes_out(:,3) = P.taperScaling*P.shapes(:,3);
 
 %% Beam initialization
 if isa(P.E,'function_handle')
+  P.Eparameters{end+1} = Lx; 
+  P.Eparameters{end+1} = Ly;
+  P.Eparameters{end+1} = Nx; 
+  P.Eparameters{end+1} = Ny;
+  P.Eparameters{end+1} = dx;
+  P.Eparameters{end+1} = dy; 
   E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
   P.E_0 = E; % E_0 variable is for powers measurement when FDBPM is called from multiple segments, and for mode overlap calculations
 else % Interpolate source E field to new grid
