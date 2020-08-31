@@ -171,11 +171,17 @@ end
 
 E = complex(single(E)); % Force to be complex single precision
 if isfield(P,'E_0')
+    if size(E)==size(P.E_0)
+        conj_E0 = conj(P.E_0(:));  % Calculate mode overlap w.r.t. input E from segment 1
+    else
+        P.E_0 = E;
+        conj_E0 = conj(E(:));  % If Lx, Ly, Nx, or Ny is changed in this segment relative to the previous one
+    end
     P_0 = sum(abs(P.E_0(:)).^2);  % For powers w.r.t. the input E field from segment 1
-    conj_E0 = conj(P.E_0(:));  % Calculate mode overlap w.r.t. input E from segment 1
 else
+    P.E_0 = E;
     P_0 = sum(abs(E(:)).^2);  % If the input E from segment 1 is missing, use the current E as initial field
-    conj_E0 = conj(P.E(:));  % % Calculate mode overlap w.r.t. initial E of current segment if P is not returned earlier
+    conj_E0 = conj(E(:));  % % Calculate mode overlap w.r.t. initial E of current segment if P is not returned earlier
 end
 
 %% Calculate z step size and positions
