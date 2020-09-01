@@ -44,16 +44,19 @@ end
 Lx = Nx*dx;
 Ly = Ny*dy;
 
-x = dx*(-(Nx-1)/2:(Nx-1)/2);
-y = dy*(-(Ny-1)/2:(Ny-1)/2);
-[X,Y] = ndgrid(x,y);
-
 kx = 2*pi/Lx*([0:floor((Nx-1)/2) floor(-(Nx-1)/2):-1]);
 ky = 2*pi/Ly*([0:floor((Ny-1)/2) floor(-(Ny-1)/2):-1]);
-[kX,kY] = ndgrid(kx,ky);
+[kX,kY] = ndgrid(single(kx),single(ky));
+
+prop_kernel = exp(1i*dz*(kX.^2+kY.^2)*P.lambda/(4*pi*P.n_0)); % Fresnel propagation kernel
+clear kX kY
+
+x = dx*(-(Nx-1)/2:(Nx-1)/2);
+y = dy*(-(Ny-1)/2:(Ny-1)/2);
+[X,Y] = ndgrid(single(x),single(y));
+
 
 absorber = exp(-dz*max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha);
-prop_kernel = exp(1i*dz*(kX.^2+kY.^2)*P.lambda/(4*pi*P.n_0)); % Fresnel propagation kernel
 
 %% Beam initialization
 if isa(P.E,'function_handle')
@@ -65,9 +68,10 @@ else % Interpolate source E field to new grid
   dy_Esource = P.E.Ly/Ny_Esource;
   x_Esource = dx_Esource*(-(Nx_Esource-1)/2:(Nx_Esource-1)/2);
   y_Esource = dy_Esource*(-(Ny_Esource-1)/2:(Ny_Esource-1)/2);
-  [X_source,Y_source] = ndgrid(x_Esource,y_Esource);
+  [X_source,Y_source] = ndgrid(single(x_Esource),single(y_Esource));
   E = interp2(X_source.',Y_source.',P.E.field.',X.',Y.','linear',0).';
 end
+clear X Y X_source Y_source
 
 %% Fresnel Propagation and plotting
 if P.saveVideo && ~isfield(P,'videoHandle')
