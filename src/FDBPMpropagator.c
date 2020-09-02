@@ -19,7 +19,7 @@
 #include <math.h>
 #include <stdint.h>
 #include "mex.h"
-#define PI acosf(-1.0f)
+#define PI acos(-1.0)
 #ifdef _OPENMP
   #include "omp.h"
 #endif
@@ -31,9 +31,9 @@
 #endif
 #ifdef __NVCC__
   #include <thrust/complex.h>
-  typedef thrust::complex<float> floatcomplex;
-  #define I thrust::complex<float>{0,1}
-  #define CEXPF(x) (thrust::exp(x))
+  typedef thrust::complex<double> doublecomplex;
+  #define I thrust::complex<double>{0,1}
+  #define CEXP(x) (thrust::exp(x))
   #define MAX(x,y) (max(x,y))
   #include <nvml.h>
   #define TILE_DIM 32
@@ -41,14 +41,14 @@
   #ifdef __GNUC__ // This is defined for GCC and CLANG but not for Microsoft Visual C++ compiler
     #define MAX(a,b) ({__typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b? _a: _b;})
     #include <complex.h>
-    typedef float complex floatcomplex;
-    #define CEXPF(x) (cexpf(x))
+    typedef double complex doublecomplex;
+    #define CEXP(x) (cexp(x))
   #else
     #include <algorithm>
     #include <complex>
-    typedef std::complex<float> floatcomplex;
-    #define I std::complex<float>{0,1}
-    #define CEXPF(x) (std::exp(x))
+    typedef std::complex<double> doublecomplex;
+    #define I std::complex<double>{0,1}
+    #define CEXP(x) (std::exp(x))
     #define MAX(x,y) (std::max(x,y))
   #endif
 #endif
@@ -61,44 +61,44 @@ struct debug {
 struct parameters {
   long Nx;
   long Ny;
-  float dx;
-  float dy;
+  double dx;
+  double dy;
   long iz_start;
   long iz_end;
-  float taperPerStep;
-  float twistPerStep;
-  float d;
-  float n_cladding;
-  float n_0;
+  double taperPerStep;
+  double twistPerStep;
+  double d;
+  double n_cladding;
+  double n_0;
   long Nshapes;
-  float *shapexs;
-  float *shapeys;
-  float *shapeRs;
-  float *shapeTypes;
-  float *shapeRIs;
-  float *shapegs;
-  float *shapexs_transformed;
-  float *shapeys_transformed;
-  float *shapeRs_transformed;
-  floatcomplex *Efinal;
-  floatcomplex *E1;
-  floatcomplex *E2;
-  floatcomplex *Eyx;
-  float *n_out;
-  floatcomplex *b;
-  floatcomplex *multiplier;
-  floatcomplex ax;
-  floatcomplex ay;
-  float rho_e;
-  float RoC;
-  float sinBendDirection; 
-  float cosBendDirection; 
+  double *shapexs;
+  double *shapeys;
+  double *shapeRs;
+  double *shapeTypes;
+  double *shapeRIs;
+  double *shapegs;
+  double *shapexs_transformed;
+  double *shapeys_transformed;
+  double *shapeRs_transformed;
+  doublecomplex *Efinal;
+  doublecomplex *E1;
+  doublecomplex *E2;
+  doublecomplex *Eyx;
+  double *n_out;
+  doublecomplex *b;
+  doublecomplex *multiplier;
+  doublecomplex ax;
+  doublecomplex ay;
+  double rho_e;
+  double RoC;
+  double sinBendDirection; 
+  double cosBendDirection; 
 };
 
 #ifdef __NVCC__ // If compiling for CUDA
 __host__ __device__
 #endif
-float sqrf(float x) {return x*x;}
+double sqr(double x) {return x*x;}
 
 #ifdef __NVCC__ // If compiling for CUDA
 __global__
@@ -112,8 +112,8 @@ void substep1a(struct parameters *P_global) {
   if(!threadIdx.x && !threadIdx.y) *P = *P_global; // Only let one thread per block do the copying. 
   __syncthreads(); // All threads in the block wait for the copy to have finished
 
-  __shared__ double tiledummy[TILE_DIM][TILE_DIM+1]; // We declare with double because a double is the same size as a float complex. +1 is to avoid memory bank conflicts
-  floatcomplex *tile = (floatcomplex *)tiledummy;
+  __shared__ double tiledummy[2][TILE_DIM][TILE_DIM+1]; // The [2] is because we actually want complex numbers. +1 is to avoid memory bank conflicts
+  doublecomplex *tile = (doublecomplex *)tiledummy;
   
   long xTiles = (P->Nx + TILE_DIM - 1)/TILE_DIM;
   long yTiles = (P->Ny + TILE_DIM - 1)/TILE_DIM;
@@ -151,8 +151,8 @@ void substep1a(struct parameters *P_global) {
       P->E2[i] = P->E1[i];
       if(ix != 0      ) P->E2[i] += (P->E1[i-1]     - P->E1[i])*P->ax;
       if(ix != P->Nx-1) P->E2[i] += (P->E1[i+1]     - P->E1[i])*P->ax;
-      if(iy != 0      ) P->E2[i] += (P->E1[i-P->Nx] - P->E1[i])*P->ay*2.0f;
-      if(iy != P->Ny-1) P->E2[i] += (P->E1[i+P->Nx] - P->E1[i])*P->ay*2.0f;
+      if(iy != 0      ) P->E2[i] += (P->E1[i-P->Nx] - P->E1[i])*P->ay*2.0;
+      if(iy != P->Ny-1) P->E2[i] += (P->E1[i+P->Nx] - P->E1[i])*P->ay*2.0;
     }
   }
   #endif
@@ -175,10 +175,10 @@ void substep1b(struct parameters *P_global) {
       P->b[i] = 1;
       if(ix < P->Nx-1) P->b[i] += P->ax;
       if(ix > 0) {
-        P->b[i]        += P->ax;
-        floatcomplex w  = -P->ax/P->b[i-P->Ny];
-        P->b[i]        += w*P->ax;
-        P->Eyx[i]      -= w*P->Eyx[i-P->Ny];
+        P->b[i]         += P->ax;
+        doublecomplex w  = -P->ax/P->b[i-P->Ny];
+        P->b[i]         += w*P->ax;
+        P->Eyx[i]       -= w*P->Eyx[i-P->Ny];
       }
     }
 
@@ -204,11 +204,11 @@ void substep1b(struct parameters *P_global) {
       P->b[ib] = 1;
       if(ix < P->Nx-1) P->b[ib] += P->ax;
       if(ix > 0) {
-        P->b[ib]        += P->ax;
-        floatcomplex w   = -P->ax/P->b[ib-1];
-        P->b[ib]        += w*P->ax;
-        i                = ix + iy*P->Nx;
-        P->E2[i]        -= w*P->E2[i-1];
+        P->b[ib]         += P->ax;
+        doublecomplex w   = -P->ax/P->b[ib-1];
+        P->b[ib]         += w*P->ax;
+        i                 = ix + iy*P->Nx;
+        P->E2[i]         -= w*P->E2[i-1];
       }
     }
 
@@ -231,8 +231,8 @@ void substep2a(struct parameters *P_global) {
   struct parameters *P = (struct parameters *)Pdummy;
   if(!threadIdx.x && !threadIdx.y) *P = *P_global; // Only let one thread per block do the copying. 
   __syncthreads(); // All threads in the block wait for the copy to have finished
-  __shared__ double tiledummy[TILE_DIM][TILE_DIM+1]; // We declare with double because a double is the same size as a float complex. +1 is to avoid memory bank conflicts
-  floatcomplex *tile = (floatcomplex *)tiledummy;
+  __shared__ double tiledummy[2][TILE_DIM][TILE_DIM+1]; // The [2] is because we actually want complex numbers. +1 is to avoid memory bank conflicts
+  doublecomplex *tile = (doublecomplex *)tiledummy;
 
   long xTiles = (P->Nx + TILE_DIM - 1)/TILE_DIM;
   long yTiles = (P->Ny + TILE_DIM - 1)/TILE_DIM;
@@ -251,7 +251,7 @@ void substep2a(struct parameters *P_global) {
     if(ix<P->Nx && iy<P->Ny) {
       long i = ix + iy*P->Nx;
 
-      floatcomplex deltaE = 0;
+      doublecomplex deltaE = 0;
       if(iy != 0      ) deltaE -= (P->E1[i-P->Nx] - P->E1[i])*P->ay;
       if(iy != P->Ny-1) deltaE -= (P->E1[i+P->Nx] - P->E1[i])*P->ay;
       P->E2[i] = tile[threadIdx.x + threadIdx.y*(TILE_DIM+1)] + deltaE;
@@ -292,7 +292,7 @@ void substep2b(struct parameters *P_global) {
       if(iy < P->Ny-1) P->b[i] += P->ay;
       if(iy > 0) {
         P->b[i]         += P->ay;
-        floatcomplex w  = -P->ay/P->b[i-P->Nx];
+        doublecomplex w  = -P->ay/P->b[i-P->Nx];
         P->b[i]         += w*P->ay;
         P->E2[i]        -= w*P->E2[i-P->Nx];
       }
@@ -320,7 +320,7 @@ void substep2b(struct parameters *P_global) {
       if(iy < P->Ny-1) P->b[ib] += P->ay;
       if(iy > 0) {
         P->b[ib]        += P->ay;
-        floatcomplex w   = -P->ay/P->b[ib-1];
+        doublecomplex w   = -P->ay/P->b[ib-1];
         P->b[ib]        += w*P->ay;
         i                = ix + iy*P->Nx;
         P->E2[i]        -= w*P->E2[i-P->Nx];
@@ -341,9 +341,9 @@ __global__
 #endif
 void calcShapexyr(struct parameters *P, long iz) { // Called with only one thread
   // Calculate positions and sizes of geometric shapes
-  float cosvalue = cosf(P->twistPerStep*iz);
-  float sinvalue = sinf(P->twistPerStep*iz);
-  float scaling = 1 - P->taperPerStep*iz;
+  double cosvalue = cosf(P->twistPerStep*iz);
+  double sinvalue = sinf(P->twistPerStep*iz);
+  double scaling = 1 - P->taperPerStep*iz;
   for(long iShape=0;iShape<P->Nshapes;iShape++) {
     P->shapexs_transformed[iShape] = scaling*(cosvalue*P->shapexs[iShape] - sinvalue*P->shapeys[iShape]);
     P->shapeys_transformed[iShape] = scaling*(sinvalue*P->shapexs[iShape] + cosvalue*P->shapeys[iShape]);
@@ -373,21 +373,21 @@ void applyMultiplier(struct parameters *P_global, long iz) {
     for(long i=0;i<P->Nx*P->Ny;i++) {
   #endif
       // For each pixel, calculate refractive index and multiply
-      long ix = i%P->Nx;
-      float x = P->dx*(ix - (P->Nx-1)/2.0f);
-      long iy = i/P->Nx;
-      float y = P->dy*(iy - (P->Ny-1)/2.0f);
+      long  ix = i%P->Nx;
+      double x = P->dx*(ix - (P->Nx-1)/2.0);
+      long  iy = i/P->Nx;
+      double y = P->dy*(iy - (P->Ny-1)/2.0);
 
-      float n = P->n_cladding;
+      double n = P->n_cladding;
       for(long iShape=0;iShape<P->Nshapes;iShape++) {
         switch((int)P->shapeTypes[iShape]) {
           case 1: // Step-index disk
-            if(sqrf(x - P->shapexs_transformed[iShape]) + sqrf(y - P->shapeys_transformed[iShape]) < sqrf(P->shapeRs_transformed[iShape]))
+            if(sqr(x - P->shapexs_transformed[iShape]) + sqr(y - P->shapeys_transformed[iShape]) < sqr(P->shapeRs_transformed[iShape]))
               n = P->shapeRIs[iShape];
             break;
           case 2: { // Antialiased step-index disk
-            float delta = MAX(P->dx,P->dy); // Width of antialiasing slope
-            float r_diff = sqrtf(sqrf(x - P->shapexs_transformed[iShape]) + sqrf(y - P->shapeys_transformed[iShape])) - P->shapeRs_transformed[iShape] + delta/2.0f;
+            double delta = MAX(P->dx,P->dy); // Width of antialiasing slope
+            double r_diff = sqrtf(sqr(x - P->shapexs_transformed[iShape]) + sqr(y - P->shapeys_transformed[iShape])) - P->shapeRs_transformed[iShape] + delta/2.0;
             if(r_diff < 0) {
               n = P->shapeRIs[iShape];
             } else if(r_diff < delta) {
@@ -396,30 +396,30 @@ void applyMultiplier(struct parameters *P_global, long iz) {
             break;
           }
           case 3: { // Parabolic graded index disk
-            float r_ratio_sqr = (sqrf(x - P->shapexs_transformed[iShape]) + sqrf(y - P->shapeys_transformed[iShape]))/sqrf(P->shapeRs_transformed[iShape]);
+            double r_ratio_sqr = (sqr(x - P->shapexs_transformed[iShape]) + sqr(y - P->shapeys_transformed[iShape]))/sqr(P->shapeRs_transformed[iShape]);
             if(r_ratio_sqr < 1)
               n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
             break;
           }
           case 4: { // 2D Hyperbolic GRIN lens
-              float r_ratio_sqr = (sqrf(x - P->shapexs_transformed[iShape])+sqrf(y - P->shapeys_transformed[iShape]))/sqrf(P->shapeRs_transformed[iShape]);
-              float r_abs = sqrtf(sqrf(x - P->shapexs_transformed[iShape])+sqrf(y - P->shapeys_transformed[iShape]));
+              double r_ratio_sqr = (sqr(x - P->shapexs_transformed[iShape])+sqr(y - P->shapeys_transformed[iShape]))/sqr(P->shapeRs_transformed[iShape]);
+              double r_abs = sqrtf(sqr(x - P->shapexs_transformed[iShape])+sqr(y - P->shapeys_transformed[iShape]));
               if(r_ratio_sqr < 1)
                 n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1); // GRINTECH: n = n_0 * sech(gr)
             break;
           }
           case 5: { // 1D (y) Hyperbolic GRIN lens
-              float r_ratio_sqr = sqrf(y - P->shapeys_transformed[iShape])/sqrf(P->shapeRs_transformed[iShape]);
-              float r_abs = y - P->shapeys_transformed[iShape];
+              double r_ratio_sqr = sqr(y - P->shapeys_transformed[iShape])/sqr(P->shapeRs_transformed[iShape]);
+              double r_abs = y - P->shapeys_transformed[iShape];
               if(r_ratio_sqr < 1)
                 n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1); 
             break;
           }
         }
       }
-      float n_eff = n*(1-(sqrf(n)*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
+      double n_eff = n*(1-(sqr(n)*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
       if(iz == P->iz_end-1) P->n_out[i] = n_eff;
-      P->E2[i] *= P->multiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)));
+      P->E2[i] *= P->multiplier[i]*CEXP(I*P->d*(sqr(n_eff) - sqr(P->n_0)));
     }
   } else {
   #ifdef __NVCC__
@@ -440,17 +440,17 @@ __global__
 #endif
 void swapEPointers(struct parameters *P, long iz) {
   #ifdef __NVCC__
-  floatcomplex *temp = P->E1;
+  doublecomplex *temp = P->E1;
   P->E1 = P->E2;
   P->E2 = temp;
   #else
   if(iz>P->iz_start) { // Swap E1 and E2
-    floatcomplex *temp = P->E1;
+    doublecomplex *temp = P->E1;
     P->E1 = P->E2;
     P->E2 = temp;
   } else if((P->iz_end - P->iz_start)%2) {
     P->E1 = P->E2;
-    P->E2 = (floatcomplex *)malloc(P->Nx*P->Ny*sizeof(floatcomplex));
+    P->E2 = (doublecomplex *)malloc(P->Nx*P->Ny*sizeof(doublecomplex));
   } else {
     P->E1 = P->E2;
     P->E2 = P->Efinal;
@@ -473,32 +473,32 @@ void createDeviceStructs(struct parameters *P, struct parameters **P_devptr,
   long N = P->Nx*P->Ny;
   struct parameters P_tempvar = *P;
 
-  gpuErrchk(cudaMalloc(&P_tempvar.shapexs,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapexs,P->shapexs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeys,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapeys,P->shapeys,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeRs,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapeRs,P->shapeRs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeTypes,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapeTypes,P->shapeTypes,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeRIs,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapeRIs,P->shapeRIs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapegs,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapegs,P->shapegs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapexs_transformed,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeys_transformed,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeRs_transformed,P->Nshapes*sizeof(float)));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapexs,P->Nshapes*sizeof(double)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapexs,P->shapexs,P->Nshapes*sizeof(double),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeys,P->Nshapes*sizeof(double)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapeys,P->shapeys,P->Nshapes*sizeof(double),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeRs,P->Nshapes*sizeof(double)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapeRs,P->shapeRs,P->Nshapes*sizeof(double),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeTypes,P->Nshapes*sizeof(double)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapeTypes,P->shapeTypes,P->Nshapes*sizeof(double),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeRIs,P->Nshapes*sizeof(double)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapeRIs,P->shapeRIs,P->Nshapes*sizeof(double),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapegs,P->Nshapes*sizeof(double)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapegs,P->shapegs,P->Nshapes*sizeof(double),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapexs_transformed,P->Nshapes*sizeof(double)));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeys_transformed,P->Nshapes*sizeof(double)));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeRs_transformed,P->Nshapes*sizeof(double)));
 
-  gpuErrchk(cudaMalloc(&P_tempvar.E1,N*sizeof(floatcomplex)));
-  gpuErrchk(cudaMemcpy(P_tempvar.E1,P->E1,N*sizeof(floatcomplex),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.E2,N*sizeof(floatcomplex)));
-  gpuErrchk(cudaMalloc(&P_tempvar.Eyx,N*sizeof(floatcomplex)));
+  gpuErrchk(cudaMalloc(&P_tempvar.E1,N*sizeof(doublecomplex)));
+  gpuErrchk(cudaMemcpy(P_tempvar.E1,P->E1,N*sizeof(doublecomplex),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.E2,N*sizeof(doublecomplex)));
+  gpuErrchk(cudaMalloc(&P_tempvar.Eyx,N*sizeof(doublecomplex)));
 
-  if(P->taperPerStep || P->twistPerStep) gpuErrchk(cudaMalloc(&P_tempvar.n_out,N*sizeof(float)));
+  if(P->taperPerStep || P->twistPerStep) gpuErrchk(cudaMalloc(&P_tempvar.n_out,N*sizeof(double)));
 
-  gpuErrchk(cudaMalloc(&P_tempvar.b,N*sizeof(floatcomplex)));
-  gpuErrchk(cudaMalloc(&P_tempvar.multiplier,N*sizeof(floatcomplex)));
-  gpuErrchk(cudaMemcpy(P_tempvar.multiplier,P->multiplier,N*sizeof(floatcomplex),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.b,N*sizeof(doublecomplex)));
+  gpuErrchk(cudaMalloc(&P_tempvar.multiplier,N*sizeof(doublecomplex)));
+  gpuErrchk(cudaMemcpy(P_tempvar.multiplier,P->multiplier,N*sizeof(doublecomplex),cudaMemcpyHostToDevice));
 
   gpuErrchk(cudaMalloc(P_devptr, sizeof(struct parameters)));
   gpuErrchk(cudaMemcpy(*P_devptr,&P_tempvar,sizeof(struct parameters),cudaMemcpyHostToDevice));
@@ -513,9 +513,9 @@ void retrieveAndFreeDeviceStructs(struct parameters *P, struct parameters *P_dev
                                   struct debug *D, struct debug *D_dev) {
   long N = P->Nx*P->Ny;
   struct parameters P_temp; gpuErrchk(cudaMemcpy(&P_temp,P_dev,sizeof(struct parameters),cudaMemcpyDeviceToHost));
-  gpuErrchk(cudaMemcpy(P->Efinal,P_temp.E2,N*sizeof(floatcomplex),cudaMemcpyDeviceToHost));
+  gpuErrchk(cudaMemcpy(P->Efinal,P_temp.E2,N*sizeof(doublecomplex),cudaMemcpyDeviceToHost));
   if(P->taperPerStep || P->twistPerStep) {
-    gpuErrchk(cudaMemcpy(P->n_out,P_temp.n_out,N*sizeof(float),cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaMemcpy(P->n_out,P_temp.n_out,N*sizeof(double),cudaMemcpyDeviceToHost));
     gpuErrchk(cudaFree(P_temp.n_out));
   }
 
@@ -547,59 +547,59 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   struct parameters *P = &P_var;
   P->Nx = (long)mxGetM(prhs[0]);
   P->Ny = (long)mxGetN(prhs[0]);
-  P->dx = *(float *)mxGetData(mxGetField(prhs[1],0,"dx"));
-  P->dy = *(float *)mxGetData(mxGetField(prhs[1],0,"dy"));
+  P->dx = *(double *)mxGetData(mxGetField(prhs[1],0,"dx"));
+  P->dy = *(double *)mxGetData(mxGetField(prhs[1],0,"dy"));
   P->iz_start = *(long *)mxGetData(mxGetField(prhs[1],0,"iz_start"));
   P->iz_end = *(long *)mxGetData(mxGetField(prhs[1],0,"iz_end"));
-  P->taperPerStep = *(float *)mxGetData(mxGetField(prhs[1],0,"taperPerStep"));
-  P->twistPerStep = *(float *)mxGetData(mxGetField(prhs[1],0,"twistPerStep"));
-  P->d = *(float *)mxGetData(mxGetField(prhs[1],0,"d"));
-  P->n_cladding = *(float *)mxGetData(mxGetField(prhs[1],0,"n_cladding"));
-  P->n_0 = *(float *)mxGetData(mxGetField(prhs[1],0,"n_0"));
+  P->taperPerStep = *(double *)mxGetData(mxGetField(prhs[1],0,"taperPerStep"));
+  P->twistPerStep = *(double *)mxGetData(mxGetField(prhs[1],0,"twistPerStep"));
+  P->d = *(double *)mxGetData(mxGetField(prhs[1],0,"d"));
+  P->n_cladding = *(double *)mxGetData(mxGetField(prhs[1],0,"n_cladding"));
+  P->n_0 = *(double *)mxGetData(mxGetField(prhs[1],0,"n_0"));
   P->Nshapes = (long)mxGetM(mxGetField(prhs[1],0,"shapes"));
-  P->shapexs = (float *)mxGetData(mxGetField(prhs[1],0,"shapes"));
+  P->shapexs = (double *)mxGetData(mxGetField(prhs[1],0,"shapes"));
   P->shapeys = P->shapexs + P->Nshapes;
   P->shapeRs = P->shapeys + P->Nshapes;
   P->shapeTypes = P->shapeRs + P->Nshapes;
   P->shapeRIs = P->shapeTypes + P->Nshapes;
   P->shapegs = P->shapeRIs + P->Nshapes;
-  P->rho_e = *(float *)mxGetData(mxGetField(prhs[1],0,"rho_e"));
-  P->RoC = *(float *)mxGetData(mxGetField(prhs[1],0,"RoC"));
-  P->sinBendDirection = sin(*(float *)mxGetData(mxGetField(prhs[1],0,"bendDirection"))/180*PI);
-  P->cosBendDirection = cos(*(float *)mxGetData(mxGetField(prhs[1],0,"bendDirection"))/180*PI);
-  P->shapexs_transformed = (float *)malloc(P->Nshapes*sizeof(float));
-  P->shapeys_transformed = (float *)malloc(P->Nshapes*sizeof(float));
-  P->shapeRs_transformed = (float *)malloc(P->Nshapes*sizeof(float));
-  P->E1 = (floatcomplex *)mxGetData(prhs[0]); // Input E field
+  P->rho_e = *(double *)mxGetData(mxGetField(prhs[1],0,"rho_e"));
+  P->RoC = *(double *)mxGetData(mxGetField(prhs[1],0,"RoC"));
+  P->sinBendDirection = sin(*(double *)mxGetData(mxGetField(prhs[1],0,"bendDirection"))/180*PI);
+  P->cosBendDirection = cos(*(double *)mxGetData(mxGetField(prhs[1],0,"bendDirection"))/180*PI);
+  P->shapexs_transformed = (double *)malloc(P->Nshapes*sizeof(double));
+  P->shapeys_transformed = (double *)malloc(P->Nshapes*sizeof(double));
+  P->shapeRs_transformed = (double *)malloc(P->Nshapes*sizeof(double));
+  P->E1 = (doublecomplex *)mxGetData(prhs[0]); // Input E field
   mwSize const *dimPtr = mxGetDimensions(prhs[0]);
-  P->Efinal = (floatcomplex *)mxGetData(plhs[0] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxCOMPLEX)); // Output E field
-  P->n_out= (float *)mxGetData(plhs[1] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxREAL)); // Output refractive index, calculated based on the geometric shapes definitions
+  P->Efinal = (doublecomplex *)mxGetData(plhs[0] = mxCreateNumericArray(2,dimPtr,mxDOUBLE_CLASS,mxCOMPLEX)); // Output E field
+  P->n_out= (double *)mxGetData(plhs[1] = mxCreateNumericArray(2,dimPtr,mxDOUBLE_CLASS,mxREAL)); // Output refractive index, calculated based on the geometric shapes definitions
   #ifndef __NVCC__
-  P->E2 = (floatcomplex *)((P->iz_end - P->iz_start)%2? P->Efinal: malloc(P->Nx*P->Ny*sizeof(floatcomplex)));
+  P->E2 = (doublecomplex *)((P->iz_end - P->iz_start)%2? P->Efinal: malloc(P->Nx*P->Ny*sizeof(doublecomplex)));
   #endif
-  floatcomplex *MatlabMultiplier = (floatcomplex *)mxGetData(mxGetField(prhs[1],0,"multiplier")); // Array of multiplier values to apply to the E field after each step, which includes (1) the absorber outside the fiber and (2) the effects of fibre bending, if present
-  P->multiplier = (floatcomplex *)malloc(P->Nx*P->Ny*sizeof(floatcomplex)); // If there's tapering or twisting, this is just a copy of MatlabMultiplier. Otherwise, it will be MatlabMultiplier multiplied by the factor that takes the refractive index profile into account, cexpf(I*P->d*(sqrf(n) - sqrf(P->n_0))).
-  P->ax = *(floatcomplex *)mxGetData(mxGetField(prhs[1],0,"ax"));
-  P->ay = *(floatcomplex *)mxGetData(mxGetField(prhs[1],0,"ay"));
+  doublecomplex *MatlabMultiplier = (doublecomplex *)mxGetData(mxGetField(prhs[1],0,"multiplier")); // Array of multiplier values to apply to the E field after each step, which includes (1) the absorber outside the fiber and (2) the effects of fibre bending, if present
+  P->multiplier = (doublecomplex *)malloc(P->Nx*P->Ny*sizeof(doublecomplex)); // If there's tapering or twisting, this is just a copy of MatlabMultiplier. Otherwise, it will be MatlabMultiplier multiplied by the factor that takes the refractive index profile into account, cexp(I*P->d*(sqr(n) - sqr(P->n_0))).
+  P->ax = *(doublecomplex *)mxGetData(mxGetField(prhs[1],0,"ax"));
+  P->ay = *(doublecomplex *)mxGetData(mxGetField(prhs[1],0,"ay"));
   
   if(P->taperPerStep || P->twistPerStep) {
     for(long i=0;i<P->Nx*P->Ny;i++) P->multiplier[i] = MatlabMultiplier[i];
   } else {
     for(long ix=0;ix<P->Nx;ix++) {
-      float x = P->dx*(ix - (P->Nx-1)/2.0f);
+      double x = P->dx*(ix - (P->Nx-1)/2.0);
       for(long iy=0;iy<P->Ny;iy++) {
-        float y = P->dy*(iy - (P->Ny-1)/2.0f);
+        double y = P->dy*(iy - (P->Ny-1)/2.0);
         long i = ix + iy*P->Nx;
-        float n = P->n_cladding;
+        double n = P->n_cladding;
         for(long iShape=0;iShape<P->Nshapes;iShape++) {
           switch((int)P->shapeTypes[iShape]) {
             case 1: // Step-index disk
-              if(sqrf(x - P->shapexs[iShape]) + sqrf(y - P->shapeys[iShape]) < sqrf(P->shapeRs[iShape]))
+              if(sqr(x - P->shapexs[iShape]) + sqr(y - P->shapeys[iShape]) < sqr(P->shapeRs[iShape]))
                 n = P->shapeRIs[iShape];
               break;
             case 2: { // Antialiased step-index disk
-              float delta = MAX(P->dx,P->dy); // Width of antialiasing slope
-              float r_diff = sqrtf(sqrf(x - P->shapexs[iShape]) + sqrf(y - P->shapeys[iShape])) - P->shapeRs[iShape] + delta/2.0f;
+              double delta = MAX(P->dx,P->dy); // Width of antialiasing slope
+              double r_diff = sqrtf(sqr(x - P->shapexs[iShape]) + sqr(y - P->shapeys[iShape])) - P->shapeRs[iShape] + delta/2.0;
               if(r_diff < 0) {
                 n = P->shapeRIs[iShape];
               } else if(r_diff < delta) {
@@ -608,30 +608,30 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
               break;
             }
             case 3: { // Parabolic graded index disk
-              float r_ratio_sqr = (sqrf(x - P->shapexs[iShape]) + sqrf(y - P->shapeys[iShape]))/sqrf(P->shapeRs[iShape]);
+              double r_ratio_sqr = (sqr(x - P->shapexs[iShape]) + sqr(y - P->shapeys[iShape]))/sqr(P->shapeRs[iShape]);
               if(r_ratio_sqr < 1)
                 n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
               break;
             }
             case 4: { // 2D Hyperbolic GRIN lens
-              float r_ratio_sqr = (sqrf(x - P->shapexs[iShape])+sqrf(y - P->shapeys[iShape]))/sqrf(P->shapeRs[iShape]);
-              float r_abs = sqrtf(sqrf(x - P->shapexs[iShape])+sqrf(y - P->shapeys[iShape]));
+              double r_ratio_sqr = (sqr(x - P->shapexs[iShape])+sqr(y - P->shapeys[iShape]))/sqr(P->shapeRs[iShape]);
+              double r_abs = sqrtf(sqr(x - P->shapexs[iShape])+sqr(y - P->shapeys[iShape]));
               if(r_ratio_sqr < 1)
                 n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1);  // GRINTECH: n = n_0 * sech(gr) = n_0*2*exp(gr)/(exp(2gr)+1)
               break;
             }
             case 5: { // 1D (y) Hyperbolic GRIN lens
-              float r_ratio_sqr = sqrf(y - P->shapeys[iShape])/sqrf(P->shapeRs[iShape]);
-              float r_abs = y - P->shapeys[iShape];
+              double r_ratio_sqr = sqr(y - P->shapeys[iShape])/sqr(P->shapeRs[iShape]);
+              double r_abs = y - P->shapeys[iShape];
               if(r_ratio_sqr < 1)
                 n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1); 
               break;
             }
           }
         }
-        float n_eff = n*(1-(sqrf(n)*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
+        double n_eff = n*(1-(sqr(n)*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
         P->n_out[i] = n_eff;
-        P->multiplier[i] = MatlabMultiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)));
+        P->multiplier[i] = MatlabMultiplier[i]*CEXP(I*P->d*(sqr(n_eff) - sqr(P->n_0)));
       }
     }
   }
@@ -653,7 +653,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   #else
   long numThreads = 1;
   #endif
-  P->b = (floatcomplex *)malloc(numThreads*MAX(P->Nx,P->Ny)*sizeof(floatcomplex));
+  P->b = (doublecomplex *)malloc(numThreads*MAX(P->Nx,P->Ny)*sizeof(doublecomplex));
   #ifdef _OPENMP
   #pragma omp parallel num_threads(useAllCPUs || omp_get_num_procs() == 1? omp_get_num_procs(): omp_get_num_procs()-1)
   #endif
