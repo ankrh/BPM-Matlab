@@ -112,7 +112,7 @@ void substep1a(struct parameters *P_global) {
   if(!threadIdx.x && !threadIdx.y) *P = *P_global; // Only let one thread per block do the copying. 
   __syncthreads(); // All threads in the block wait for the copy to have finished
 
-  __shared__ double tiledummy[2][TILE_DIM][TILE_DIM+1]; // The [2] is because we actually want complex numbers. +1 is to avoid memory bank conflicts
+  __shared__ double tiledummy[2][TILE_DIM][TILE_DIM+1]; // The [2] is because our numbers are complex. +1 is to avoid memory bank conflicts
   doublecomplex *tile = (doublecomplex *)tiledummy;
   
   long xTiles = (P->Nx + TILE_DIM - 1)/TILE_DIM;
@@ -231,7 +231,7 @@ void substep2a(struct parameters *P_global) {
   struct parameters *P = (struct parameters *)Pdummy;
   if(!threadIdx.x && !threadIdx.y) *P = *P_global; // Only let one thread per block do the copying. 
   __syncthreads(); // All threads in the block wait for the copy to have finished
-  __shared__ double tiledummy[2][TILE_DIM][TILE_DIM+1]; // The [2] is because we actually want complex numbers. +1 is to avoid memory bank conflicts
+  __shared__ double tiledummy[2][TILE_DIM][TILE_DIM+1]; // The [2] is because our numbers are complex. +1 is to avoid memory bank conflicts
   doublecomplex *tile = (doublecomplex *)tiledummy;
 
   long xTiles = (P->Nx + TILE_DIM - 1)/TILE_DIM;
@@ -341,8 +341,8 @@ __global__
 #endif
 void calcShapexyr(struct parameters *P, long iz) { // Called with only one thread
   // Calculate positions and sizes of geometric shapes
-  double cosvalue = cosf(P->twistPerStep*iz);
-  double sinvalue = sinf(P->twistPerStep*iz);
+  double cosvalue = cos(P->twistPerStep*iz);
+  double sinvalue = sin(P->twistPerStep*iz);
   double scaling = 1 - P->taperPerStep*iz;
   for(long iShape=0;iShape<P->Nshapes;iShape++) {
     P->shapexs_transformed[iShape] = scaling*(cosvalue*P->shapexs[iShape] - sinvalue*P->shapeys[iShape]);
@@ -387,7 +387,7 @@ void applyMultiplier(struct parameters *P_global, long iz) {
             break;
           case 2: { // Antialiased step-index disk
             double delta = MAX(P->dx,P->dy); // Width of antialiasing slope
-            double r_diff = sqrtf(sqr(x - P->shapexs_transformed[iShape]) + sqr(y - P->shapeys_transformed[iShape])) - P->shapeRs_transformed[iShape] + delta/2.0;
+            double r_diff = sqrt(sqr(x - P->shapexs_transformed[iShape]) + sqr(y - P->shapeys_transformed[iShape])) - P->shapeRs_transformed[iShape] + delta/2.0;
             if(r_diff < 0) {
               n = P->shapeRIs[iShape];
             } else if(r_diff < delta) {
@@ -403,7 +403,7 @@ void applyMultiplier(struct parameters *P_global, long iz) {
           }
           case 4: { // 2D Hyperbolic GRIN lens
               double r_ratio_sqr = (sqr(x - P->shapexs_transformed[iShape])+sqr(y - P->shapeys_transformed[iShape]))/sqr(P->shapeRs_transformed[iShape]);
-              double r_abs = sqrtf(sqr(x - P->shapexs_transformed[iShape])+sqr(y - P->shapeys_transformed[iShape]));
+              double r_abs = sqrt(sqr(x - P->shapexs_transformed[iShape])+sqr(y - P->shapeys_transformed[iShape]));
               if(r_ratio_sqr < 1)
                 n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1); // GRINTECH: n = n_0 * sech(gr)
             break;
@@ -599,7 +599,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
               break;
             case 2: { // Antialiased step-index disk
               double delta = MAX(P->dx,P->dy); // Width of antialiasing slope
-              double r_diff = sqrtf(sqr(x - P->shapexs[iShape]) + sqr(y - P->shapeys[iShape])) - P->shapeRs[iShape] + delta/2.0;
+              double r_diff = sqrt(sqr(x - P->shapexs[iShape]) + sqr(y - P->shapeys[iShape])) - P->shapeRs[iShape] + delta/2.0;
               if(r_diff < 0) {
                 n = P->shapeRIs[iShape];
               } else if(r_diff < delta) {
@@ -615,7 +615,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
             }
             case 4: { // 2D Hyperbolic GRIN lens
               double r_ratio_sqr = (sqr(x - P->shapexs[iShape])+sqr(y - P->shapeys[iShape]))/sqr(P->shapeRs[iShape]);
-              double r_abs = sqrtf(sqr(x - P->shapexs[iShape])+sqr(y - P->shapeys[iShape]));
+              double r_abs = sqrt(sqr(x - P->shapexs[iShape])+sqr(y - P->shapeys[iShape]));
               if(r_ratio_sqr < 1)
                 n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1);  // GRINTECH: n = n_0 * sech(gr) = n_0*2*exp(gr)/(exp(2gr)+1)
               break;
