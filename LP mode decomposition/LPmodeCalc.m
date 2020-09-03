@@ -22,7 +22,7 @@
 % NL x length(broots_mat) structure containing N x N matrices, one
 % for each mode, both cosine (A) and sine (B) dependence. The cosine
 % phi-dependent modes is in {1,1} an sine phi-dependent modes is in {1,2}. 
-% Note that the modes are complex single precisions.
+% Note that the modes are complex double precisions.
 
 
 % See: https://www.rp-photonics.com/lp_modes.html
@@ -70,17 +70,17 @@ for j1 = 1:NL
     % input.
     if L==0
       if intNorm
-        Ecell_fieldA{j1,j2} = complex(single(Emat_fieldA./sqrt(sum(max(Emat_fieldA(:)).^2))));
+        Ecell_fieldA{j1,j2} = complex(Emat_fieldA./sqrt(sum(max(Emat_fieldA(:)).^2)));
       else
-        Ecell_fieldA{j1,j2} = complex(single(Emat_fieldA./sqrt(sum(abs(Emat_fieldA(:)).^2))));
+        Ecell_fieldA{j1,j2} = complex(Emat_fieldA./sqrt(sum(abs(Emat_fieldA(:)).^2)));
       end
     elseif L>=1
       if intNorm
-        Ecell_fieldA{j1,j2} = complex(single(Emat_fieldA./sqrt(sum(max(Emat_fieldA(:)).^2))));
-        Ecell_fieldB{j1,j2} = complex(single(Emat_fieldB./sqrt(sum(max(Emat_fieldB(:)).^2))));
+        Ecell_fieldA{j1,j2} = complex(Emat_fieldA./sqrt(sum(max(Emat_fieldA(:)).^2)));
+        Ecell_fieldB{j1,j2} = complex(Emat_fieldB./sqrt(sum(max(Emat_fieldB(:)).^2)));
       else
-        Ecell_fieldA{j1,j2} = complex(single(Emat_fieldA./sqrt(sum(abs(Emat_fieldA(:)).^2))));
-        Ecell_fieldB{j1,j2} = complex(single(Emat_fieldB./sqrt(sum(abs(Emat_fieldB(:)).^2))));
+        Ecell_fieldA{j1,j2} = complex(Emat_fieldA./sqrt(sum(abs(Emat_fieldA(:)).^2)));
+        Ecell_fieldB{j1,j2} = complex(Emat_fieldB./sqrt(sum(abs(Emat_fieldB(:)).^2)));
       end
     end
   end
