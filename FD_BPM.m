@@ -32,6 +32,9 @@ end
 if ~isfield(P,'saveData')
   P.saveData = false;
 end
+if ~isfield(P,'useSingles')
+  P.useSingles = false;
+end
 if ~isfield(P,'useGPU')
   P.useGPU = false;
 end
@@ -87,6 +90,12 @@ if P.saveVideo && ~isfield(P,'videoHandle')
   open(video);
 elseif P.saveVideo
   video = P.videoHandle;  %videoHandle is passed from Example.m file
+end
+
+if P.useSingles
+  typename = 'single';
+else
+  typename = 'double';
 end
 
 %% Check for GPU compatibility if needed
@@ -169,7 +178,11 @@ else % Interpolate source E field to new grid
   E = interp2(X_source.',Y_source.',P.E.field.',X.',Y.','linear',0).';
 end
 
-E = complex(E); % Force to be complex
+if P.useSingles
+  E = complex(single(E)); % Force to be complex single
+else
+  E = complex(double(E)); % Force to be complex double
+end
 if isfield(P,'E_0')
     if size(E)==size(P.E_0)
         conj_E0 = conj(P.E_0(:));  % Calculate mode overlap w.r.t. input E from segment 1
@@ -206,9 +219,9 @@ h_f.WindowState = 'maximized';
 
 h_axis1 = subplot(2,2,1);
 if P.downsampleImages
-  h_im1 = imagesc(x_plot,y_plot,zeros(min(500,Ny),min(500,Nx)));
+  h_im1 = imagesc(x_plot,y_plot,zeros(min(500,Ny),min(500,Nx),typename));
 else
-  h_im1 = imagesc(x,y,zeros(Ny,Nx));
+  h_im1 = imagesc(x,y,zeros(Ny,Nx,typename));
 end
 axis xy
 axis equal
@@ -293,9 +306,15 @@ end
 
 % tic;
 %% Load variables into a parameters struct and start looping, one iteration per update
-mexParameters = struct('dx',dx,'dy',dy,'taperPerStep',(1-P.taperScaling)/Nz,'twistPerStep',P.twistRate*P.Lz/Nz,...
-  'shapes',P.shapes,'n_cladding',P.n_cladding,'multiplier',complex(multiplier),'d',d,'n_0',P.n_0,...
-  'ax',ax,'ay',ay,'useAllCPUs',P.useAllCPUs,'RoC',P.bendingRoC,'rho_e',P.rho_e,'bendDirection',P.bendDirection);
+if P.useSingles
+  mexParameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
+    'shapes',single(P.shapes),'n_cladding',single(P.n_cladding),'multiplier',complex(single(multiplier)),'d',single(d),'n_0',single(P.n_0),...
+    'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection));
+else
+  mexParameters = struct('dx',dx,'dy',dy,'taperPerStep',(1-P.taperScaling)/Nz,'twistPerStep',P.twistRate*P.Lz/Nz,...
+    'shapes',P.shapes,'n_cladding',P.n_cladding,'multiplier',complex(multiplier),'d',d,'n_0',P.n_0,...
+    'ax',ax,'ay',ay,'useAllCPUs',P.useAllCPUs,'RoC',P.bendingRoC,'rho_e',P.rho_e,'bendDirection',P.bendDirection);
+end
 
 mexParameters.iz_start = int32(0); % z index of the first z position to step from for the first call to FDBPMpropagator, in C indexing (starting from 0)
 mexParameters.iz_end = int32(zUpdateIdxs(1)); % last z index to step into for the first call to FDBPMpropagator, in C indexing (starting from 0)
@@ -304,11 +323,19 @@ for updidx = 1:length(zUpdateIdxs)
     mexParameters.iz_start = int32(zUpdateIdxs(updidx-1));
     mexParameters.iz_end   = int32(zUpdateIdxs(updidx));
   end
-%   checkMexInputs(E,mexParameters);
+%   checkMexInputs(E,mexParameters,typename);
   if P.useGPU
-    [E,n] = FDBPMpropagator_CUDA(E,mexParameters);
+    if P.useSingles
+      [E,n] = FDBPMpropagatorSingles_CUDA(E,mexParameters);
+    else
+      [E,n] = FDBPMpropagator_CUDA(E,mexParameters);
+    end
   else
-    [E,n] = FDBPMpropagator(E,mexParameters);
+    if P.useSingles
+      [E,n] = FDBPMpropagatorSingles(E,mexParameters);
+    else
+      [E,n] = FDBPMpropagator(E,mexParameters);
+    end
   end
 
   %% Update figure contents
@@ -353,36 +380,36 @@ Estruct = struct('field',E,'Lx',Lx,'Ly',Ly,'x',x,'y',y,'dx',dx,'dy',dy,'dz',dz);
 % sound(S.y.*0.1,S.Fs);
 end
 
-function checkMexInputs(E,P)
+function checkMexInputs(E,P,typename)
 assert(all(isfinite(E(:))));
 assert(~isreal(E));
-assert(isa(P.dx,'double'));
+assert(isa(P.dx,typename));
 assert(isreal(P.dx));
-assert(isa(P.dy,'double'));
+assert(isa(P.dy,typename));
 assert(isreal(P.dy));
-assert(isa(P.taperPerStep,'double'));
+assert(isa(P.taperPerStep,typename));
 assert(isreal(P.taperPerStep));
-assert(isa(P.twistPerStep,'double'));
+assert(isa(P.twistPerStep,typename));
 assert(isreal(P.twistPerStep));
-assert(isa(P.shapes,'double'));
+assert(isa(P.shapes,typename));
 assert(isreal(P.shapes));
-assert(isa(P.n_cladding,'double'));
+assert(isa(P.n_cladding,typename));
 assert(isreal(P.n_cladding));
-assert(isa(P.multiplier,'double'));
+assert(isa(P.multiplier,typename));
 assert(~isreal(P.multiplier));
-assert(isa(P.d,'double'));
+assert(isa(P.d,typename));
 assert(isreal(P.d));
-assert(isa(P.n_0,'double'));
+assert(isa(P.n_0,typename));
 assert(isreal(P.n_0));
-assert(isa(P.ax,'double'));
+assert(isa(P.ax,typename));
 assert(~isreal(P.ax));
-assert(isa(P.ay,'double'));
+assert(isa(P.ay,typename));
 assert(~isreal(P.ay));
-assert(isa(P.RoC,'double'));
+assert(isa(P.RoC,typename));
 assert(isreal(P.RoC));
-assert(isa(P.rho_e,'double'));
+assert(isa(P.rho_e,typename));
 assert(isreal(P.rho_e));
-assert(isa(P.bendDirection,'double'));
+assert(isa(P.bendDirection,typename));
 assert(isreal(P.bendDirection));
 end
 
