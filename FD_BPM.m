@@ -47,6 +47,12 @@ end
 if ~isfield(P,'displayScaling')
   P.displayScaling = 1;
 end
+if ~isfield(P,'max_a')
+  P.max_a = 5;
+end
+if ~isfield(P,'max_d')
+  P.max_d = 2.5; % Suitable for step index fibres. Can be set much larger for smoother n distributions
+end
 if ~isfield(P,'Eparameters')
   P.Eparameters = {};
 end
@@ -184,21 +190,24 @@ else
   E = complex(double(E)); % Force to be complex double
 end
 if isfield(P,'E_0')
-    if size(E)==size(P.E_0)
-        conj_E0 = conj(P.E_0(:));  % Calculate mode overlap w.r.t. input E from segment 1
-    else
-        P.E_0 = E;
-        conj_E0 = conj(E(:));  % If Lx, Ly, Nx, or Ny is changed in this segment relative to the previous one
-    end
-    P_0 = sum(abs(P.E_0(:)).^2);  % For powers w.r.t. the input E field from segment 1
-else
+  if size(E)==size(P.E_0)
+    conj_E0 = conj(P.E_0(:));  % Calculate mode overlap w.r.t. input E from segment 1
+  else
     P.E_0 = E;
-    P_0 = sum(abs(E(:)).^2);  % If the input E from segment 1 is missing, use the current E as initial field
-    conj_E0 = conj(E(:));  % % Calculate mode overlap w.r.t. initial E of current segment if P is not returned earlier
+    conj_E0 = conj(E(:));  % If Lx, Ly, Nx, or Ny is changed in this segment relative to the previous one
+  end
+  P_0 = sum(abs(P.E_0(:)).^2);  % For powers w.r.t. the input E field from segment 1
+else
+  P.E_0 = E;
+  P_0 = sum(abs(E(:)).^2);  % If the input E from segment 1 is missing, use the current E as initial field
+  conj_E0 = conj(E(:));  % % Calculate mode overlap w.r.t. initial E of current segment if P is not returned earlier
 end
 
 %% Calculate z step size and positions
-Nz = max(P.updates,round(P.Lz/P.dz_target)); % Number of z steps in this segment
+dz_max1 = P.max_a*4*dx^2*k_0*P.n_0;
+dz_max2 = P.max_a*4*dy^2*k_0*P.n_0;
+dz_max3 = P.max_d*2*P.n_0/k_0;
+Nz = max(P.updates,ceil(P.Lz/min([dz_max1 dz_max2 dz_max3]))); % Number of z steps in this segment
 dz = P.Lz/Nz;
 
 zUpdateIdxs = round((1:P.updates)/P.updates*Nz); % Update indices relative to start of this segment
@@ -316,6 +325,7 @@ else
     'ax',ax,'ay',ay,'useAllCPUs',P.useAllCPUs,'RoC',P.bendingRoC,'rho_e',P.rho_e,'bendDirection',P.bendDirection);
 end
 
+fprintf("dz = %.2e, ax = %.2f i, ay = %.2f i, d = %.2f\n",dz,ax/1i,ay/1i,d);
 mexParameters.iz_start = int32(0); % z index of the first z position to step from for the first call to FDBPMpropagator, in C indexing (starting from 0)
 mexParameters.iz_end = int32(zUpdateIdxs(1)); % last z index to step into for the first call to FDBPMpropagator, in C indexing (starting from 0)
 for updidx = 1:length(zUpdateIdxs)
