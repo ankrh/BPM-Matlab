@@ -47,11 +47,8 @@ end
 if ~isfield(P,'displayScaling')
   P.displayScaling = 1;
 end
-if ~isfield(P,'max_a')
-  P.max_a = 5;
-end
-if ~isfield(P,'max_d')
-  P.max_d = 2.5; % Suitable for step index fibres. Can be set much larger for smoother n distributions
+if ~isfield(P,'disableStepsizeWarning')
+  P.disableStepsizeWarning = false;
 end
 if ~isfield(P,'Eparameters')
   P.Eparameters = {};
@@ -204,11 +201,21 @@ else
 end
 
 %% Calculate z step size and positions
-dz_max1 = P.max_a*4*dx^2*k_0*P.n_0;
-dz_max2 = P.max_a*4*dy^2*k_0*P.n_0;
-dz_max3 = P.max_d*2*P.n_0/k_0;
-Nz = max(P.updates,ceil(P.Lz/min([dz_max1 dz_max2 dz_max3]))); % Number of z steps in this segment
+Nz = max(P.updates,round(P.Lz/P.dz_target)); % Number of z steps in this segment
 dz = P.Lz/Nz;
+
+if ~P.disableStepsizeWarning
+  max_a = 5;
+  max_d = 2.5;
+  dz_max1 = max_a*4*dx^2*k_0*P.n_0;
+  dz_max2 = max_a*4*dy^2*k_0*P.n_0;
+  dz_max3 = max_d*2*P.n_0/k_0;
+  if dz > min(dz_max1,dz_max2)
+    warning('z step size is high (> %.1e m), which may introduce numerical artifacts. You can disable this warning by setting P.disableStepsizeWarning = true.',min(dz_max1,dz_max2));
+  elseif dz > dz_max3 && (any(P.shapes(:,4) == 1) || any(P.shapes(:,4) == 2))
+    warning('z step size is high (> %.1e m), which may introduce numerical artifacts. You can disable this warning by setting P.disableStepsizeWarning = true.',dz_max3);
+  end
+end
 
 zUpdateIdxs = round((1:P.updates)/P.updates*Nz); % Update indices relative to start of this segment
 zUpdates = [0 dz*zUpdateIdxs];
@@ -325,7 +332,7 @@ else
     'ax',ax,'ay',ay,'useAllCPUs',P.useAllCPUs,'RoC',P.bendingRoC,'rho_e',P.rho_e,'bendDirection',P.bendDirection);
 end
 
-fprintf("dz = %.2e, ax = %.2f i, ay = %.2f i, d = %.2f\n",dz,ax/1i,ay/1i,d);
+% fprintf("dz = %.2e, ax = %.2f i, ay = %.2f i, d = %.2f\n",dz,ax/1i,ay/1i,d);
 mexParameters.iz_start = int32(0); % z index of the first z position to step from for the first call to FDBPMpropagator, in C indexing (starting from 0)
 mexParameters.iz_end = int32(zUpdateIdxs(1)); % last z index to step into for the first call to FDBPMpropagator, in C indexing (starting from 0)
 for updidx = 1:length(zUpdateIdxs)

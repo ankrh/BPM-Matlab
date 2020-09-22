@@ -34,6 +34,7 @@ P.Ly_main = 150e-6;        % [m] y side length of main area
 P.Nx_main = 500;          % x resolution of main area
 P.Ny_main = 500;          % y resolution of main area
 P.padfactor = 1.5;  % How much absorbing padding to add on the sides of the main area (1 means no padding, 2 means the absorbing padding on both sides is of thickness Lx_main/2)
+P.dz_target = 0.5e-6; % [m] z step size to aim for
 P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
 tic
 %% Problem definition - straight multicore fibre

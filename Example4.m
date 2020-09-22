@@ -5,12 +5,6 @@ clear P % Parameters struct
 % and the subsequent propagation of the E field from GRIN lens's output in
 % air using FFTBPM
 
-% This example also illustrates that the requirements as to the z step size
-% can be tightened or, as in this example, relaxed with the max_a and max_d
-% parameters. Higher values correspond to faster calculations but
-% potentially more numerical artifacts. In this case, due to the smooth
-% refractive index profile, we can set max_d quite high with no ill effects.
-
 %% Part 1 run with FDBPM
 %% General and solver-related settings
 P.name = mfilename;
@@ -37,8 +31,7 @@ P.Ly_main = 0.7e-3;        % [m] y side length of main area
 P.Nx_main = 1000;          % x resolution of main area
 P.Ny_main = 1000;          % y resolution of main area
 P.padfactor = 1;  % How much absorbing padding to add on the sides of the main area (1 means no padding, 2 means the absorbing padding on both sides is of thickness Lx_main/2)
-P.max_a = 10; % (Default: 5) To avoid numerical artifacts, dz will be chosen to ensure abs(ax) and abs(ay) stay below this value
-P.max_d = 50; % (Default: 2.5, suitable for step index fibers) To avoid numerical artifacts at refractive index interfaces, dz will be chosen to ensure abs(d) stays below this value
+P.dz_target = 20e-6; % [m] z step size to aim for
 P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
 
 %% Problem definition
