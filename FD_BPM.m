@@ -257,8 +257,10 @@ powers(1) = sum(abs(E(:)).^2)/P_0;
 subplot(2,2,2);
 h_plot2 = plot(zUpdates,powers,'linewidth',2);
 xlim([0 P.Lz]);
+ylim([0 1.1]);
 xlabel('Propagation distance [m]');
 ylabel('Relative power remaining');
+grid on; grid minor;
 
 modeOverlap = NaN(1,P.updates+1);
 modeOverlap(1) = abs(sum(E(:).*conj_E0)).^2; % The overlap integral calculation
