@@ -210,10 +210,14 @@ if ~P.disableStepsizeWarning
   dz_max1 = max_a*4*dx^2*k_0*P.n_0;
   dz_max2 = max_a*4*dy^2*k_0*P.n_0;
   dz_max3 = max_d*2*P.n_0/k_0;
-  if dz > min(dz_max1,dz_max2)
-    warning('z step size is high (> %.1e m), which may introduce numerical artifacts. You can disable this warning by setting P.disableStepsizeWarning = true.',min(dz_max1,dz_max2));
-  elseif dz > dz_max3 && (any(P.shapes(:,4) == 1) || any(P.shapes(:,4) == 2))
-    warning('z step size is high (> %.1e m), which may introduce numerical artifacts. You can disable this warning by setting P.disableStepsizeWarning = true.',dz_max3);
+  if any(P.shapes(:,4) == 1) || any(P.shapes(:,4) == 2)
+    if dz > min([dz_max1 dz_max2 dz_max3])
+      warning('z step size is high (> %.1e m), which may introduce numerical artifacts. You can disable this warning by setting P.disableStepsizeWarning = true.',min([dz_max1 dz_max2 dz_max3]));
+    end
+  else
+    if dz > min([dz_max1 dz_max2])
+      warning('z step size is high (> %.1e m), which may introduce numerical artifacts. You can disable this warning by setting P.disableStepsizeWarning = true.',min(dz_max1,dz_max2));
+    end
   end
 end
 
@@ -282,6 +286,13 @@ xlabel('x [m]');
 ylabel('y [m]');
 title('Intensity [W/m^2]');
 line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+if P.taperScaling == 1 && P.twistRate == 0
+  for iShape = 1:size(P.shapes,1)
+    if P.shapes(iShape,4) <=3
+      line(P.shapes(iShape,1) + P.shapes(iShape,3)*cos(linspace(0,2*pi,100)),P.shapes(iShape,2) + P.shapes(iShape,3)*sin(linspace(0,2*pi,100)),'color','w','linestyle','--');
+    end
+  end
+end
 setColormap(gca,P.Intensity_colormap);
 if isfield(P,'plotEmax')
   caxis('manual');
@@ -309,6 +320,13 @@ ylim([-1 1]*Ly/(2*P.displayScaling));
 colorbar;
 caxis([-pi pi]);
 line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+if P.taperScaling == 1 && P.twistRate == 0
+  for iShape = 1:size(P.shapes,1)
+    if P.shapes(iShape,4) <=3
+      line(P.shapes(iShape,1) + P.shapes(iShape,3)*cos(linspace(0,2*pi,100)),P.shapes(iShape,2) + P.shapes(iShape,3)*sin(linspace(0,2*pi,100)),'color','w','linestyle','--');
+    end
+  end
+end
 xlabel('x [m]');
 ylabel('y [m]');
 title('Phase [rad]');
