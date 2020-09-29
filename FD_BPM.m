@@ -101,6 +101,10 @@ else
   typename = 'double';
 end
 
+if ~isfield(P,'needMultipleModesOverlap')
+    P.needMultipleModesOverlap = false; 
+end
+
 %% Check for GPU compatibility if needed
 if P.useGPU
   v = ver;
@@ -169,7 +173,11 @@ if isa(P.E,'function_handle')
   P.Eparameters{end+1} = Ny;
   P.Eparameters{end+1} = dx;
   P.Eparameters{end+1} = dy; 
-  E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
+  if ~P.needMultipleModesOverlap 
+    E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
+  else 
+    [E,P] = P.E(X,Y,P.Eparameters,P);
+  end
   P.E_0 = E; % E_0 variable is for powers measurement when FDBPM is called from multiple segments, and for mode overlap calculations
 else % Interpolate source E field to new grid
   [Nx_Esource,Ny_Esource] = size(P.E.field);
@@ -262,8 +270,15 @@ xlabel('Propagation distance [m]');
 ylabel('Relative power remaining');
 grid on; grid minor;
 
-modeOverlap = NaN(1,P.updates+1);
-modeOverlap(1) = abs(sum(E(:).*conj_E0)).^2; % The overlap integral calculation
+if ~P.needMultipleModesOverlap
+    modeOverlap = NaN(1,P.updates+1);
+    modeOverlap(1) = abs(sum(E(:).*conj_E0)).^2; % The overlap integral calculation
+else
+	for idx = 1:size(P.modesForOverlap,2)
+        modeOverlap{idx} = NaN(1,P.updates+1);
+        modeOverlap{idx}(1) = abs(sum(E(:).*conj(P.modesForOverlap{idx}(:)))).^2; % The overlap integral calculation
+    end
+end
 
 h_axis3a = subplot(2,2,3);
 hold on;
@@ -380,7 +395,13 @@ for updidx = 1:length(zUpdateIdxs)
   h_plot2.YData = powers;
   drawnow;
   
-  modeOverlap(updidx+1) = abs(sum(E(:).*conj(P.E_0(:)))).^2; % The overlap integral calculation
+  if ~P.needMultipleModesOverlap
+    modeOverlap(updidx+1) = abs(sum(E(:).*conj(P.E_0(:)))).^2; % The overlap integral calculation
+  else
+    for idx = 1:size(P.modesForOverlap,2)
+        modeOverlap{idx}(updidx+1) = abs(sum(E(:).*conj(P.modesForOverlap{idx}(:)))).^2; % The overlap integral calculation        
+    end
+  end
   
   if P.saveVideo
     frame = getframe(h_f); 
