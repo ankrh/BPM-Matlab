@@ -1,4 +1,4 @@
-function P = findModes(P,nModes,plotModes)
+function P = findModes(P,nModes,sortByLoss,plotModes)
 if ~isfield(P,'rho_e')
   P.rho_e = 0.22;
 end
@@ -86,10 +86,17 @@ tic
 [V,D] = eigs(M_rhs,nModes,1,'Display',false,'SubspaceDimension',nModes*10);
 fprintf('\b Done, %.1f seconds elapsed\n',toc);
 
+if sortByLoss
+  [~,sortedidxs] = sort(real(D(1:nModes+1:end)),'descend');
+else
+  [~,sortedidxs] = sort(imag(D(1:nModes+1:end)),'ascend');
+end
+
 for iMode = nModes:-1:1
   P.modes(iMode).Lx = Lx;
   P.modes(iMode).Ly = Ly;
-  P.modes(iMode).field = reshape(V(:,iMode),[Nx Ny]);
+  P.modes(iMode).field = reshape(V(:,sortedidxs(iMode)),[Nx Ny]);
+  P.modes(iMode).eigenval = D(sortedidxs(iMode),sortedidxs(iMode));
   if plotModes
     h_f = figure(100+iMode);
     h_f.WindowStyle = 'docked';
@@ -115,7 +122,7 @@ for iMode = nModes:-1:1
     caxis([-pi pi]);
     axis equal; axis tight; axis xy;
     setColormap(gca,P.Phase_colormap);
-    sgtitle({['Mode ' num2str(iMode) ', eigenvalue ' num2str(D(iMode,iMode),16)],['rough loss estimate: ' num2str(-log(real(D(iMode,iMode))^2)/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(iMode,iMode))^2)/dz)) ' dB/m)']});
+    sgtitle({['Mode ' num2str(iMode) ', eigenvalue - 1 =  ' num2str(D(sortedidxs(iMode),sortedidxs(iMode))-1)],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode),sortedidxs(iMode)))^2)/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode),sortedidxs(iMode)))^2)/dz)) ' dB/m)']});
   end
 end
 end
