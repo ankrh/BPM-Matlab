@@ -70,8 +70,8 @@ P.Eparameters = {w_0, numberOfCores, P.shapes};
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
-[E_out,shapes_out,powers_out,~,P] = FD_BPM(P);
-[E_final, powers_final] = addToSaveData(1, E_out, powers_out, E_final, powers_final);
+P = FD_BPM(P);
+% [E_final, powers_final] = addToSaveData(1, E_out, powers_out, E_final, powers_final);
 
 %% Second segment - bent multicore fibre
 P.figTitle = 'Segment 2';
@@ -80,12 +80,12 @@ P.taperScaling = 1;
 P.twistRate = 0; %2*pi/P.Lz;
 P.bendingRoC = Inf;
 P.bendDirection = 0;
-P.shapes = shapes_out;
-P.E = E_out;
+P.shapes = P.shapesFinal;
+P.E = P.Efinal;
 
 % Run solver
-[E_out,shapes_out,powers_out,~,P] = FD_BPM(P);
-[E_final, powers_final] = addToSaveData(2, E_out, powers_out, E_final, powers_final);
+P = FD_BPM(P);
+% [E_final, powers_final] = addToSaveData(2, E_out, powers_out, E_final, powers_final);
 
 %% Third segment - straight multicore fibre
 P.figTitle = 'Segment 3';
@@ -94,15 +94,15 @@ P.taperScaling = 1;
 P.twistRate = 0; %2*pi/P.Lz;
 P.bendingRoC = Inf;
 P.bendDirection = 0;
-P.shapes = shapes_out;
-P.E = E_out;
+P.shapes = P.shapesFinal;
+P.E = P.Efinal;
 
 % Run solver
-[E_out,shapes_out,powers_out,~,P] = FD_BPM(P);
-[E_final, powers_final] = addToSaveData(3, E_out, powers_out, E_final, powers_final);
+P = FD_BPM(P);
+% [E_final, powers_final] = addToSaveData(3, E_out, powers_out, E_final, powers_final);
 
 if P.saveData 
-    save(dataName, 'P','E_final','powers_final','shapes_out');
+%     save(dataName, 'P','E_final','powers_final','shapes_out');
 end
 
 S = load('train');

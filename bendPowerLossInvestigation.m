@@ -60,6 +60,18 @@ P.shapes = [ 0 0 12.5e-6    2  n_core];
 P = findModes(P,nModes,sortByLoss,plotModes);
 
 %% Reproducing Fig 7, blue curve:
+clear P
+
+P.name = mfilename;
+P.updates = 5;            % Number of times to update plot. Must be at least 1, showing the final state.
+P.Lx_main = 50e-6;        % [m] x side length of main area
+P.Ly_main = 50e-6;        % [m] y side length of main area
+P.Nx_main = 150;          % x resolution of main area
+P.Ny_main = 150;          % y resolution of main area
+P.padfactor = 1.5;  % How much absorbing padding to add on the sides of the main area (1 means no padding, 2 means the absorbing padding on both sides is of thickness Lx_main/2)
+P.dz_target = 1e-6; % [m] z step size to aim for
+P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
+
 % lambda = 1320e-9
 % n_cladding = 1.447
 % core radius = 4.1e-6
@@ -83,9 +95,9 @@ P = findModes(P,nModes,sortByLoss,plotModes);
 P.E = P.modes(1);
 
 % Run solver
-[~,~,powers,~] = FD_BPM(P);
+P = FD_BPM(P);
 
-bendloss = -log(powers(end))/P.Lz*(-10*log10(exp(-1))) % [dB/m]
+bendloss = -log(P.powers(end))/P.Lz*(-10*log10(exp(-1))) % [dB/m]
 
 % Results for wavelength 1320 nm:
 % RoC [m]   bendloss [dB/m]
@@ -95,6 +107,18 @@ bendloss = -log(powers(end))/P.Lz*(-10*log10(exp(-1))) % [dB/m]
 % 0.5e-2    272
 
 %% Reproducing Fig 7, red curve:
+clear P
+
+P.name = mfilename;
+P.updates = 5;            % Number of times to update plot. Must be at least 1, showing the final state.
+P.Lx_main = 50e-6;        % [m] x side length of main area
+P.Ly_main = 50e-6;        % [m] y side length of main area
+P.Nx_main = 150;          % x resolution of main area
+P.Ny_main = 150;          % y resolution of main area
+P.padfactor = 1.5;  % How much absorbing padding to add on the sides of the main area (1 means no padding, 2 means the absorbing padding on both sides is of thickness Lx_main/2)
+P.dz_target = 1e-6; % [m] z step size to aim for
+P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
+
 % lambda = 1550e-9
 % n_cladding = 1.440
 % (rest is same as above)
@@ -115,9 +139,9 @@ P = findModes(P,nModes,sortByLoss,plotModes);
 P.E = P.modes(1);
 
 % Run solver
-[~,~,powers,~] = FD_BPM(P);
+P = FD_BPM(P);
 
-bendloss = -log(powers(end))/P.Lz*(-10*log10(exp(-1))) % [dB/m]
+bendloss = -log(P.powers(end))/P.Lz*(-10*log10(exp(-1))) % [dB/m]
 
 % Results for wavelength 1550 nm:
 % RoC [m]   bendloss [dB/m]

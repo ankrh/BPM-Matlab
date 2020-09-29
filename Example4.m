@@ -60,7 +60,7 @@ P.shapes = [ 0 0 0.5e-3  4  1.521 260];
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
-[E_out,~] = FD_BPM(P);
+P = FD_BPM(P);
 
 %% Output E from FDBPM propagating in air with FFTBPM
 P.figNum = 2;
@@ -75,7 +75,7 @@ P.Ny_main = 500;          % y resolution of main area
 P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
 P.Lz = 1e-2; % [m] z propagation distances for this segment
 
-P.E = E_out;
+P.E = P.Efinal;
 
 % Run solver
 FFT_BPM(P);

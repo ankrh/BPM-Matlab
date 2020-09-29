@@ -9,7 +9,7 @@ P.name = mfilename;
 
 %% Visualization parameters
 P.updates = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
-P.plotEmax = 0.5; % Max of color scale in the intensity plot 
+P.plotEmax = 0.5; % Max of color scale in the intensity plot, relative to the peak of initial intensity
 
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 20e-6;        % [m] x side length of main area

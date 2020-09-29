@@ -54,7 +54,7 @@ P.shapes = [ 0 0 0.5e-3  5  1.521 260];
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
-[E_out,~] = FD_BPM(P);
+P = FD_BPM(P);
 
 %% Output E from FDBPM propagating in air with FFTBPM
 P.figNum = 2;
@@ -68,7 +68,7 @@ P.Nx_main = 1500;          % x resolution of main area
 P.Ny_main = 400;          % y resolution of main area
 P.Lz = 1e-2; % [m] z propagation distances for this segment
 
-P.E = E_out;
+P.E = P.Efinal;
 
 % Run solver
 FFT_BPM(P);

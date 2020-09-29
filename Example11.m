@@ -25,10 +25,6 @@ P.n_cladding = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46;
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-nModes = 10; % For mode finding
-plotModes = true; % If true, will plot the found modes
-sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
-
 % In the shapes 2D array, each row is a shape such as a core in a fiber.
 % Column 1 are the x coordinates, column 2 are the y coordinates, column 3
 % are radii, column 4 are the types of the shapes, column 5 are the peak
@@ -41,6 +37,9 @@ sortByLoss = false; % If true, sorts the list of found modes in order of ascendi
 P.shapes = [ -2.5e-6 0 5e-6    2  1.46;
               5e-6   0 2.5e-6  3  1.47];
 
+nModes = 10; % For mode finding
+plotModes = true; % If true, will plot the found modes
+sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
 P = findModes(P,nModes,sortByLoss,plotModes);
 
 % P.E can be either a function that takes X, Y and Eparameters as inputs
@@ -49,7 +48,7 @@ P = findModes(P,nModes,sortByLoss,plotModes);
 % 'Ly' fields that describe the side lengths of the provided E matrix. In
 % the case of a struct, the provided E field will be adapted to the new
 % grid using the interp2 function.
-P.E = P.modes(9); % The 9th mode is an LP31o mode
+P.E = P.modes(9); % The 9th mode is an LP31o-like mode
 
 % Run solver
 FD_BPM(P);

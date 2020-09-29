@@ -95,12 +95,38 @@ end
 for iMode = nModes:-1:1
   P.modes(iMode).Lx = Lx;
   P.modes(iMode).Ly = Ly;
-  P.modes(iMode).field = reshape(V(:,sortedidxs(iMode)),[Nx Ny]);
+  E = reshape(V(:,sortedidxs(iMode)),[Nx Ny]);
+  P.modes(iMode).field = E;
   P.modes(iMode).eigenval = D(sortedidxs(iMode),sortedidxs(iMode));
+  if isinf(P.bendingRoC) && size(P.shapes,1) == 1
+    [~,iMax] = max(E(:));
+    xMax = X(iMax);
+    yMax = Y(iMax);
+    theta = atan2(yMax - P.shapes(1,2),xMax - P.shapes(1,1));
+    radialE = interp2(X.',Y.',E.',P.shapes(1,1) + linspace(0,max(Lx,Ly),1000)*cos(theta),P.shapes(1,2) + linspace(0,max(Lx,Ly),1000)*sin(theta));
+    radialEpruned = radialE(abs(radialE) > 0.01*max(abs(radialE)));
+    m = sum(abs(diff(angle(radialEpruned) > 0))) + 1;
+    
+    R = sqrt((xMax - P.shapes(1,1))^2 + (yMax - P.shapes(1,2))^2);
+    azimuthalE = interp2(X.',Y.',E.',P.shapes(1,1) + R*cos(theta + linspace(0,2*pi,1000)),P.shapes(1,2) + R*sin(theta + linspace(0,2*pi,1000)));
+    azimuthalEpruned = azimuthalE(abs(azimuthalE) > 0.01*max(abs(azimuthalE)));
+    l = sum(abs(diff(angle(azimuthalEpruned) > 0)))/2;
+    
+    if l > 0
+      Emaxmirrored = interp2(X.',Y.',E.',xMax,2*P.shapes(1,2) - yMax);
+      if real(E(iMax)/Emaxmirrored) < 0
+        parity = 'o';
+      else
+        parity = 'e';
+      end
+    else
+      parity = '';
+    end
+    P.modes(iMode).label = ['LP' num2str(l) num2str(m) parity];
+  end
   if plotModes
     h_f = figure(100+iMode);
     h_f.WindowStyle = 'docked';
-    E = P.modes(iMode).field;
     subplot(1,2,1);
     imagesc(x,y,abs(E.').^2);
     for iShape = 1:size(P.shapes,1)
@@ -122,9 +148,14 @@ for iMode = nModes:-1:1
     caxis([-pi pi]);
     axis equal; axis tight; axis xy;
     setColormap(gca,P.Phase_colormap);
-    sgtitle({['Mode ' num2str(iMode) ', eigenvalue - 1 =  ' num2str(D(sortedidxs(iMode),sortedidxs(iMode))-1)],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode),sortedidxs(iMode)))^2)/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode),sortedidxs(iMode)))^2)/dz)) ' dB/m)']});
+    if isfield(P.modes,'label')
+      sgtitle({['Mode ' num2str(iMode) ', ' P.modes(iMode).label ', eigenvalue - 1 =  ' num2str(D(sortedidxs(iMode),sortedidxs(iMode))-1)],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode),sortedidxs(iMode)))^2)/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode),sortedidxs(iMode)))^2)/dz)) ' dB/m)']});
+    else
+      sgtitle({['Mode ' num2str(iMode) ', eigenvalue - 1 =  ' num2str(D(sortedidxs(iMode),sortedidxs(iMode))-1)],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode),sortedidxs(iMode)))^2)/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode),sortedidxs(iMode)))^2)/dz)) ' dB/m)']});
+    end
   end
 end
+drawnow;
 end
 
 function setColormap(gca,colormapType)

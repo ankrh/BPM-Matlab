@@ -62,7 +62,7 @@ P.shapes = [ 0 0 5e-6  2  1.46];
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
-[E_out,~] = FD_BPM(P);
+P = FD_BPM(P);
 
 %% Part 2 run with FDBPM
 P.figNum = 2;
@@ -79,7 +79,7 @@ P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit 
 
 P.Lz = 2e-4; % [m] z propagation distances for this segment
 
-P.E = E_out;
+P.E = P.Efinal;
 
 % Run solver
 FD_BPM(P);

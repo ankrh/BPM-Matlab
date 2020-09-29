@@ -1,4 +1,4 @@
-function [Estruct,shapes_out,powers,modeOverlap,P] = FD_BPM(P)
+function P = FD_BPM(P)
 % Authors: Madhu Veetikazhy and Anders K. Hansen
 % DTU Health and DTU Fotonik
 % 
@@ -101,8 +101,8 @@ else
   typename = 'double';
 end
 
-if ~isfield(P,'needMultipleModesOverlap')
-    P.needMultipleModesOverlap = false; 
+if ~isfield(P,'calcModeOverlaps')
+  P.calcModeOverlaps = false; 
 end
 
 %% Check for GPU compatibility if needed
@@ -139,6 +139,10 @@ end
 Lx = Nx*dx;
 Ly = Ny*dy;
 
+if P.calcModeOverlaps && (P.modes(1).Lx ~= Lx || P.modes(1).Ly ~= Ly || size(P.modes(1).field,1) ~= Nx || size(P.modes(1).field,2) ~= Ny)
+  error('The pre-calculated mode fields do not match the simulation Lx, Ly, Nx or Ny');
+end
+
 x = dx*(-(Nx-1)/2:(Nx-1)/2);
 y = dy*(-(Ny-1)/2:(Ny-1)/2);
 [X,Y] = ndgrid(x,y);
@@ -160,25 +164,15 @@ if P.downsampleImages
 end
 
 %% Calculate the output shapes
-shapes_out = P.shapes;
-shapes_out(:,1) = P.taperScaling*(cos(P.twistRate*P.Lz)*P.shapes(:,1) - sin(P.twistRate*P.Lz)*P.shapes(:,2));
-shapes_out(:,2) = P.taperScaling*(sin(P.twistRate*P.Lz)*P.shapes(:,1) + cos(P.twistRate*P.Lz)*P.shapes(:,2));
-shapes_out(:,3) = P.taperScaling*P.shapes(:,3);
+P.shapesFinal = P.shapes;
+P.shapesFinal(:,1) = P.taperScaling*(cos(P.twistRate*P.Lz)*P.shapes(:,1) - sin(P.twistRate*P.Lz)*P.shapes(:,2));
+P.shapesFinal(:,2) = P.taperScaling*(sin(P.twistRate*P.Lz)*P.shapes(:,1) + cos(P.twistRate*P.Lz)*P.shapes(:,2));
+P.shapesFinal(:,3) = P.taperScaling*P.shapes(:,3);
 
 %% Beam initialization
 if isa(P.E,'function_handle')
-  P.Eparameters{end+1} = Lx; 
-  P.Eparameters{end+1} = Ly;
-  P.Eparameters{end+1} = Nx; 
-  P.Eparameters{end+1} = Ny;
-  P.Eparameters{end+1} = dx;
-  P.Eparameters{end+1} = dy; 
-  if ~P.needMultipleModesOverlap 
-    E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
-  else 
-    [E,P] = P.E(X,Y,P.Eparameters,P);
-  end
-  P.E_0 = E; % E_0 variable is for powers measurement when FDBPM is called from multiple segments, and for mode overlap calculations
+  E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
+  E = E/sqrt(sum(abs(E(:)).^2));
 else % Interpolate source E field to new grid
   [Nx_Esource,Ny_Esource] = size(P.E.field);
   dx_Esource = P.E.Lx/Nx_Esource;
@@ -187,25 +181,13 @@ else % Interpolate source E field to new grid
   y_Esource = dy_Esource*(-(Ny_Esource-1)/2:(Ny_Esource-1)/2);
   [X_source,Y_source] = ndgrid(x_Esource,y_Esource);
   E = interp2(X_source.',Y_source.',P.E.field.',X.',Y.','linear',0).';
+  E = E*sqrt(sum(abs(P.E.field(:)).^2)/sum(abs(E(:)).^2));
 end
 
 if P.useSingles
   E = complex(single(E)); % Force to be complex single
 else
   E = complex(double(E)); % Force to be complex double
-end
-if isfield(P,'E_0')
-  if size(E)==size(P.E_0)
-    conj_E0 = conj(P.E_0(:));  % Calculate mode overlap w.r.t. input E from segment 1
-  else
-    P.E_0 = E;
-    conj_E0 = conj(E(:));  % If Lx, Ly, Nx, or Ny is changed in this segment relative to the previous one
-  end
-  P_0 = sum(abs(P.E_0(:)).^2);  % For powers w.r.t. the input E field from segment 1
-else
-  P.E_0 = E;
-  P_0 = sum(abs(E(:)).^2);  % If the input E from segment 1 is missing, use the current E as initial field
-  conj_E0 = conj(E(:));  % % Calculate mode overlap w.r.t. initial E of current segment if P is not returned earlier
 end
 
 %% Calculate z step size and positions
@@ -230,7 +212,12 @@ if ~P.disableStepsizeWarning
 end
 
 zUpdateIdxs = round((1:P.updates)/P.updates*Nz); % Update indices relative to start of this segment
-zUpdates = [0 dz*zUpdateIdxs];
+priorData = isfield(P,'z');
+if priorData
+  P.z = [P.z dz*zUpdateIdxs + P.z(end)];
+else
+  P.z = [0 dz*zUpdateIdxs];
+end
 
 %% Calculate proportionality factors for use in the mex function
 ax = dz/(4i*dx^2*k_0*P.n_0);
@@ -264,25 +251,19 @@ xlabel('x [m]');
 ylabel('y [m]');
 title('Refractive index');
 
-powers = NaN(1,P.updates+1);
-powers(1) = sum(abs(E(:)).^2)/P_0;
+if priorData
+  P.powers = [P.powers NaN(1,P.updates)];
+else
+  P.powers = NaN(1,P.updates+1);
+  P.powers(1) = 1;
+end
 subplot(2,2,2);
-h_plot2 = plot(zUpdates,powers,'linewidth',2);
-xlim([0 P.Lz]);
+h_plot2 = plot(P.z,P.powers,'linewidth',2);
+xlim([0 P.z(end)]);
 ylim([0 1.1]);
 xlabel('Propagation distance [m]');
 ylabel('Relative power remaining');
 grid on; grid minor;
-
-if ~P.needMultipleModesOverlap
-    modeOverlap = NaN(1,P.updates+1);
-    modeOverlap(1) = abs(sum(E(:).*conj_E0)).^2; % The overlap integral calculation
-else
-	for idx = 1:size(P.modesForOverlap,2)
-        modeOverlap{idx} = NaN(1,P.updates+1);
-        modeOverlap{idx}(1) = abs(sum(E(:).*conj(P.modesForOverlap{idx}(:)))).^2; % The overlap integral calculation
-    end
-end
 
 h_axis3a = subplot(2,2,3);
 hold on;
@@ -311,7 +292,7 @@ end
 setColormap(gca,P.Intensity_colormap);
 if isfield(P,'plotEmax')
   caxis('manual');
-  caxis([0 P.plotEmax]);
+  caxis([0 P.plotEmax*max(abs(E(:)).^2)]);
 else
   caxis('auto');
 end
@@ -321,10 +302,10 @@ hold on;
 box on;
 maxE0 = max(E(:));
 if P.downsampleImages
-  h_im3b = imagesc(x_plot,y_plot,angle(E(ix_plot,iy_plot).'/maxE0)); 
+  h_im3b = imagesc(x_plot,y_plot,angle(E(ix_plot,iy_plot).'));
   h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/maxE0).^2)/3));  %Logarithmic transparency in displaying phase outside cores
 else
-  h_im3b = imagesc(x,y,angle(E.'/maxE0)); 
+  h_im3b = imagesc(x,y,angle(E.'));
   h_im3b.AlphaData = max(0,(1+log10(abs(E.'/maxE0).^2)/3));  %Logarithmic transparency in displaying phase outside cores
 end
 h_axis3b.Color = 0.7*[1 1 1];  % To set the color corresponding to phase outside the cores where there is no field at all
@@ -353,6 +334,29 @@ drawnow;
 if P.saveVideo
   frame = getframe(h_f);  %Get the frames
   writeVideo(video,frame);  %Stitch the frames to form a video and save
+end
+
+if P.calcModeOverlaps % Mode overlap figure
+  nModes = length(P.modes);
+  if priorData
+    P.modeOverlaps = [P.modeOverlaps NaN(nModes,P.updates)];
+  else
+    P.modeOverlaps = NaN(nModes,P.updates+1);
+    for iMode = 1:nModes
+      P.modeOverlaps(iMode,1) = abs(sum(E(:).*conj(P.modes(iMode).field(:)))).^2; % The overlap integral calculation
+    end
+  end
+  
+  figure(P.figNum+1);clf;
+  h_ax = axes;
+  h_overlapplot = semilogy(P.z,P.modeOverlaps,'linewidth',2);
+  xlim([0 P.z(end)]);
+  ylim([1e-4 2]);
+  xlabel('Propagation distance [m]');
+  ylabel('Mode overlaps');
+  legend(P.modes.label,'location','eastoutside','FontSize',6);
+  grid on; grid minor;
+  h_ax.LineStyleOrder = {'-','--',':','-.'};
 end
 
 % tic;
@@ -409,17 +413,16 @@ for updidx = 1:length(zUpdateIdxs)
     caxis(h_axis3a,'auto');
   end
   
-  powers(updidx+1) = sum(abs(E(:)).^2)/P_0; 
-  h_plot2.YData = powers;
-  drawnow;
+  P.powers(end-length(zUpdateIdxs)+updidx) = sum(abs(E(:)).^2); 
+  h_plot2.YData = P.powers;
   
-  if ~P.needMultipleModesOverlap
-    modeOverlap(updidx+1) = abs(sum(E(:).*conj(P.E_0(:)))).^2; % The overlap integral calculation
-  else
-    for idx = 1:size(P.modesForOverlap,2)
-        modeOverlap{idx}(updidx+1) = abs(sum(E(:).*conj(P.modesForOverlap{idx}(:)))).^2; % The overlap integral calculation        
+  if P.calcModeOverlaps
+    for iMode = 1:nModes
+      P.modeOverlaps(iMode,end-length(zUpdateIdxs)+updidx) = abs(sum(E(:).*conj(P.modes(iMode).field(:)))).^2; % The overlap integral calculation
+      h_overlapplot(iMode).YData = P.modeOverlaps(iMode,:);
     end
   end
+  drawnow;
   
   if P.saveVideo
     frame = getframe(h_f); 
@@ -432,7 +435,7 @@ if P.saveVideo && ~isfield(P,'videoHandle')
 	close(video);
 end
 
-Estruct = struct('field',E,'Lx',Lx,'Ly',Ly,'x',x,'y',y,'dx',dx,'dy',dy,'dz',dz);
+P.Efinal = struct('field',E,'Lx',Lx,'Ly',Ly);
 
 % S = load('train');
 % sound(S.y.*0.1,S.Fs);

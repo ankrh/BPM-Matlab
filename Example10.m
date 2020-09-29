@@ -73,7 +73,11 @@ P.shapes = [0 0 9e-6  2  1.4491];
 % 'Ly' fields that describe the side lengths of the provided E matrix. In
 % the case of a struct, the provided E field will be adapted to the new
 % grid using the interp2 function.
-P.E = @calcInitialE; % Defined at the end of this file
+nModes = 5; % For mode finding
+plotModes = false; % If true, will plot the found modes
+sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
+P = findModes(P,nModes,sortByLoss,plotModes);
+P.E = P.modes(3);
 
 % Set the Eparameters with LP mode type, core radius, n_core, n_cladding, 
 % and wavelength to pass as parameters to the function getLPmodes inside 
@@ -83,8 +87,8 @@ P.Eparameters = {[2 1 'A'], P.shapes, P.n_cladding, P.lambda};
 
 % Run solver
 tic
-[E_out,shapes_out,powers_out,modeOverlap,P] = FD_BPM(P);
-[E_final, powers_final, modeOverlap_final, P_final] = addToSaveData(1, E_out, powers_out, modeOverlap, P, E_final, powers_final, modeOverlap_final, P_final);
+P = FD_BPM(P);
+% [E_final, powers_final, modeOverlap_final, P_final] = addToSaveData(1, E_out, powers_out, modeOverlap, P, E_final, powers_final, modeOverlap_final, P_final);
 
 %% Segment 2 run with FDBPM
 P.Lx_main = 80e-6;        % [m] x side length of main area
@@ -104,12 +108,12 @@ P.shapes = [-P.pitch/2/sqrt(3)       P.pitch/2         62.5e-6*scaleFactor     1
                    P.pitch/sqrt(3)           0                     2.65e-6*scaleFactor     1       1.4511;
                    -P.pitch/2/sqrt(3)       -P.pitch/2        2.65e-6*scaleFactor     1       1.4511
                     ];
-P.E = E_out;
+P.E = P.Efinal;
 % P.n_colorlimits = [1.449 1.521];
 
 % Run solver
-[E_out,shapes_out,powers_out,modeOverlap,P] = FD_BPM(P);
-[E_final, powers_final, modeOverlap_final, P_final] = addToSaveData(2, E_out, powers_out, modeOverlap, P, E_final, powers_final, modeOverlap_final, P_final);
+P = FD_BPM(P);
+% [E_final, powers_final, modeOverlap_final, P_final] = addToSaveData(2, E_out, powers_out, modeOverlap, P, E_final, powers_final, modeOverlap_final, P_final);
 
 %% Segment 3 run with FDBPM
 P.Lx_main = 250e-6;        % [m] x side length of main area
@@ -118,18 +122,18 @@ P.Nx_main = 200;          % x resolution of main area
 P.Ny_main = 200;          % y resolution of main area
 P.figTitle = 'Steep taper - 15 mm';
 P.Lz = 15e-3; % [m] z propagation distances for this segment
-P.shapes = shapes_out;
+P.shapes = P.shapesFinal;
 P.taperScaling = 230/50;
-P.E = E_out;
+P.E = P.Efinal;
 
 % Run solver
-[E_out,shapes_out,powers_out,modeOverlap,P] = FD_BPM(P);
-[E_final, powers_final, modeOverlap_final, P_final] = addToSaveData(3, E_out, powers_out, modeOverlap, P, E_final, powers_final, modeOverlap_final, P_final);
+P = FD_BPM(P);
+% [E_final, powers_final, modeOverlap_final, P_final] = addToSaveData(3, E_out, powers_out, modeOverlap, P, E_final, powers_final, modeOverlap_final, P_final);
 
 totalTime = toc; 
 %% Save output data and video 
 if P.saveData 
-    save(dataName, 'P_final','E_final','powers_final','shapes_out','modeOverlap_final','totalTime');
+%     save(dataName, 'P_final','E_final','powers_final','shapes_out','modeOverlap_final','totalTime');
 end
 if P.saveVideo
 	close(P.videoHandle);
@@ -140,23 +144,6 @@ sound(S.y.*0.3,S.Fs);
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
-LP_mode_type = Eparameters{1}; 
-shapes = Eparameters{2}; 
-core_radius = shapes(3); 
-n_core = shapes(5); 
-n_cladding = Eparameters{3}; 
-lambda = Eparameters{4};
-
-addpath('LP mode decomposition');
-LP_modes_AB = getLPmodes(X,Y,core_radius,n_core,n_cladding,lambda); 
-LP_modes_A = LP_modes_AB{1,1};
-LP_modes_B = LP_modes_AB{2,1};
-
-if strcmp(LP_mode_type(3),'B')  % degenerate modes A and B
-    E = LP_modes_B{LP_mode_type(1),LP_mode_type(2)};
-else 
-    E = LP_modes_A{LP_mode_type(1),LP_mode_type(2)};
-end
 end
 
 function [E_output, powers_output, modeOverlap_output, P_output] = addToSaveData(segment, E_out, powers_out, modeOverlap_out, P_out, E_output, powers_output, modeOverlap_output, P_output)
