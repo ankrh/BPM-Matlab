@@ -24,6 +24,7 @@ P.lambda = 1000e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46;
 P.Lz = 2e-3; % [m] z propagation distances for this segment
+
 nModes = 10; % For mode finding
 plotModes = true; % If true, will plot the found modes
 
