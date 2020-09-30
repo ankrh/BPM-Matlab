@@ -191,6 +191,10 @@ else
   E = complex(double(E)); % Force to be complex double
 end
 
+if ~priorData
+  P.Einitial = E;
+end
+
 %% Calculate z step size and positions
 Nz = max(P.updates,round(P.Lz/P.dz_target)); % Number of z steps in this segment
 dz = P.Lz/Nz;
@@ -443,6 +447,9 @@ shapesFinal(:,3) = P.taperScaling*P.shapes(:,3);
 P.shapes = shapesFinal;
 
 P.E = struct('field',E,'Lx',Lx,'Ly',Ly);
+
+P.x = x;
+P.y = y;
 
 % S = load('train');
 % sound(S.y.*0.1,S.Fs);

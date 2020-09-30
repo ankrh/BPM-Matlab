@@ -8,6 +8,9 @@ end
 if isfield(P,'modeOverlaps')
   P = rmfield(P,'modeOverlaps');
 end
+if isfield(P,'Einitial')
+  P = rmfield(P,'Einitial');
+end
 if isfield(P,'originalEinput')
   P.E = P.originalEinput;
   P = rmfield(P,'originalEinput');
