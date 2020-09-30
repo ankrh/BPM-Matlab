@@ -108,7 +108,6 @@ P.shapes = [-P.pitch/2/sqrt(3)       P.pitch/2         62.5e-6*scaleFactor     1
                    P.pitch/sqrt(3)           0                     2.65e-6*scaleFactor     1       1.4511;
                    -P.pitch/2/sqrt(3)       -P.pitch/2        2.65e-6*scaleFactor     1       1.4511
                     ];
-P.E = P.Efinal;
 % P.n_colorlimits = [1.449 1.521];
 
 % Run solver
@@ -122,9 +121,7 @@ P.Nx_main = 200;          % x resolution of main area
 P.Ny_main = 200;          % y resolution of main area
 P.figTitle = 'Steep taper - 15 mm';
 P.Lz = 15e-3; % [m] z propagation distances for this segment
-P.shapes = P.shapesFinal;
 P.taperScaling = 230/50;
-P.E = P.Efinal;
 
 % Run solver
 P = FD_BPM(P);

@@ -163,11 +163,12 @@ if P.downsampleImages
   y_plot = y(iy_plot);
 end
 
-%% Calculate the output shapes
-P.shapesFinal = P.shapes;
-P.shapesFinal(:,1) = P.taperScaling*(cos(P.twistRate*P.Lz)*P.shapes(:,1) - sin(P.twistRate*P.Lz)*P.shapes(:,2));
-P.shapesFinal(:,2) = P.taperScaling*(sin(P.twistRate*P.Lz)*P.shapes(:,1) + cos(P.twistRate*P.Lz)*P.shapes(:,2));
-P.shapesFinal(:,3) = P.taperScaling*P.shapes(:,3);
+%% Store inputs, if first segment
+priorData = isfield(P,'originalEinput');
+if ~priorData
+  P.originalEinput = P.E;
+  P.originalShapesInput = P.shapes;
+end
 
 %% Beam initialization
 if isa(P.E,'function_handle')
@@ -212,7 +213,6 @@ if ~P.disableStepsizeWarning
 end
 
 zUpdateIdxs = round((1:P.updates)/P.updates*Nz); % Update indices relative to start of this segment
-priorData = isfield(P,'z');
 if priorData
   P.z = [P.z dz*zUpdateIdxs + P.z(end)];
 else
@@ -435,7 +435,14 @@ if P.saveVideo && ~isfield(P,'videoHandle')
 	close(video);
 end
 
-P.Efinal = struct('field',E,'Lx',Lx,'Ly',Ly);
+%% Calculate the output shapes and store the final E field as the new input field
+shapesFinal = P.shapes;
+shapesFinal(:,1) = P.taperScaling*(cos(P.twistRate*P.Lz)*P.shapes(:,1) - sin(P.twistRate*P.Lz)*P.shapes(:,2));
+shapesFinal(:,2) = P.taperScaling*(sin(P.twistRate*P.Lz)*P.shapes(:,1) + cos(P.twistRate*P.Lz)*P.shapes(:,2));
+shapesFinal(:,3) = P.taperScaling*P.shapes(:,3);
+P.shapes = shapesFinal;
+
+P.E = struct('field',E,'Lx',Lx,'Ly',Ly);
 
 % S = load('train');
 % sound(S.y.*0.1,S.Fs);

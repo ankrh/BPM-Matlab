@@ -18,13 +18,6 @@ P.dz_target = 1e-6; % [m] z step size to aim for
 P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
 
 %% Reproducing Fig. 4
-% n_cladding = 1.52
-% core radius = 12.5e-6
-% lambda = 1064e-9
-% NA = 0.1
-% n_core = sqrt(NA^2 + n_cladding^2)
-% bendingRoC = 1.24e-2
-
 P.lambda = 1064e-9; % [m] Wavelength
 P.n_cladding = 1.52; % [] Cladding refractive index
 NA = 0.1;
@@ -60,29 +53,14 @@ P.shapes = [ 0 0 12.5e-6    2  n_core];
 P = findModes(P,nModes,sortByLoss,plotModes);
 
 %% Reproducing Fig 7, blue curve:
-clear P
+P.Lz = 1e-2; % [m] z propagation distances for this segment
 
-P.name = mfilename;
-P.updates = 5;            % Number of times to update plot. Must be at least 1, showing the final state.
-P.Lx_main = 50e-6;        % [m] x side length of main area
-P.Ly_main = 50e-6;        % [m] y side length of main area
-P.Nx_main = 150;          % x resolution of main area
-P.Ny_main = 150;          % y resolution of main area
-P.padfactor = 1.5;  % How much absorbing padding to add on the sides of the main area (1 means no padding, 2 means the absorbing padding on both sides is of thickness Lx_main/2)
-P.dz_target = 1e-6; % [m] z step size to aim for
-P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
-
-% lambda = 1320e-9
-% n_cladding = 1.447
-% core radius = 4.1e-6
-% NA = 0.117
-% n_core = sqrt(NA^2 + n_cladding^2)
 P.lambda = 1320e-9; % [m] Wavelength
 P.n_cladding = 1.447; % [] Cladding refractive index
 NA = 0.117;
 n_core = sqrt(NA^2 + P.n_cladding^2);
+
 P.n_0 = n_core;
-P.Lz = 1e-2; % [m] z propagation distances for this segment
 
 P.bendingRoC = 0.75e-2;
 P.bendDirection = 0;
@@ -107,27 +85,15 @@ bendloss = -log(P.powers(end))/P.Lz*(-10*log10(exp(-1))) % [dB/m]
 % 0.5e-2    272
 
 %% Reproducing Fig 7, red curve:
-clear P
+P = clearData(P);
 
-P.name = mfilename;
-P.updates = 5;            % Number of times to update plot. Must be at least 1, showing the final state.
-P.Lx_main = 50e-6;        % [m] x side length of main area
-P.Ly_main = 50e-6;        % [m] y side length of main area
-P.Nx_main = 150;          % x resolution of main area
-P.Ny_main = 150;          % y resolution of main area
-P.padfactor = 1.5;  % How much absorbing padding to add on the sides of the main area (1 means no padding, 2 means the absorbing padding on both sides is of thickness Lx_main/2)
-P.dz_target = 1e-6; % [m] z step size to aim for
-P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
+P.Lz = 1e-2; % [m] z propagation distances for this segment
 
-% lambda = 1550e-9
-% n_cladding = 1.440
-% (rest is same as above)
 P.lambda = 1550e-9; % [m] Wavelength
 P.n_cladding = 1.440; % [] Cladding refractive index
 NA = 0.117;
 n_core = sqrt(NA^2 + P.n_cladding^2);
 P.n_0 = n_core;
-P.Lz = 1e-2; % [m] z propagation distances for this segment
 
 P.bendingRoC = 0.75e-2;
 P.bendDirection = 0;

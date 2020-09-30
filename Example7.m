@@ -86,8 +86,6 @@ P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
 P.bendDirection = 0;
-P.shapes = P.shapesFinal;
-P.E = P.Efinal;
 
 % Run solver
 P = FD_BPM(P);
@@ -100,8 +98,6 @@ P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
 P.bendDirection = 0;
-P.shapes = P.shapesFinal;
-P.E = P.Efinal;
 
 % Run solver
 P = FD_BPM(P);

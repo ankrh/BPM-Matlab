@@ -90,8 +90,6 @@ P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
 P.bendDirection = 0;
-P.shapes = P.shapesFinal;
-P.E = P.Efinal;
 
 % Run solver
 P = FD_BPM(P);
@@ -104,8 +102,6 @@ P.taperScaling = 1;
 P.twistRate = 0;
 P.bendingRoC = Inf;
 P.bendDirection = 0;
-P.shapes = P.shapesFinal;
-P.E = P.Efinal;
 
 % Run solver
 P = FD_BPM(P);
@@ -121,11 +117,10 @@ P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit 
 P.figNum = 2;
 P.figTitle = 'In air';
 P.Lz = focalLength;
-P.E = P.Efinal;
 
 % Run solver
 [E_out_fft] = FFT_BPM(P);
-[E_final, powers_final] = addToSaveData(4, E_out_fft, [], E_final, powers_final);
+% [E_final, powers_final] = addToSaveData(4, E_out_fft, [], E_final, powers_final);
 
 if P.saveData 
 %     save(dataName, 'P','E_final','powers_final','shapes_out');

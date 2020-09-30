@@ -46,7 +46,7 @@ P.shapes = [ 0 0 5e-6  2  1.46];
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
-FD_BPM(P);
+P = FD_BPM(P);
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size

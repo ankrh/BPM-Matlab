@@ -68,8 +68,6 @@ P.Nx_main = 1500;          % x resolution of main area
 P.Ny_main = 400;          % y resolution of main area
 P.Lz = 1e-2; % [m] z propagation distances for this segment
 
-P.E = P.Efinal;
-
 % Run solver
 FFT_BPM(P);
 

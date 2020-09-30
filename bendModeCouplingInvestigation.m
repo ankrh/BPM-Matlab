@@ -60,8 +60,6 @@ P.Lz = 1e-3; % [m] z propagation distances for this segment
 P.updates = P.Lz/updatestepsize;
 P.bendingRoC = 10e-3;
 P.bendDirection = 0;
-P.shapes = P.shapesFinal;
-P.E = P.Efinal;
 
 P = FD_BPM(P);
 
@@ -70,8 +68,6 @@ P.Lz = 1e-3; % [m] z propagation distances for this segment
 P.updates = P.Lz/updatestepsize;
 P.bendingRoC = 10e-3;
 P.bendDirection = 90;
-P.shapes = P.shapesFinal;
-P.E = P.Efinal;
 
 P = FD_BPM(P);
 
@@ -80,8 +76,6 @@ P.Lz = 5e-4; % [m] z propagation distances for this segment
 P.updates = P.Lz/updatestepsize;
 P.bendingRoC = Inf;
 P.bendDirection = 0;
-P.shapes = P.shapesFinal;
-P.E = P.Efinal;
 
 P = FD_BPM(P);
 

@@ -75,8 +75,6 @@ P.Ny_main = 500;          % y resolution of main area
 P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
 P.Lz = 1e-2; % [m] z propagation distances for this segment
 
-P.E = P.Efinal;
-
 % Run solver
 FFT_BPM(P);
 

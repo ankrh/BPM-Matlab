@@ -68,8 +68,6 @@ P.figTitle = 'Segment 2';
 P.Lz = 5e-3;
 P.taperScaling = 0.15;
 P.twistRate = 2*pi/P.Lz;
-P.shapes = P.shapesFinal;
-P.E = P.Efinal;
 
 % Run solver
 P = FD_BPM(P);
@@ -79,8 +77,6 @@ P.figTitle = 'Segment 3';
 P.Lz = 2e-3;
 P.taperScaling = 1;
 P.twistRate = 0;
-P.shapes = P.shapesFinal;
-P.E = P.Efinal;
 
 % Run solver
 P = FD_BPM(P);
@@ -88,11 +84,10 @@ P = FD_BPM(P);
 %% Next segment
 P.figTitle = 'Segment 4';
 P.Lz = 3e-3;
-P.shapes = P.shapesFinal(3,:);
-P.E = P.Efinal;
+P.shapes = P.shapes(3,:);
 
 % Run solver
-FD_BPM(P);
+P = FD_BPM(P);
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size

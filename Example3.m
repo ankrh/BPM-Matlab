@@ -64,6 +64,8 @@ P.E = @calcInitialE; % Defined at the end of this file
 % Run solver
 P = FD_BPM(P);
 
+E = P.E; % Store this for use in the FFTBPM
+
 %% Part 2 run with FDBPM
 P.figNum = 2;
 P.figTitle = 'FD BPM';
@@ -79,12 +81,11 @@ P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit 
 
 P.Lz = 2e-4; % [m] z propagation distances for this segment
 
-P.E = P.Efinal;
-
 % Run solver
-FD_BPM(P);
+P = FD_BPM(P);
 
 %% Part 2 run with FFTBPM for comparison
+P.E = E; % Use E field output from part 1
 P.figNum = 3;
 P.figTitle = 'FFT BPM';
 
