@@ -21,8 +21,6 @@ P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when h
 P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
 dataName = [P.name '.mat'];
 P.videoName = [P.name '.avi'];
-E_final = {};  % Initialising Eoutput array which is finally saved after all segment simulations 
-powers_final = {}; 
 if P.saveVideo 
   P.videoHandle = VideoWriter(P.videoName);  % Create the video handle if you want to save video from all the frames
   open(P.videoHandle);
@@ -81,7 +79,6 @@ P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
 P = FD_BPM(P);
-% [E_final, powers_final] = addToSaveData(1, E_out, powers_out, E_final, powers_final);
 
 %% Second segment - bent multicore fibre
 P.figTitle = 'Segment 2';
@@ -93,7 +90,6 @@ P.bendDirection = 0;
 
 % Run solver
 P = FD_BPM(P);
-% [E_final, powers_final] = addToSaveData(2, E_out, powers_out, E_final, powers_final);
 
 %% Third segment - straight multicore fibre
 P.figTitle = 'Segment 3';
@@ -105,7 +101,6 @@ P.bendDirection = 0;
 
 % Run solver
 P = FD_BPM(P);
-% [E_final, powers_final] = addToSaveData(3, E_out, powers_out, E_final, powers_final);
 
 %% Fourth segment - Free space FFTBPM propagation from fibre distal end
 P.Lx_main = 1200e-6;        % [m] x side length of main area
@@ -120,12 +115,11 @@ P.Lz = focalLength;
 
 % Run solver
 [E_out_fft] = FFT_BPM(P);
-% [E_final, powers_final] = addToSaveData(4, E_out_fft, [], E_final, powers_final);
 
 if P.saveData 
-%     save(dataName, 'P','E_final','powers_final','shapes_out');
+    save(dataName, 'P');
 end
-if P.saveVideo
+if P.saveVideo && isfield(P,'videoHandle')
 	close(P.videoHandle);
 end
 toc
@@ -159,7 +153,7 @@ acquiredPhase = NaN(1,numberOfCores);    % Row vector (1D)
 focusPhase = NaN(1,numberOfCores);
 
 for idx = 1:numberOfCores
-  acquiredPhase(idx) = angle(E_final{end}.field(Nx/2+ceil(shapeParameters(idx)/dx),Ny/2+ceil(shapeParameters(idx+numberOfCores)/dy)));  %Acquired phase of E field (Estruct.field) at distal end for previous travel through straight fibre
+  acquiredPhase(idx) = angle(P.E.field(Nx/2+ceil(shapeParameters(idx)/dx),Ny/2+ceil(shapeParameters(idx+numberOfCores)/dy)));  %Acquired phase of E field (P.E.field) at distal end for previous travel through straight fibre
   switch focusType
       case 1
           focusPhase(idx) = k_0*((shapeParameters(idx))^2+(shapeParameters(idx+numberOfCores))^2)/(2*focalLength);  %Focusing phase for point focus
@@ -190,9 +184,4 @@ for coreIdx = 1:numberOfCores
     shapeParameters(1:2,coreIdx) = [x_n(coreIdx); y_n(coreIdx)];
 end
 shapeParameters = shapeParameters.'; % Format: x y R shapeType n_core: in one row
-end
-
-function [E_output, powers_output] = addToSaveData(segment, E_out, powers_out, E_output, powers_output)
-    E_output{segment} = E_out; 
-    powers_output{segment} = powers_out; 
 end

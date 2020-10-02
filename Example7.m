@@ -18,8 +18,6 @@ P.updates = 30;            % Number of times to update plot. Must be at least 1,
 P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
 dataName = [P.name '.mat'];
-E_final = {};  % Initialising Eoutput array which is finally saved after all segment simulations 
-powers_final = {}; 
 
 %The colormap options for the subplots are 
 %1: GBP, 2: HSV, 3:parula, 4: gray, 5: cividis
@@ -77,7 +75,6 @@ P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
 P = FD_BPM(P);
-% [E_final, powers_final] = addToSaveData(1, E_out, powers_out, E_final, powers_final);
 
 %% Second segment - bent multicore fibre
 P.figTitle = 'Segment 2';
@@ -89,7 +86,6 @@ P.bendDirection = 0;
 
 % Run solver
 P = FD_BPM(P);
-% [E_final, powers_final] = addToSaveData(2, E_out, powers_out, E_final, powers_final);
 
 %% Third segment - straight multicore fibre
 P.figTitle = 'Segment 3';
@@ -101,10 +97,9 @@ P.bendDirection = 0;
 
 % Run solver
 P = FD_BPM(P);
-% [E_final, powers_final] = addToSaveData(3, E_out, powers_out, E_final, powers_final);
 
 if P.saveData 
-%     save(dataName, 'P','E_final','powers_final','shapes_out');
+    save(dataName, 'P');
 end
 toc
 S = load('train');
@@ -142,9 +137,4 @@ for coreIdx = 1:numberOfCores
     shapeParameters(1:2,coreIdx) = [x_n(coreIdx); y_n(coreIdx)];
 end
 shapeParameters = shapeParameters.'; % Format: x y R shapeType n_core: in one row
-end
-
-function [E_output, powers_output] = addToSaveData(segment, E_out, powers_out, E_output, powers_output)
-    E_output{segment} = E_out; 
-    powers_output{segment} = powers_out; 
 end
