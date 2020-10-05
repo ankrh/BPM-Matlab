@@ -14,7 +14,7 @@ P.Ly_main = 50e-6;        % [m] y side length of main area
 P.Nx_main = 150;          % x resolution of main area
 P.Ny_main = 150;          % y resolution of main area
 P.padfactor = 1.5;  % How much absorbing padding to add on the sides of the main area (1 means no padding, 2 means the absorbing padding on both sides is of thickness Lx_main/2)
-P.dz_target = 1e-6; % [m] z step size to aim for
+P.dz_target = 0.2e-6; % [m] z step size to aim for
 P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
 
 %% Reproducing Fig. 4
@@ -62,7 +62,7 @@ n_core = sqrt(NA^2 + P.n_cladding^2);
 
 P.n_0 = n_core;
 
-P.bendingRoC = 0.75e-2;
+P.bendingRoC = 0.5e-2;
 P.bendDirection = 0;
 % P.rho_e = 0;
 
@@ -77,12 +77,13 @@ P = FD_BPM(P);
 
 bendloss = -log(P.powers(end))/P.Lz*(-10*log10(exp(-1))) % [dB/m]
 
-% Results for wavelength 1320 nm:
+% Results for wavelength 1320 nm: (Nx=150, dz=0.2e-6)
 % RoC [m]   bendloss [dB/m]
-% 1.25e-2   0.0371
-% 1e-2      0.639
-% 0.75e-2   15.5
-% 0.5e-2    272
+% 1.5e-2     0.0055
+% 1.25e-2   0.0289
+% 1e-2      0.6303
+% 0.75e-2   15.5092
+% 0.5e-2    272.3184
 
 %% Reproducing Fig 7, red curve:
 P = clearData(P);
@@ -95,12 +96,13 @@ NA = 0.117;
 n_core = sqrt(NA^2 + P.n_cladding^2);
 P.n_0 = n_core;
 
-P.bendingRoC = 0.75e-2;
+P.bendingRoC = 1.5e-2;
 P.bendDirection = 0;
 % P.rho_e = 0;
 
 P.shapes = [ 0 0 4.1e-6    2  n_core];
 
+plotModes = false; % If true, will plot the found modes
 P = findModes(P,nModes,sortByLoss,plotModes);
 P.E = P.modes(1);
 
@@ -111,11 +113,14 @@ bendloss = -log(P.powers(end))/P.Lz*(-10*log10(exp(-1))) % [dB/m]
 
 % Results for wavelength 1550 nm:
 % RoC [m]   bendloss [dB/m]
-% 1.5e-2    0.553
-% 1.25e-2   3.21
-% 1.0e-2    54.4
-% 0.75e-2   180
-% 0.5e-2    1271
+% 1.5e-2    0.5450
+% 1.25e-2   3.1963
+% 1.0e-2    54.3441
+% 0.75e-2   180.1932
+% 0.5e-2    1270.3429
+
+S = load('train');
+sound(S.y.*0.3,S.Fs);
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
