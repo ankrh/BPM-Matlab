@@ -32,9 +32,6 @@ end
 if ~isfield(P,'saveData')
   P.saveData = false;
 end
-if ~isfield(P,'useSingles')
-  P.useSingles = false;
-end
 if ~isfield(P,'useGPU')
   P.useGPU = false;
 end
@@ -95,11 +92,7 @@ elseif P.saveVideo
   video = P.videoHandle;  %videoHandle is passed from Example.m file
 end
 
-if P.useSingles
-  typename = 'single';
-else
-  typename = 'double';
-end
+typename = 'single';
 
 if ~isfield(P,'calcModeOverlaps')
   P.calcModeOverlaps = false; 
@@ -185,11 +178,7 @@ else % Interpolate source E field to new grid
   E = E*sqrt(sum(abs(P.E.field(:)).^2)/sum(abs(E(:)).^2));
 end
 
-if P.useSingles
-  E = complex(single(E)); % Force to be complex single
-else
-  E = complex(double(E)); % Force to be complex double
-end
+E = complex(single(E)); % Force to be complex single
 
 if ~priorData
   P.Einitial = E;
@@ -230,7 +219,7 @@ d = -dz*k_0/(2*P.n_0); % defined such that in each step in the mex function, E =
 
 %% Define the multiplier
 absorber = exp(-dz*max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha);
-multiplier = absorber; % This could also include a phase gradient due to bending
+multiplier = absorber;
 
 %% Figure initialization
 h_f = figure(P.figNum);clf;
@@ -365,15 +354,10 @@ end
 
 % tic;
 %% Load variables into a parameters struct and start looping, one iteration per update
-if P.useSingles
-  mexParameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
-    'shapes',single(P.shapes),'n_cladding',single(P.n_cladding),'multiplier',complex(single(multiplier)),'d',single(d),'n_0',single(P.n_0),...
-    'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection));
-else
-  mexParameters = struct('dx',dx,'dy',dy,'taperPerStep',(1-P.taperScaling)/Nz,'twistPerStep',P.twistRate*P.Lz/Nz,...
-    'shapes',P.shapes,'n_cladding',P.n_cladding,'multiplier',complex(multiplier),'d',d,'n_0',P.n_0,...
-    'ax',ax,'ay',ay,'useAllCPUs',P.useAllCPUs,'RoC',P.bendingRoC,'rho_e',P.rho_e,'bendDirection',P.bendDirection);
-end
+mexParameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
+  'shapes',single(P.shapes),'n_cladding',single(P.n_cladding),'multiplier',complex(single(multiplier)),'d',single(d),'n_0',single(P.n_0),...
+  'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
+  'inputPrecisePower',P.powers(end-length(zUpdateIdxs)));
 
 % fprintf("dz = %.2e, ax = %.2f i, ay = %.2f i, d = %.2f\n",dz,ax/1i,ay/1i,d);
 mexParameters.iz_start = int32(0); % z index of the first z position to step from for the first call to FDBPMpropagator, in C indexing (starting from 0)
@@ -385,17 +369,9 @@ for updidx = 1:length(zUpdateIdxs)
   end
 %   checkMexInputs(E,mexParameters,typename);
   if P.useGPU
-    if P.useSingles
-      [E,n] = FDBPMpropagatorSingles_CUDA(E,mexParameters);
-    else
-      [E,n] = FDBPMpropagator_CUDA(E,mexParameters);
-    end
+    [E,n,precisePower] = FDBPMpropagator_CUDA(E,mexParameters);
   else
-    if P.useSingles
-      [E,n] = FDBPMpropagatorSingles(E,mexParameters);
-    else
-      [E,n] = FDBPMpropagator(E,mexParameters);
-    end
+    [E,n,precisePower] = FDBPMpropagator(E,mexParameters);
   end
 
   %% Update figure contents
@@ -417,7 +393,8 @@ for updidx = 1:length(zUpdateIdxs)
     caxis(h_axis3a,'auto');
   end
   
-  P.powers(end-length(zUpdateIdxs)+updidx) = sum(abs(E(:)).^2); 
+  mexParameters.inputPrecisePower = precisePower;
+  P.powers(end-length(zUpdateIdxs)+updidx) = precisePower;
   h_plot2.YData = P.powers;
   
   if P.calcModeOverlaps
