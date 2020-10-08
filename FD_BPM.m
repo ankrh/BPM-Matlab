@@ -293,7 +293,7 @@ end
 h_axis3b = subplot(2,2,4);
 hold on;
 box on;
-maxE0 = max(E(:));
+maxE0 = abs(max(E(:)));
 if P.downsampleImages
   h_im3b = imagesc(x_plot,y_plot,angle(E(ix_plot,iy_plot).'));
   h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/maxE0).^2)/3));  %Logarithmic transparency in displaying phase outside cores
@@ -378,12 +378,12 @@ for updidx = 1:length(zUpdateIdxs)
   if P.downsampleImages
     h_im1.CData = n(ix_plot,iy_plot).'; % Refractive index at this update
     h_im3a.CData = abs(E(ix_plot,iy_plot).').^2; % Intensity at this update
-    h_im3b.CData = angle(E(ix_plot,iy_plot).'/maxE0); % Phase at this update
+    h_im3b.CData = angle(E(ix_plot,iy_plot).'); % Phase at this update
     h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
   else
     h_im1.CData = n.'; % Refractive index at this update
     h_im3a.CData = abs(E.').^2; % Intensity at this update
-    h_im3b.CData = angle(E.'/maxE0); % Phase at this update
+    h_im3b.CData = angle(E.'); % Phase at this update
     h_im3b.AlphaData = max(0,(1+log10(abs(E.'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
   end
   if updidx == 1
