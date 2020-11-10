@@ -4,8 +4,11 @@ clear P % Parameters struct
 % media with uniform refractive index n_0, either the FFTBPM or FDBPM
 % solver can be used for propagation. The output of example 1 is propagated
 % 2e-4 m through a medium of uniform refractive index 1.45 with both
-% solvers. You can see that the results are identical apart from a constant
-% phase offset by comparing figures 2 and 3.
+% solvers. You can see that the results are identical by comparing figures
+% 2 and 3.
+
+% The example also demonstrates the use of non-standard color maps for the
+% plots.
 
 %% Part 1 run with FDBPM
 %% General and solver-related settings

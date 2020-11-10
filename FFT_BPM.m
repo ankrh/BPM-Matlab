@@ -16,6 +16,12 @@ end
 if ~isfield(P,'videoName')
   P.videoName = [P.name '.avi'];
 end
+if ~isfield(P,'saveVideo')
+  P.saveVideo = false;
+end
+if ~isfield(P,'finalizeVideo')
+  P.finalizeVideo = true;
+end
 if ~isfield(P,'Intensity_colormap')
   P.Intensity_colormap = 1;
 end
@@ -74,11 +80,14 @@ end
 clear X Y X_source Y_source
 
 %% Fresnel Propagation and plotting
-if P.saveVideo && ~isfield(P,'videoHandle')
-  video = VideoWriter(P.videoName);  %For saving the propagation frames as a video
-  open(video);
-elseif P.saveVideo
-  video = P.videoHandle;  %videoHandle is passed from Example.m file
+if P.saveVideo
+  if isfield(P,'videoHandle')
+    video = P.videoHandle;
+  else
+    video = VideoWriter(P.videoName);  % If videoHandle is not passed from the model file, we create one
+    video.FrameRate = 5;
+    open(video);
+  end
 end
 
 h_f = figure(P.figNum);clf;
@@ -150,8 +159,12 @@ for zidx = 1:Nz
 end
 % toc
 
-if P.saveVideo && ~isfield(P,'videoHandle')
-  close(video);
+if P.saveVideo
+  if P.finalizeVideo
+  	close(video);
+  else
+    P.videoHandle = video;
+  end
 end
 
 Estruct = struct('field',E,'Lx',Lx,'Ly',Ly,'x',x,'y',y,'dx',dx,'dy',dy,'dz',dz);

@@ -29,6 +29,9 @@ end
 if ~isfield(P,'saveVideo')
   P.saveVideo = false;
 end
+if ~isfield(P,'finalizeVideo')
+  P.finalizeVideo = true;
+end
 if ~isfield(P,'saveData')
   P.saveData = false;
 end
@@ -72,7 +75,7 @@ if size(P.shapes,2) == 5
     P.shapes(:,6) = NaN;
   end
 end
-if ~isfield(P,'videoName')
+if P.saveVideo && ~isfield(P,'videoName')
   P.videoName = [P.name '.avi'];
 end
 if ~isfield(P,'Intensity_colormap')
@@ -85,11 +88,14 @@ if ~isfield(P,'n_colormap')
   P.n_colormap = 3;
 end
 
-if P.saveVideo && ~isfield(P,'videoHandle')
-  video = VideoWriter(P.videoName);  % If videoHandle is not passed from Example.m file, video of only the last segment will be saved
-  open(video);
-elseif P.saveVideo
-  video = P.videoHandle;  %videoHandle is passed from Example.m file
+if P.saveVideo
+  if isfield(P,'videoHandle')
+    video = P.videoHandle;
+  else
+    video = VideoWriter(P.videoName);  % If videoHandle is not passed from the model file, we create one
+    video.FrameRate = 5;
+    open(video);
+  end
 end
 
 typename = 'single';
@@ -412,8 +418,12 @@ for updidx = 1:length(zUpdateIdxs)
 end
 % toc
 
-if P.saveVideo && ~isfield(P,'videoHandle')
-	close(video);
+if P.saveVideo
+  if P.finalizeVideo
+  	close(video);
+  else
+    P.videoHandle = video;
+  end
 end
 
 %% Calculate the output shapes and store the final E field as the new input field
