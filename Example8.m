@@ -52,12 +52,3 @@ P.E = P.modes(9); % The 9th mode is an LP31o-like mode
 
 % Run solver
 FD_BPM(P);
-
-%% USER DEFINED E-FIELD INITIALIZATION FUNCTION
-function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
-w_0 = 2.5e-6;
-offset = 2.5e-6;
-amplitude = exp(-((X-offset).^2+Y.^2)/w_0^2);
-phase = zeros(size(X));
-E = amplitude.*exp(1i*phase); % Electric field
-end
