@@ -165,6 +165,9 @@ end
 %% Store inputs, if first segment
 priorData = isfield(P,'originalEinput');
 if ~priorData
+  if ~isa(P.E,'function_handle')
+    P.E.field = P.E.field/sqrt(sum(abs(P.E.field(:)).^2));
+  end
   P.originalEinput = P.E;
   P.originalShapesInput = P.shapes;
 end
@@ -252,10 +255,17 @@ title('Refractive index');
 
 if priorData
   P.powers = [P.powers NaN(1,P.updates)];
+  P.xzSlice = [P.xzSlice NaN(Nx,P.updates)];
+  P.yzSlice = [P.yzSlice NaN(Ny,P.updates)];
 else
   P.powers = NaN(1,P.updates+1);
   P.powers(1) = 1;
+  P.xzSlice = NaN(Nx,P.updates+1);
+  P.yzSlice = NaN(Ny,P.updates+1);
+  P.xzSlice(:,1) = E(:,round((Nx-1)/2+1));
+  P.yzSlice(:,1) = E(round((Ny-1)/2+1),:);
 end
+
 subplot(2,2,2);
 h_plot2 = plot(P.z,P.powers,'linewidth',2);
 xlim([0 P.z(end)]);
@@ -402,7 +412,10 @@ for updidx = 1:length(zUpdateIdxs)
   mexParameters.inputPrecisePower = precisePower;
   P.powers(end-length(zUpdateIdxs)+updidx) = precisePower;
   h_plot2.YData = P.powers;
-  
+
+  P.xzSlice(:,end-length(zUpdateIdxs)+updidx) = E(:,round((Nx-1)/2+1));
+  P.yzSlice(:,end-length(zUpdateIdxs)+updidx) = E(round((Ny-1)/2+1),:);
+
   if P.calcModeOverlaps
     for iMode = 1:nModes
       P.modeOverlaps(iMode,end-length(zUpdateIdxs)+updidx) = abs(sum(E(:).*conj(P.modes(iMode).field(:)))).^2; % The overlap integral calculation
