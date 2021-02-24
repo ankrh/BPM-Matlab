@@ -4,7 +4,7 @@ clear P % Parameters struct
 % fiber. The MMF is divided into four segments, where the first and last
 % are straight, the second is bent in the x direction and the third is bent
 % in the y direction. Plotting of the mode overlaps has been enabled by
-% setting P.calcModeOverlaps = true. Due to symmeetry, the modes with odd
+% setting P.calcModeOverlaps = true. Due to symmetry, the modes with odd
 % parity are not excited in the first two segments despite the bending.
 
 %% General and solver-related settings

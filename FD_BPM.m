@@ -255,15 +255,15 @@ title('Refractive index');
 
 if priorData
   P.powers = [P.powers NaN(1,P.updates)];
-  P.xzSlice = [P.xzSlice NaN(Nx,P.updates)];
-  P.yzSlice = [P.yzSlice NaN(Ny,P.updates)];
+  P.xzSlice{end+1} = NaN(Nx,P.updates);
+  P.yzSlice{end+1} = NaN(Ny,P.updates);
 else
   P.powers = NaN(1,P.updates+1);
   P.powers(1) = 1;
-  P.xzSlice = NaN(Nx,P.updates+1);
-  P.yzSlice = NaN(Ny,P.updates+1);
-  P.xzSlice(:,1) = E(:,round((Nx-1)/2+1));
-  P.yzSlice(:,1) = E(round((Ny-1)/2+1),:);
+  P.xzSlice = {NaN(Nx,P.updates+1)};
+  P.yzSlice = {NaN(Ny,P.updates+1)};
+  P.xzSlice{1}(:,1) = E(:,round((Nx-1)/2+1));
+  P.yzSlice{1}(:,1) = E(round((Ny-1)/2+1),:);
 end
 
 subplot(2,2,2);
@@ -413,8 +413,8 @@ for updidx = 1:length(zUpdateIdxs)
   P.powers(end-length(zUpdateIdxs)+updidx) = precisePower;
   h_plot2.YData = P.powers;
 
-  P.xzSlice(:,end-length(zUpdateIdxs)+updidx) = E(:,round((Nx-1)/2+1));
-  P.yzSlice(:,end-length(zUpdateIdxs)+updidx) = E(round((Ny-1)/2+1),:);
+  P.xzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(:,round((Nx-1)/2+1));
+  P.yzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(round((Ny-1)/2+1),:);
 
   if P.calcModeOverlaps
     for iMode = 1:nModes
