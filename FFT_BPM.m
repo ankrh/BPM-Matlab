@@ -1,4 +1,4 @@
-function [Estruct] = FFT_BPM(P)
+function [Estruct, P] = FFT_BPM(P)
 %%
 % Author: Madhu Veettikazhy
 % Date: 12 July 2019
@@ -15,6 +15,12 @@ if ~isfield(P,'Eparameters')
 end
 if ~isfield(P,'videoName')
   P.videoName = [P.name '.avi'];
+end
+if ~isfield(P,'saveVideo')
+  P.saveVideo = false;
+end
+if ~isfield(P,'finalizeVideo')
+  P.finalizeVideo = true;
 end
 if ~isfield(P,'Intensity_colormap')
   P.Intensity_colormap = 1;
@@ -44,36 +50,44 @@ end
 Lx = Nx*dx;
 Ly = Ny*dy;
 
-x = dx*(-(Nx-1)/2:(Nx-1)/2);
-y = dy*(-(Ny-1)/2:(Ny-1)/2);
-[X,Y] = ndgrid(x,y);
-
 kx = 2*pi/Lx*([0:floor((Nx-1)/2) floor(-(Nx-1)/2):-1]);
 ky = 2*pi/Ly*([0:floor((Ny-1)/2) floor(-(Ny-1)/2):-1]);
-[kX,kY] = ndgrid(kx,ky);
+[kX,kY] = ndgrid(single(kx),single(ky));
+
+prop_kernel = exp(1i*dz*(kX.^2+kY.^2)*P.lambda/(4*pi*P.n_0)); % Fresnel propagation kernel
+clear kX kY
+
+x = dx*(-(Nx-1)/2:(Nx-1)/2);
+y = dy*(-(Ny-1)/2:(Ny-1)/2);
+[X,Y] = ndgrid(single(x),single(y));
+
 
 absorber = exp(-dz*max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha);
-prop_kernel = exp(1i*dz*(kX.^2+kY.^2)*P.lambda/(4*pi*P.n_0)); % Fresnel propagation kernel
 
 %% Beam initialization
 if isa(P.E,'function_handle')
   E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
+  P.E_0 = E; % To save the initial electric field
 else % Interpolate source E field to new grid
   [Nx_Esource,Ny_Esource] = size(P.E.field);
   dx_Esource = P.E.Lx/Nx_Esource;
   dy_Esource = P.E.Ly/Ny_Esource;
   x_Esource = dx_Esource*(-(Nx_Esource-1)/2:(Nx_Esource-1)/2);
   y_Esource = dy_Esource*(-(Ny_Esource-1)/2:(Ny_Esource-1)/2);
-  [X_source,Y_source] = ndgrid(x_Esource,y_Esource);
+  [X_source,Y_source] = ndgrid(single(x_Esource),single(y_Esource));
   E = interp2(X_source.',Y_source.',P.E.field.',X.',Y.','linear',0).';
 end
+clear X Y X_source Y_source
 
 %% Fresnel Propagation and plotting
-if P.saveVideo && ~isfield(P,'videoHandle')
-  video = VideoWriter(P.videoName);  %For saving the propagation frames as a video
-  open(video);
-elseif P.saveVideo
-  video = P.videoHandle;  %videoHandle is passed from Example.m file
+if P.saveVideo
+  if isfield(P,'videoHandle')
+    video = P.videoHandle;
+  else
+    video = VideoWriter(P.videoName);  % If videoHandle is not passed from the model file, we create one
+    video.FrameRate = 5;
+    open(video);
+  end
 end
 
 h_f = figure(P.figNum);clf;
@@ -145,11 +159,15 @@ for zidx = 1:Nz
 end
 % toc
 
-if P.saveVideo && ~isfield(P,'videoHandle')
-  close(video);
+if P.saveVideo
+  if P.finalizeVideo
+  	close(video);
+  else
+    P.videoHandle = video;
+  end
 end
 
-Estruct = struct('field',E,'Lx',Lx,'Ly',Ly,'x',x,'y',y);
+Estruct = struct('field',E,'Lx',Lx,'Ly',Ly,'x',x,'y',y,'dx',dx,'dy',dy,'dz',dz);
 
 % S = load('train');
 % sound(S.y.*0.1,S.Fs);

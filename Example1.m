@@ -9,7 +9,7 @@ P.name = mfilename;
 
 %% Visualization parameters
 P.updates = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
-P.plotEmax = 0.5; % Max of color scale in the intensity plot 
+P.plotEmax = 0.5; % Max of color scale in the intensity plot, relative to the peak of initial intensity
 
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 20e-6;        % [m] x side length of main area
@@ -46,7 +46,7 @@ P.shapes = [ 0 0 5e-6  2  1.46];
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
-FD_BPM(P);
+P = FD_BPM(P);
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size

@@ -3,7 +3,7 @@ clear P % Parameters struct
 % This example shows a basic case of launching a Gaussian beam
 % into the GRINTECH lens GT-CFRL-100-025-20-CC (810) realized using FDBPM 
 % and the subsequent propagation of the E field from GRIN lens's output in
-% air using FFTBPM
+% air using FFTBPM, showing that the resulting beam is collimated.
 
 %% Part 1 run with FDBPM
 %% General and solver-related settings
@@ -60,7 +60,7 @@ P.shapes = [ 0 0 0.5e-3  4  1.521 260];
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
-[E_out,~] = FD_BPM(P);
+P = FD_BPM(P);
 
 %% Output E from FDBPM propagating in air with FFTBPM
 P.figNum = 2;
@@ -74,8 +74,6 @@ P.Nx_main = 500;          % x resolution of main area
 P.Ny_main = 500;          % y resolution of main area
 P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit length distance out from edge of main area
 P.Lz = 1e-2; % [m] z propagation distances for this segment
-
-P.E = E_out;
 
 % Run solver
 FFT_BPM(P);

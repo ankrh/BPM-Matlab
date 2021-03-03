@@ -4,8 +4,11 @@ clear P % Parameters struct
 % media with uniform refractive index n_0, either the FFTBPM or FDBPM
 % solver can be used for propagation. The output of example 1 is propagated
 % 2e-4 m through a medium of uniform refractive index 1.45 with both
-% solvers. You can see that the results are identical apart from a constant
-% phase offset by comparing figures 2 and 3.
+% solvers. You can see that the results are identical by comparing figures
+% 2 and 3.
+
+% The example also demonstrates the use of non-standard color maps for the
+% plots.
 
 %% Part 1 run with FDBPM
 %% General and solver-related settings
@@ -62,7 +65,9 @@ P.shapes = [ 0 0 5e-6  2  1.46];
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
-[E_out,~] = FD_BPM(P);
+P = FD_BPM(P);
+
+E = P.E; % Store this for use in the FFTBPM
 
 %% Part 2 run with FDBPM
 P.figNum = 2;
@@ -79,12 +84,11 @@ P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit 
 
 P.Lz = 2e-4; % [m] z propagation distances for this segment
 
-P.E = E_out;
-
 % Run solver
-FD_BPM(P);
+P = FD_BPM(P);
 
 %% Part 2 run with FFTBPM for comparison
+P.E = E; % Use E field output from part 1
 P.figNum = 3;
 P.figTitle = 'FFT BPM';
 

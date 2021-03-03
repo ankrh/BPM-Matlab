@@ -3,7 +3,8 @@ clear P % Parameters struct
 % This example shows a basic case of launching a Gaussian beam
 % into the cylindrical GRINTECH lens (one dimensional -y- version of GT-CFRL-100-025-20-CC (810) ) 
 % realized using FDBPM and the subsequent propagation of the E field from GRIN lens's output in
-% air using FFTBPM
+% air using FFTBPM, showing that the resulting beam is collimated in the y
+% direction but still diverging in x
 
 %% Part 1 run with FDBPM
 %% General and solver-related settings
@@ -54,7 +55,7 @@ P.shapes = [ 0 0 0.5e-3  5  1.521 260];
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
-[E_out,~] = FD_BPM(P);
+P = FD_BPM(P);
 
 %% Output E from FDBPM propagating in air with FFTBPM
 P.figNum = 2;
@@ -67,8 +68,6 @@ P.Ly_main = 0.7e-3;        % [m] y side length of main area
 P.Nx_main = 1500;          % x resolution of main area
 P.Ny_main = 400;          % y resolution of main area
 P.Lz = 1e-2; % [m] z propagation distances for this segment
-
-P.E = E_out;
 
 % Run solver
 FFT_BPM(P);

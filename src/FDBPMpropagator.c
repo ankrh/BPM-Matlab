@@ -34,6 +34,8 @@
   typedef thrust::complex<float> floatcomplex;
   #define I thrust::complex<float>{0,1}
   #define CEXPF(x) (thrust::exp(x))
+  #define CREALF(x) (x.real())
+  #define CIMAGF(x) (x.imag())
   #define MAX(x,y) (max(x,y))
   #include <nvml.h>
   #define TILE_DIM 32
@@ -43,12 +45,16 @@
     #include <complex.h>
     typedef float complex floatcomplex;
     #define CEXPF(x) (cexpf(x))
+    #define CREALF(x) (crealf(x))
+    #define CIMAGF(x) (cimagf(x))
   #else
     #include <algorithm>
     #include <complex>
     typedef std::complex<float> floatcomplex;
     #define I std::complex<float>{0,1}
     #define CEXPF(x) (std::exp(x))
+    #define CREALF(x) (std::real(x))
+    #define CIMAGF(x) (std::imag(x))
     #define MAX(x,y) (std::max(x,y))
   #endif
 #endif
@@ -91,14 +97,29 @@ struct parameters {
   floatcomplex ay;
   float rho_e;
   float RoC;
-  float sinBendDirection; 
-  float cosBendDirection; 
+  float sinBendDirection;
+  float cosBendDirection;
+  double precisePower;
+  double EfieldPower;
 };
 
 #ifdef __NVCC__ // If compiling for CUDA
 __host__ __device__
 #endif
 float sqrf(float x) {return x*x;}
+
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 600
+__device__ double atomicAdd(double* address, double val) {
+  unsigned long long int* address_as_ull = (unsigned long long int*)address;
+  unsigned long long int old = *address_as_ull, assumed;
+
+  do {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed,__double_as_longlong(val + __longlong_as_double(assumed)));
+  } while (assumed != old);
+  return __longlong_as_double(old);
+}
+#endif
 
 #ifdef __NVCC__ // If compiling for CUDA
 __global__
@@ -280,6 +301,7 @@ __global__
 void substep2b(struct parameters *P_global) {
   // Implicit part of substep 2 out of 2
   #ifdef __NVCC__
+  double EfieldPowerThread = 0;
   long threadNum = threadIdx.x + threadIdx.y*blockDim.x + blockIdx.x*blockDim.x*blockDim.y;
   __shared__ char Pdummy[sizeof(struct parameters)];
   struct parameters *P = (struct parameters *)Pdummy;
@@ -301,10 +323,14 @@ void substep2b(struct parameters *P_global) {
     for(long iy=P->Ny-1; iy>=0; iy--) {
       long i = ix + iy*P->Nx;
       P->E2[i] = (P->E2[i] + (iy == P->Ny-1? 0: P->ay*P->E2[i+P->Nx]))/P->b[i];
+      EfieldPowerThread += sqrf(CREALF(P->E2[i])) + sqrf(CIMAGF(P->E2[i]));
     }
   }
 
+  atomicAdd(&P_global->EfieldPower,EfieldPowerThread);
+
   #else
+  double EfieldPowerThread = 0;
   struct parameters *P = P_global;
   long i,ix,iy;
   #ifdef _OPENMP
@@ -331,8 +357,16 @@ void substep2b(struct parameters *P_global) {
       long ib = iy + threadNum*P->Ny;
       i = ix + iy*P->Nx;
       P->E2[i] = (P->E2[i] + (iy == P->Ny-1? 0: P->ay*P->E2[i+P->Nx]))/P->b[ib];
+      EfieldPowerThread += sqrf(CREALF(P->E2[i])) + sqrf(CIMAGF(P->E2[i]));
     }
   }
+  #ifdef _OPENMP
+  #pragma omp atomic
+  #endif
+  P->EfieldPower += EfieldPowerThread;
+  #ifdef _OPENMP
+  #pragma omp barrier
+  #endif
   #endif
 }
 
@@ -351,27 +385,29 @@ void calcShapexyr(struct parameters *P, long iz) { // Called with only one threa
   }
 }
 
-#ifdef __NVCC__ // If compiling for CUDA
+#ifdef __NVCC__ // 1 If compiling for CUDA
 __global__
-#endif
-void applyMultiplier(struct parameters *P_global, long iz) {
-  #ifdef __NVCC__
+#endif // 1
+void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
+  double precisePowerDiffThread = 0;
+  #ifdef __NVCC__ // 1
   long threadNum = threadIdx.x + threadIdx.y*blockDim.x + blockIdx.x*blockDim.x*blockDim.y;
   __shared__ char Pdummy[sizeof(struct parameters)];
   struct parameters *P = (struct parameters *)Pdummy;
   if(!threadIdx.x && !threadIdx.y) *P = *P_global; // Only let one thread per block do the copying
   __syncthreads(); // All threads in the block wait for the copy to have finished
-
+  float fieldCorrection = sqrtf((float)(P->precisePower/P->EfieldPower));
   if(P->taperPerStep || P->twistPerStep) {
     for(long i=threadNum;i<P->Nx*P->Ny;i+=gridDim.x*blockDim.x*blockDim.y) {
-  #else
+  #else // 1
   struct parameters *P = P_global;
+  float fieldCorrection = sqrtf((float)(P->precisePower/P->EfieldPower));
   if(P->taperPerStep || P->twistPerStep) {
-    #ifdef _OPENMP
+    #ifdef _OPENMP // 2
     #pragma omp for schedule(dynamic)
-    #endif
+    #endif // 2
     for(long i=0;i<P->Nx*P->Ny;i++) {
-  #endif
+  #endif // 1
       // For each pixel, calculate refractive index and multiply
       long ix = i%P->Nx;
       float x = P->dx*(ix - (P->Nx-1)/2.0f);
@@ -419,20 +455,38 @@ void applyMultiplier(struct parameters *P_global, long iz) {
       }
       float n_eff = n*(1-(sqrf(n)*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
       if(iz == P->iz_end-1) P->n_out[i] = n_eff;
-      P->E2[i] *= P->multiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)));
+      P->E2[i] *= fieldCorrection*P->multiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)));
+      float multipliernormsqr = sqrf(CREALF(P->multiplier[i])) + sqrf(CIMAGF(P->multiplier[i]));
+      if(multipliernormsqr > 1 - 10*FLT_EPSILON) multipliernormsqr = 1; // To avoid accumulating power discrepancies due to rounding errors
+      precisePowerDiffThread += (sqrf(CREALF(P->E2[i])) + sqrf(CIMAGF(P->E2[i])))*(1 - 1/multipliernormsqr);
     }
   } else {
-  #ifdef __NVCC__
-    for(long i=threadNum;i<P->Nx*P->Ny;i+=gridDim.x*blockDim.x*blockDim.y) P->E2[i] *= P->multiplier[i];
-  #else
-    #ifdef _OPENMP
+    #ifdef __NVCC__ // 1
+    for(long i=threadNum;i<P->Nx*P->Ny;i+=gridDim.x*blockDim.x*blockDim.y) {
+    #else // 1
+    #ifdef _OPENMP // 2
     #pragma omp for schedule(dynamic)
-    #endif
+    #endif // 2
     for(long i=0;i<P->Nx*P->Ny;i++) {
-      P->E2[i] *= P->multiplier[i];
+    #endif // 1
+      P->E2[i] *= fieldCorrection*P->multiplier[i];
+      float multipliernormsqr = sqrf(CREALF(P->multiplier[i])) + sqrf(CIMAGF(P->multiplier[i]));
+      if(multipliernormsqr > 1 - 10*FLT_EPSILON) multipliernormsqr = 1; // To avoid accumulating power discrepancies due to rounding errors
+      precisePowerDiffThread += (sqrf(CREALF(P->E2[i])) + sqrf(CIMAGF(P->E2[i])))*(1 - 1/multipliernormsqr);
     }
-  #endif
   }
+
+  #ifdef __NVCC__ // 1
+  atomicAdd(&P_global->precisePower,precisePowerDiffThread);
+  #else // 1
+  #ifdef _OPENMP // 2
+  #pragma omp atomic
+  #endif // 2
+  P->precisePower += precisePowerDiffThread;
+  #ifdef _OPENMP // 2
+  #pragma omp barrier
+  #endif // 2
+  #endif // 1
 }
 
 #ifdef __NVCC__ // If compiling for CUDA
@@ -440,6 +494,7 @@ __global__
 #endif
 void swapEPointers(struct parameters *P, long iz) {
   #ifdef __NVCC__
+  P->EfieldPower = 0;
   floatcomplex *temp = P->E1;
   P->E1 = P->E2;
   P->E2 = temp;
@@ -518,6 +573,7 @@ void retrieveAndFreeDeviceStructs(struct parameters *P, struct parameters *P_dev
     gpuErrchk(cudaMemcpy(P->n_out,P_temp.n_out,N*sizeof(float),cudaMemcpyDeviceToHost));
     gpuErrchk(cudaFree(P_temp.n_out));
   }
+  P->precisePower = P_temp.precisePower;
 
   gpuErrchk(cudaFree(P_temp.shapexs));
   gpuErrchk(cudaFree(P_temp.shapeys));
@@ -574,6 +630,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   mwSize const *dimPtr = mxGetDimensions(prhs[0]);
   P->Efinal = (floatcomplex *)mxGetData(plhs[0] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxCOMPLEX)); // Output E field
   P->n_out= (float *)mxGetData(plhs[1] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxREAL)); // Output refractive index, calculated based on the geometric shapes definitions
+  P->precisePower = *(double *)mxGetData(mxGetField(prhs[1],0,"inputPrecisePower"));
   #ifndef __NVCC__
   P->E2 = (floatcomplex *)((P->iz_end - P->iz_start)%2? P->Efinal: malloc(P->Nx*P->Ny*sizeof(floatcomplex)));
   #endif
@@ -637,6 +694,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   }
   
   bool ctrlc_caught = false;      // Has a ctrl+c been passed from MATLAB?
+  P->EfieldPower = 0;
   #ifdef __NVCC__
   int temp, nBlocks; gpuErrchk(cudaOccupancyMaxPotentialBlockSize(&nBlocks,&temp,&substep1a,0,0));
   dim3 blockDims(TILE_DIM,TILE_DIM,1);
@@ -668,7 +726,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
       substep2a<<<nBlocks, blockDims>>>(P_dev); // yx -> xy
       substep2b<<<nBlocks, blockDims>>>(P_dev); // xy -> xy
       if(P->taperPerStep || P->twistPerStep) calcShapexyr<<<1,1>>>(P_dev,iz);
-      applyMultiplier<<<nBlocks, blockDims>>>(P_dev,iz); // xy -> xy
+      applyMultiplier<<<nBlocks, blockDims>>>(P_dev,iz,D_dev); // xy -> xy
       gpuErrchk(cudaDeviceSynchronize()); // Wait until all kernels have finished
       #else
       substep1a(P);
@@ -676,13 +734,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
       substep2a(P);
       substep2b(P);
       if(P->taperPerStep || P->twistPerStep) calcShapexyr(P,iz);
-      applyMultiplier(P,iz);
+      applyMultiplier(P,iz,NULL);
       #endif
 
       #ifdef _OPENMP
       #pragma omp master
       #endif
       {
+        P->EfieldPower = 0;
+        
         #ifndef __clang__
         if(utIsInterruptPending()) {
           ctrlc_caught = true;
@@ -715,5 +775,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   free(P->shapeRs_transformed);
   free(P->multiplier);
   #endif
+  double *outputPrecisePowerPtr = (double *)mxGetData(plhs[2] = mxCreateDoubleMatrix(1,1,mxREAL));
+  *outputPrecisePowerPtr = P->precisePower;
   return;
 }

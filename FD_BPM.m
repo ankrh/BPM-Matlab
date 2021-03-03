@@ -1,4 +1,4 @@
-function [Estruct,shapes_out,powers,P] = FD_BPM(P)
+function P = FD_BPM(P)
 % Authors: Madhu Veetikazhy and Anders K. Hansen
 % DTU Health and DTU Fotonik
 % 
@@ -29,6 +29,9 @@ end
 if ~isfield(P,'saveVideo')
   P.saveVideo = false;
 end
+if ~isfield(P,'finalizeVideo')
+  P.finalizeVideo = true;
+end
 if ~isfield(P,'saveData')
   P.saveData = false;
 end
@@ -43,6 +46,9 @@ if ~isfield(P,'downsampleImages')
 end
 if ~isfield(P,'displayScaling')
   P.displayScaling = 1;
+end
+if ~isfield(P,'disableStepsizeWarning')
+  P.disableStepsizeWarning = false;
 end
 if ~isfield(P,'Eparameters')
   P.Eparameters = {};
@@ -69,7 +75,7 @@ if size(P.shapes,2) == 5
     P.shapes(:,6) = NaN;
   end
 end
-if ~isfield(P,'videoName')
+if P.saveVideo && ~isfield(P,'videoName')
   P.videoName = [P.name '.avi'];
 end
 if ~isfield(P,'Intensity_colormap')
@@ -82,11 +88,20 @@ if ~isfield(P,'n_colormap')
   P.n_colormap = 3;
 end
 
-if P.saveVideo && ~isfield(P,'videoHandle')
-  video = VideoWriter(P.videoName);  % If videoHandle is not passed from Example.m file, video of only the last segment will be saved
-  open(video);
-elseif P.saveVideo
-  video = P.videoHandle;  %videoHandle is passed from Example.m file
+if P.saveVideo
+  if isfield(P,'videoHandle')
+    video = P.videoHandle;
+  else
+    video = VideoWriter(P.videoName);  % If videoHandle is not passed from the model file, we create one
+    video.FrameRate = 5;
+    open(video);
+  end
+end
+
+typename = 'single';
+
+if ~isfield(P,'calcModeOverlaps')
+  P.calcModeOverlaps = false; 
 end
 
 %% Check for GPU compatibility if needed
@@ -123,6 +138,10 @@ end
 Lx = Nx*dx;
 Ly = Ny*dy;
 
+if P.calcModeOverlaps && (P.modes(1).Lx ~= Lx || P.modes(1).Ly ~= Ly || size(P.modes(1).field,1) ~= Nx || size(P.modes(1).field,2) ~= Ny)
+  error('The pre-calculated mode fields do not match the simulation Lx, Ly, Nx or Ny');
+end
+
 x = dx*(-(Nx-1)/2:(Nx-1)/2);
 y = dy*(-(Ny-1)/2:(Ny-1)/2);
 [X,Y] = ndgrid(x,y);
@@ -143,16 +162,20 @@ if P.downsampleImages
   y_plot = y(iy_plot);
 end
 
-%% Calculate the output shapes
-shapes_out = P.shapes;
-shapes_out(:,1) = P.taperScaling*(cos(P.twistRate*P.Lz)*P.shapes(:,1) - sin(P.twistRate*P.Lz)*P.shapes(:,2));
-shapes_out(:,2) = P.taperScaling*(sin(P.twistRate*P.Lz)*P.shapes(:,1) + cos(P.twistRate*P.Lz)*P.shapes(:,2));
-shapes_out(:,3) = P.taperScaling*P.shapes(:,3);
+%% Store inputs, if first segment
+priorData = isfield(P,'originalEinput');
+if ~priorData
+  if ~isa(P.E,'function_handle')
+    P.E.field = P.E.field/sqrt(sum(abs(P.E.field(:)).^2));
+  end
+  P.originalEinput = P.E;
+  P.originalShapesInput = P.shapes;
+end
 
 %% Beam initialization
 if isa(P.E,'function_handle')
   E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
-  P.E_0 = E; % E_0 variable is only for powers measurement, when FDBPM is called from multiple segments
+  E = E/sqrt(sum(abs(E(:)).^2));
 else % Interpolate source E field to new grid
   [Nx_Esource,Ny_Esource] = size(P.E.field);
   dx_Esource = P.E.Lx/Nx_Esource;
@@ -161,21 +184,42 @@ else % Interpolate source E field to new grid
   y_Esource = dy_Esource*(-(Ny_Esource-1)/2:(Ny_Esource-1)/2);
   [X_source,Y_source] = ndgrid(x_Esource,y_Esource);
   E = interp2(X_source.',Y_source.',P.E.field.',X.',Y.','linear',0).';
+  E = E*sqrt(sum(abs(P.E.field(:)).^2)/sum(abs(E(:)).^2));
 end
 
-E = complex(single(E)); % Force to be complex single precision
-if isfield(P,'E_0')
-    P_0 = sum(abs(P.E_0(:)).^2);  % For powers w.r.t. the input E field from segment 1
-else
-    P_0 = sum(abs(E(:)).^2);  % If the input E from segment 1 is missing, use the current E as initial field
+E = complex(single(E)); % Force to be complex single
+
+if ~priorData
+  P.Einitial = E;
 end
 
 %% Calculate z step size and positions
 Nz = max(P.updates,round(P.Lz/P.dz_target)); % Number of z steps in this segment
 dz = P.Lz/Nz;
 
+if ~P.disableStepsizeWarning
+  max_a = 5;
+  max_d = 2.5;
+  dz_max1 = max_a*4*dx^2*k_0*P.n_0;
+  dz_max2 = max_a*4*dy^2*k_0*P.n_0;
+  dz_max3 = max_d*2*P.n_0/k_0;
+  if any(P.shapes(:,4) == 1) || any(P.shapes(:,4) == 2)
+    if dz > min([dz_max1 dz_max2 dz_max3])
+      warning('z step size is high (> %.1e m), which may introduce numerical artifacts. You can disable this warning by setting P.disableStepsizeWarning = true.',min([dz_max1 dz_max2 dz_max3]));
+    end
+  else
+    if dz > min([dz_max1 dz_max2])
+      warning('z step size is high (> %.1e m), which may introduce numerical artifacts. You can disable this warning by setting P.disableStepsizeWarning = true.',min(dz_max1,dz_max2));
+    end
+  end
+end
+
 zUpdateIdxs = round((1:P.updates)/P.updates*Nz); % Update indices relative to start of this segment
-zUpdates = [0 dz*zUpdateIdxs];
+if priorData
+  P.z = [P.z dz*zUpdateIdxs + P.z(end)];
+else
+  P.z = [0 dz*zUpdateIdxs];
+end
 
 %% Calculate proportionality factors for use in the mex function
 ax = dz/(4i*dx^2*k_0*P.n_0);
@@ -184,7 +228,7 @@ d = -dz*k_0/(2*P.n_0); % defined such that in each step in the mex function, E =
 
 %% Define the multiplier
 absorber = exp(-dz*max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha);
-multiplier = absorber; % This could also include a phase gradient due to bending
+multiplier = absorber;
 
 %% Figure initialization
 h_f = figure(P.figNum);clf;
@@ -192,9 +236,9 @@ h_f.WindowState = 'maximized';
 
 h_axis1 = subplot(2,2,1);
 if P.downsampleImages
-  h_im1 = imagesc(x_plot,y_plot,zeros(min(500,Ny),min(500,Nx),'single'));
+  h_im1 = imagesc(x_plot,y_plot,zeros(min(500,Ny),min(500,Nx),typename));
 else
-  h_im1 = imagesc(x,y,zeros(Ny,Nx,'single'));
+  h_im1 = imagesc(x,y,zeros(Ny,Nx,typename));
 end
 axis xy
 axis equal
@@ -209,13 +253,26 @@ xlabel('x [m]');
 ylabel('y [m]');
 title('Refractive index');
 
-powers = NaN(1,P.updates+1);
-powers(1) = sum(abs(E(:)).^2)/P_0;
+if priorData
+  P.powers = [P.powers NaN(1,P.updates)];
+  P.xzSlice{end+1} = NaN(Nx,P.updates);
+  P.yzSlice{end+1} = NaN(Ny,P.updates);
+else
+  P.powers = NaN(1,P.updates+1);
+  P.powers(1) = 1;
+  P.xzSlice = {NaN(Nx,P.updates+1)};
+  P.yzSlice = {NaN(Ny,P.updates+1)};
+  P.xzSlice{1}(:,1) = E(:,round((Nx-1)/2+1));
+  P.yzSlice{1}(:,1) = E(round((Ny-1)/2+1),:);
+end
+
 subplot(2,2,2);
-h_plot2 = plot(zUpdates,powers,'linewidth',2);
-xlim([0 P.Lz]);
+h_plot2 = plot(P.z,P.powers,'linewidth',2);
+xlim([0 P.z(end)]);
+ylim([0 1.1]);
 xlabel('Propagation distance [m]');
 ylabel('Relative power remaining');
+grid on; grid minor;
 
 h_axis3a = subplot(2,2,3);
 hold on;
@@ -234,10 +291,17 @@ xlabel('x [m]');
 ylabel('y [m]');
 title('Intensity [W/m^2]');
 line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+if P.taperScaling == 1 && P.twistRate == 0
+  for iShape = 1:size(P.shapes,1)
+    if P.shapes(iShape,4) <=3
+      line(P.shapes(iShape,1) + P.shapes(iShape,3)*cos(linspace(0,2*pi,100)),P.shapes(iShape,2) + P.shapes(iShape,3)*sin(linspace(0,2*pi,100)),'color','w','linestyle','--');
+    end
+  end
+end
 setColormap(gca,P.Intensity_colormap);
 if isfield(P,'plotEmax')
   caxis('manual');
-  caxis([0 P.plotEmax]);
+  caxis([0 P.plotEmax*max(abs(E(:)).^2)]);
 else
   caxis('auto');
 end
@@ -245,12 +309,12 @@ end
 h_axis3b = subplot(2,2,4);
 hold on;
 box on;
-maxE0 = max(E(:));
+maxE0 = abs(max(E(:)));
 if P.downsampleImages
-  h_im3b = imagesc(x_plot,y_plot,angle(E(ix_plot,iy_plot).'/maxE0)); 
+  h_im3b = imagesc(x_plot,y_plot,angle(E(ix_plot,iy_plot).'));
   h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/maxE0).^2)/3));  %Logarithmic transparency in displaying phase outside cores
 else
-  h_im3b = imagesc(x,y,angle(E.'/maxE0)); 
+  h_im3b = imagesc(x,y,angle(E.'));
   h_im3b.AlphaData = max(0,(1+log10(abs(E.'/maxE0).^2)/3));  %Logarithmic transparency in displaying phase outside cores
 end
 h_axis3b.Color = 0.7*[1 1 1];  % To set the color corresponding to phase outside the cores where there is no field at all
@@ -261,6 +325,13 @@ ylim([-1 1]*Ly/(2*P.displayScaling));
 colorbar;
 caxis([-pi pi]);
 line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+if P.taperScaling == 1 && P.twistRate == 0
+  for iShape = 1:size(P.shapes,1)
+    if P.shapes(iShape,4) <=3
+      line(P.shapes(iShape,1) + P.shapes(iShape,3)*cos(linspace(0,2*pi,100)),P.shapes(iShape,2) + P.shapes(iShape,3)*sin(linspace(0,2*pi,100)),'color','w','linestyle','--');
+    end
+  end
+end
 xlabel('x [m]');
 ylabel('y [m]');
 title('Phase [rad]');
@@ -274,12 +345,37 @@ if P.saveVideo
   writeVideo(video,frame);  %Stitch the frames to form a video and save
 end
 
+if P.calcModeOverlaps % Mode overlap figure
+  nModes = length(P.modes);
+  if priorData
+    P.modeOverlaps = [P.modeOverlaps NaN(nModes,P.updates)];
+  else
+    P.modeOverlaps = NaN(nModes,P.updates+1);
+    for iMode = 1:nModes
+      P.modeOverlaps(iMode,1) = abs(sum(E(:).*conj(P.modes(iMode).field(:)))).^2; % The overlap integral calculation
+    end
+  end
+  
+  figure(P.figNum+1);clf;
+  h_ax = axes;
+  h_overlapplot = semilogy(P.z,P.modeOverlaps,'linewidth',2);
+  xlim([0 P.z(end)]);
+  ylim([1e-4 2]);
+  xlabel('Propagation distance [m]');
+  ylabel('Mode overlaps');
+  legend(P.modes.label,'location','eastoutside','FontSize',6);
+  grid on; grid minor;
+  h_ax.LineStyleOrder = {'-','--',':','-.'};
+end
+
 % tic;
 %% Load variables into a parameters struct and start looping, one iteration per update
 mexParameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
   'shapes',single(P.shapes),'n_cladding',single(P.n_cladding),'multiplier',complex(single(multiplier)),'d',single(d),'n_0',single(P.n_0),...
-  'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection));
+  'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
+  'inputPrecisePower',P.powers(end-length(zUpdateIdxs)));
 
+% fprintf("dz = %.2e, ax = %.2f i, ay = %.2f i, d = %.2f\n",dz,ax/1i,ay/1i,d);
 mexParameters.iz_start = int32(0); % z index of the first z position to step from for the first call to FDBPMpropagator, in C indexing (starting from 0)
 mexParameters.iz_end = int32(zUpdateIdxs(1)); % last z index to step into for the first call to FDBPMpropagator, in C indexing (starting from 0)
 for updidx = 1:length(zUpdateIdxs)
@@ -287,23 +383,23 @@ for updidx = 1:length(zUpdateIdxs)
     mexParameters.iz_start = int32(zUpdateIdxs(updidx-1));
     mexParameters.iz_end   = int32(zUpdateIdxs(updidx));
   end
-  checkMexInputs(E,mexParameters);
+%   checkMexInputs(E,mexParameters,typename);
   if P.useGPU
-    [E,n] = FDBPMpropagator_CUDA(E,mexParameters);
+    [E,n,precisePower] = FDBPMpropagator_CUDA(E,mexParameters);
   else
-    [E,n] = FDBPMpropagator(E,mexParameters);
+    [E,n,precisePower] = FDBPMpropagator(E,mexParameters);
   end
 
   %% Update figure contents
   if P.downsampleImages
     h_im1.CData = n(ix_plot,iy_plot).'; % Refractive index at this update
     h_im3a.CData = abs(E(ix_plot,iy_plot).').^2; % Intensity at this update
-    h_im3b.CData = angle(E(ix_plot,iy_plot).'/maxE0); % Phase at this update
+    h_im3b.CData = angle(E(ix_plot,iy_plot).'); % Phase at this update
     h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
   else
     h_im1.CData = n.'; % Refractive index at this update
     h_im3a.CData = abs(E.').^2; % Intensity at this update
-    h_im3b.CData = angle(E.'/maxE0); % Phase at this update
+    h_im3b.CData = angle(E.'); % Phase at this update
     h_im3b.AlphaData = max(0,(1+log10(abs(E.'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
   end
   if updidx == 1
@@ -313,8 +409,19 @@ for updidx = 1:length(zUpdateIdxs)
     caxis(h_axis3a,'auto');
   end
   
-  powers(updidx+1) = sum(abs(E(:)).^2)/P_0; 
-  h_plot2.YData = powers;
+  mexParameters.inputPrecisePower = precisePower;
+  P.powers(end-length(zUpdateIdxs)+updidx) = precisePower;
+  h_plot2.YData = P.powers;
+
+  P.xzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(:,round((Nx-1)/2+1));
+  P.yzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(round((Ny-1)/2+1),:);
+
+  if P.calcModeOverlaps
+    for iMode = 1:nModes
+      P.modeOverlaps(iMode,end-length(zUpdateIdxs)+updidx) = abs(sum(E(:).*conj(P.modes(iMode).field(:)))).^2; % The overlap integral calculation
+      h_overlapplot(iMode).YData = P.modeOverlaps(iMode,:);
+    end
+  end
   drawnow;
   
   if P.saveVideo
@@ -324,20 +431,61 @@ for updidx = 1:length(zUpdateIdxs)
 end
 % toc
 
-if P.saveVideo && ~isfield(P,'videoHandle')
-	close(video);
+if P.saveVideo
+  if P.finalizeVideo
+  	close(video);
+  else
+    P.videoHandle = video;
+  end
 end
 
-Estruct = struct('field',E,'Lx',Lx,'Ly',Ly,'x',x,'y',y);
+%% Calculate the output shapes and store the final E field as the new input field
+shapesFinal = P.shapes;
+shapesFinal(:,1) = P.taperScaling*(cos(P.twistRate*P.Lz)*P.shapes(:,1) - sin(P.twistRate*P.Lz)*P.shapes(:,2));
+shapesFinal(:,2) = P.taperScaling*(sin(P.twistRate*P.Lz)*P.shapes(:,1) + cos(P.twistRate*P.Lz)*P.shapes(:,2));
+shapesFinal(:,3) = P.taperScaling*P.shapes(:,3);
+P.shapes = shapesFinal;
+
+P.E = struct('field',E,'Lx',Lx,'Ly',Ly);
+
+P.x = x;
+P.y = y;
 
 % S = load('train');
 % sound(S.y.*0.1,S.Fs);
 end
 
-function checkMexInputs(E,parameters)
+function checkMexInputs(E,P,typename)
 assert(all(isfinite(E(:))));
 assert(~isreal(E));
-assert(isa(E,'single'));
+assert(isa(P.dx,typename));
+assert(isreal(P.dx));
+assert(isa(P.dy,typename));
+assert(isreal(P.dy));
+assert(isa(P.taperPerStep,typename));
+assert(isreal(P.taperPerStep));
+assert(isa(P.twistPerStep,typename));
+assert(isreal(P.twistPerStep));
+assert(isa(P.shapes,typename));
+assert(isreal(P.shapes));
+assert(isa(P.n_cladding,typename));
+assert(isreal(P.n_cladding));
+assert(isa(P.multiplier,typename));
+assert(~isreal(P.multiplier));
+assert(isa(P.d,typename));
+assert(isreal(P.d));
+assert(isa(P.n_0,typename));
+assert(isreal(P.n_0));
+assert(isa(P.ax,typename));
+assert(~isreal(P.ax));
+assert(isa(P.ay,typename));
+assert(~isreal(P.ay));
+assert(isa(P.RoC,typename));
+assert(isreal(P.RoC));
+assert(isa(P.rho_e,typename));
+assert(isreal(P.rho_e));
+assert(isa(P.bendDirection,typename));
+assert(isreal(P.bendDirection));
 end
 
 function setColormap(gca,colormapType)
