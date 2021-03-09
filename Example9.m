@@ -35,8 +35,8 @@ P.shapes = [ 0 0 6e-6  2  1.4666];
 %% Segment 1
 P.Lz = 5e-4; % [m] z propagation distances for this segment
 P.updates = P.Lz/updatestepsize;
-P.bendingRoC = Inf;
-P.bendDirection = 0;
+P.bendDirection = 0; % [degrees] direction of the bending, in a polar coordinate system with 0° to the right (towards positive x) and increasing angles in counterclockwise direction
+P.bendingRoC = Inf; % [m] radius of curvature of the bend
 
 nModes = 30; % For mode finding
 plotModes = true; % If true, will plot the found modes
@@ -52,23 +52,23 @@ P = FD_BPM(P);
 %% Segment 2
 P.Lz = 1e-3; % [m] z propagation distances for this segment
 P.updates = P.Lz/updatestepsize;
-P.bendingRoC = 10e-3;
 P.bendDirection = 0;
+P.bendingRoC = 10e-3;
 
 P = FD_BPM(P);
 
 %% Segment 3
 P.Lz = 1e-3; % [m] z propagation distances for this segment
 P.updates = P.Lz/updatestepsize;
-P.bendingRoC = 10e-3;
 P.bendDirection = 90;
+P.bendingRoC = 10e-3;
 
 P = FD_BPM(P);
 
 %% Segment 4
 P.Lz = 5e-4; % [m] z propagation distances for this segment
 P.updates = P.Lz/updatestepsize;
-P.bendingRoC = Inf;
 P.bendDirection = 0;
+P.bendingRoC = Inf;
 
 P = FD_BPM(P);
