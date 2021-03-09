@@ -35,8 +35,8 @@ P.lambda = 1000e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
-P.taperScaling = 1;
-P.twistRate = 0;
+P.taperScaling = 1; % [] the ratio of the width of the structure at the end of the segment to the width at the beginning of the segment.
+P.twistRate = 0; % [rad/m] the rate of rotation in units of radians per meter.
 P.figTitle = 'Segment 1';
 
 % In the shapes 2D array, each row is a shape such as a core in a fiber.

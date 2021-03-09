@@ -40,8 +40,6 @@ P.lambda = 980e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 0.3e-3; % [m] z propagation distances for this segment
-P.taperScaling = 1;
-P.twistRate = 0;
 P.bendDirection = 0;
 P.bendingRoC = Inf;
 
