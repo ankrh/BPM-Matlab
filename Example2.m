@@ -12,14 +12,14 @@ clear P % Parameters struct
 
 %% General and solver-related settings
 P.name = mfilename;
-P.useAllCPUs = true;
+P.useAllCPUs = true; % If false, BPM-Matlab will leave one processor unused. Useful for doing other work on the PC while simulations are running.
 P.useGPU = false;
 
 %% Visualization parameters
 P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
 P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
 P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
-P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
+P.displayScaling = 1;  % Zooms in on figures. Set to 1 for no zooming.
 
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 50e-6;        % [m] x side length of main area
@@ -33,7 +33,7 @@ P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 %% Problem definition
 P.lambda = 1000e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
-P.n_0 = 1.46;
+P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 P.taperScaling = 1;
 P.twistRate = 0;

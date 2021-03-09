@@ -6,6 +6,8 @@ clear P % Parameters struct
 
 %% General and solver-related settings
 P.name = mfilename;
+P.useAllCPUs = true; % If false, BPM-Matlab will leave one processor unused. Useful for doing other work on the PC while simulations are running.
+P.useGPU = false;
 
 %% Visualization parameters
 P.updates = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
@@ -22,7 +24,7 @@ P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 %% Problem definition
 P.lambda = 1000e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
-P.n_0 = 1.46;
+P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
 % In the shapes 2D array, each row is a shape such as a core in a fiber.

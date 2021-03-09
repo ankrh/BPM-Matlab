@@ -8,7 +8,9 @@ clear P % Parameters struct
 % parity are not excited in the first two segments despite the bending.
 
 %% General and solver-related settings
-P.useAllCPUs = true;
+P.name = mfilename;
+P.useAllCPUs = true; % If false, BPM-Matlab will leave one processor unused. Useful for doing other work on the PC while simulations are running.
+P.useGPU = false;
 
 %% Visualization parameters
 P.calcModeOverlaps = true;  % Set it to true to calculate mode overlap integrals of propagating field with respect to different modes in the P.modes struct array
@@ -26,7 +28,7 @@ P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 %% Problem definition
 P.lambda = 800e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
-P.n_0 = 1.4666;
+P.n_0 = 1.4666; % [] reference refractive index
 
 P.shapes = [ 0 0 6e-6  2  1.4666];
 

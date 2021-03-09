@@ -13,7 +13,8 @@ clear P % Parameters struct
 % the first segment by setting P.finalizeVideo = false in the first segment
 
 %% General and solver-related settings
-P.useAllCPUs = true;
+P.name = mfilename;
+P.useAllCPUs = true; % If false, BPM-Matlab will leave one processor unused. Useful for doing other work on the PC while simulations are running.
 P.useGPU = false;
 
 %% Visualization parameters
@@ -37,7 +38,7 @@ P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 %% Problem definition - straight multicore fibre
 P.lambda = 980e-9; % [m] Wavelength
 P.n_cladding = 1.45; % [] Cladding refractive index
-P.n_0 = 1.46;
+P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 0.3e-3; % [m] z propagation distances for this segment
 P.taperScaling = 1;
 P.twistRate = 0;
