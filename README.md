@@ -32,6 +32,7 @@ All the functions needed for running BPM-Matlab are located in the folder "BPM-M
 In BPM-Matlab, you set up your model in a single m-file. You can find a few examples to get you started in the BPM-Matlab folder. Once you're familiar with those, you can start to write your own model files based on those example files.
 
 The following description is based on Example1.m, which provides a minimal working example. There are more advanced parameters introduced in the later example model files. Check those for further explanations on the advanced parameters.
+
 #### General parameters
 - `P.name`  
 A descriptive name of the model. This will only be used if you choose to automatically save the output of the simulation. Good practice is to use the same name as the model filename.
@@ -45,7 +46,6 @@ This allows to use CUDA acceleration for NVIDIA GPUs. The default is false. Only
 The number of times during the simulation the plot in the frontend should update. This is useful for following the E-field evolution, but adds overhead to the calculation, as for each update, the currently calculated full simulation window has to be extracted and displayed. If you're only interested in the E-field at the end of the waveguide, set this to 1.
 - `P.plotEmax`  
 Here you can set the maximung of the color scale in the intensity plot, relative to the peak of initial intensity. If left unset, the intensity plot autoscales.
-
 
 #### Resolution related paramaters
 Be aware that you have to ensure yourself that the pixel size and step size are small enough for the simulation to converge. This is typically done by doing a manual parameter scan of the resolution parameters.
@@ -87,6 +87,9 @@ In the function version, the function should be defined at the end of the model 
 #### Invoking the solver
 `P = FD_BPM(P);`  
 This calls the actual simulation tool.
+
+During the simulation, the display will be updated according to `P.updates`. Optionally, the figure will be saved to a video, check Example6.m on how to do that.
+
 
 ### Compilation
 The folder includes all the executables necessary, so you don't need to compile anything. If, however, you want to change the routine in either the FD-BPM.c source code located in the folder "src", you will need to recompile the respective mex-files. Check out the source-file on how to do so.
