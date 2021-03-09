@@ -7,7 +7,7 @@ clear P % Parameters struct
 %% General and solver-related settings
 P.name = mfilename;
 P.useAllCPUs = true; % If false, BPM-Matlab will leave one processor unused. Useful for doing other work on the PC while simulations are running.
-P.useGPU = false;
+P.useGPU = false; % (Default: false) Use CUDA acceleration for NVIDIA GPUs
 
 %% Visualization parameters
 P.updates = 100;            % Number of times to update plot. Must be at least 1, showing the final state.

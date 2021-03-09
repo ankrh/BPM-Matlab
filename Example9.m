@@ -10,7 +10,7 @@ clear P % Parameters struct
 %% General and solver-related settings
 P.name = mfilename;
 P.useAllCPUs = true; % If false, BPM-Matlab will leave one processor unused. Useful for doing other work on the PC while simulations are running.
-P.useGPU = false;
+P.useGPU = false; % (Default: false) Use CUDA acceleration for NVIDIA GPUs
 
 %% Visualization parameters
 P.calcModeOverlaps = true;  % Set it to true to calculate mode overlap integrals of propagating field with respect to different modes in the P.modes struct array
