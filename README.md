@@ -1,4 +1,4 @@
-# BPM-Matlab
+﻿# BPM-Matlab
 
 ## What is this repository for?
 
@@ -152,4 +152,4 @@ If you want to report a bug or are missing a feature, shoot us an email, see bel
 
 ### Who do I talk to?
 This repository is part of the DTU "biophotonics" team.
-The main responsible is Anders Kragh Hansen: ankrh@fotonik.dtu.dk
+The main responsibles are Anders Kragh Hansen: ankrh@fotonik.dtu.dk and Madhu Veettikazhy: madve@dtu.dk
