@@ -1,5 +1,7 @@
 /********************************************
  * FDBPMpropagator.c, in the C programming language, written for MATLAB MEX function generation
+ * 
+ ** Compiling on Windows
  * Can be compiled with GCC using
  * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' .\src\FDBPMpropagator.c ".\src\libut.lib" -R2018a"
  * ... or the Microsoft Visual C++ compiler (MSVC) with
@@ -13,6 +15,15 @@
  * so I'd recommend MSVC 2017. You also need the Parallel Computing
  * Toolbox, which you will find in the MATLAB addon manager. To compile, run:
  * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator_CUDA.cu; mexcuda -llibut COMPFLAGS='-use_fast_math -res-usage $COMPFLAGS' .\src\FDBPMpropagator_CUDA.cu -R2018a"
+ *
+ ** Compiling on macOS
+ * As of March 2021, the macOS compiler doesn't support libut (for ctrl+c 
+ * breaking) or openmp (for multithreading).
+ * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -std=c11 -Wall' ./src/FDBPMpropagator.c "./src/libut.lib" -R2018a"
+ *
+ * To get the MATLAB C compiler to work, try this:
+ * 1. Install XCode from the App Store
+ * 2. Type "mex -setup" in the MATLAB command window
  ********************************************/
 // printf("Reached line %d...\n",__LINE__);mexEvalString("drawnow;");mexEvalString("drawnow;");mexEvalString("drawnow;"); // For inserting into code for debugging purposes
 
@@ -748,6 +759,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
           ctrlc_caught = true;
           printf("\nCtrl+C detected, stopping.\n");
         }
+        #endif
 
         if(iz+1 < P->iz_end) {
           #ifdef __NVCC__
@@ -756,7 +768,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
           swapEPointers(P,iz);
           #endif
         }
-        #endif
       }
       #ifdef _OPENMP
       #pragma omp barrier
