@@ -19,7 +19,7 @@ You should have received a copy of the GNU General Public License along with thi
 ## How do I get set up?
 
 ### Requirements:
-- Windows 10
+- This software was tested on Windows 10 and macOS 11
 - MATLAB R2018a or newer
 
 
