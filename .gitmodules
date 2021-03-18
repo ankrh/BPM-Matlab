@@ -1,0 +1,3 @@
+[submodule "Wiki"]
+	path = Wiki
+	url = git@gitlab.gbar.dtu.dk:biophotonics/BPM-Matlab.wiki.git
