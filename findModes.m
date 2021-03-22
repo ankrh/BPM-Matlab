@@ -96,7 +96,7 @@ for iMode = nModes:-1:1
   P.modes(iMode).Lx = Lx;
   P.modes(iMode).Ly = Ly;
   E = reshape(V(:,sortedidxs(iMode)),[Nx Ny]);
-  P.modes(iMode).field = E.*exp(-1i*angle(max(E,[],'all'))); % Shift phase arbitrarily so that the resulting modes are (nearly) real
+  P.modes(iMode).field = E.*exp(-1i*angle(max(E(:)))); % Shift phase arbitrarily so that the resulting modes are (nearly) real
   P.modes(iMode).eigenval = D(sortedidxs(iMode),sortedidxs(iMode));
   if isinf(P.bendingRoC) && size(P.shapes,1) == 1
     [~,iMax] = max(E(:));
