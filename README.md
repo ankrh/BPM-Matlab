@@ -151,5 +151,5 @@ The folder includes all the executables necessary, so you don't need to compile 
 If you want to report a bug or are missing a feature, shoot us an email, see below.
 
 ### Who do I talk to?
-This repository is part of the DTU "biophotonics" team.
+This repository is part of the Technical University of Denmark "biophotonics" team.
 The main responsibles are Anders Kragh Hansen: ankrh@fotonik.dtu.dk and Madhu Veettikazhy: madve@dtu.dk
