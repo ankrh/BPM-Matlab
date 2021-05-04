@@ -1,4 +1,4 @@
-function P = findModes(P,nModes,sortByLoss,plotModes)
+function P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes)
 if ~isfield(P,'rho_e')
   P.rho_e = 0.22;
 end
@@ -37,8 +37,19 @@ x = dx*(-(Nx-1)/2:(Nx-1)/2);
 y = dy*(-(Ny-1)/2:(Ny-1)/2);
 [X,Y] = ndgrid(x,y);
 
+if singleCoreModes
+  shapesToInclude_2Darray = (1:size(P.shapes,1)).';
+else
+  shapesToInclude_2Darray = 1:size(P.shapes,1);
+end
+
+V = [];
+D = [];
+fprintf('Finding modes...\n');
+tic
+for iModeFinderRun = 1:size(shapesToInclude_2Darray,1)
 n_mat = P.n_cladding*ones(Nx,Ny);
-for iShape = 1:size(P.shapes,1)
+for iShape = shapesToInclude_2Darray(iModeFinderRun,:)
   switch P.shapes(iShape,4)
     case 1
       n_mat((X-P.shapes(iShape,1)).^2 + (Y-P.shapes(iShape,2)).^2 < P.shapes(iShape,3)^2) = P.shapes(iShape,5);
@@ -61,10 +72,10 @@ for iShape = 1:size(P.shapes,1)
 end
 n_mat = n_mat.*(1-(n_mat.^2.*(X*cosd(P.bendDirection) + Y*sind(P.bendDirection))*P.rho_e/(2*P.bendingRoC))).*exp((X*cosd(P.bendDirection) + Y*sind(P.bendDirection))/P.bendingRoC);
 
-delta_n_2 = n_mat.^2 - P.n_0^2;                              %delta_n^2 in the expression for FD BPM
+delta_n_2 = real(n_mat).^2 - P.n_0^2;                              %delta_n^2 in the expression for FD BPM
 
 dz = 1e-10;
-absorber = exp(-dz*max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha);
+absorber = exp(-dz*(max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha + 2*pi*imag(n_mat)/P.lambda)); % First part is edge absorber, second is absorption from the imaginary part of the refractive indicres
 ax = 1.00001*dz/(dx^2*2i*k_0*P.n_0);
 % ax = dz/(dx^2*2i*k_0*P.n_0);
 ay = dz/(dy^2*2i*k_0*P.n_0);
@@ -81,15 +92,16 @@ M_rhs(1:N+1:N*N) = M_rhs(1:N+1:N*N) - [repmat(ay,1,Nx) repmat(2*ay,1,Nx*(Ny-2)) 
 absorberdiag = sparse(1:N,1:N,absorber(1:N),N,N);
 M_rhs = M_rhs*absorberdiag;
 
-fprintf('Finding modes...\n');
-tic
-[V,D] = eigs(M_rhs,nModes,1,'Display',false,'SubspaceDimension',nModes*10);
+[Vrun,Drun] = eigs(M_rhs,ceil(nModes/size(shapesToInclude_2Darray,1)),1,'Display',false,'SubspaceDimension',nModes*10);
+V = [V , Vrun];
+D = [D , diag(Drun).'];
+end
 fprintf('\b Done, %.1f seconds elapsed\n',toc);
 
 if sortByLoss
-  [~,sortedidxs] = sort(real(D(1:nModes+1:end)),'descend');
+  [~,sortedidxs] = sort(real(D),'descend');
 else
-  [~,sortedidxs] = sort(imag(D(1:nModes+1:end)),'ascend');
+  [~,sortedidxs] = sort(imag(D),'ascend');
 end
 
 for iMode = nModes:-1:1
@@ -97,8 +109,8 @@ for iMode = nModes:-1:1
   P.modes(iMode).Ly = Ly;
   E = reshape(V(:,sortedidxs(iMode)),[Nx Ny]);
   P.modes(iMode).field = E.*exp(-1i*angle(max(E(:)))); % Shift phase arbitrarily so that the resulting modes are (nearly) real
-  P.modes(iMode).eigenval = D(sortedidxs(iMode),sortedidxs(iMode));
-  if isinf(P.bendingRoC) && size(P.shapes,1) == 1
+  P.modes(iMode).eigenval = D(sortedidxs(iMode));
+  if isinf(P.bendingRoC) && (size(P.shapes,1) == 1 || singleCoreModes)
     [~,iMax] = max(E(:));
     xMax = X(iMax);
     yMax = Y(iMax);
@@ -149,9 +161,9 @@ for iMode = nModes:-1:1
     axis equal; axis tight; axis xy;
     setColormap(gca,P.Phase_colormap);
     if isfield(P.modes,'label')
-      sgtitle({['Mode ' num2str(iMode) ', ' P.modes(iMode).label ', eigenvalue - 1 =  ' num2str(D(sortedidxs(iMode),sortedidxs(iMode))-1)],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode),sortedidxs(iMode)))^2)/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode),sortedidxs(iMode)))^2)/dz)) ' dB/m)']});
+      sgtitle({['Mode ' num2str(iMode) ', ' P.modes(iMode).label ', (eigenvalue - 1) =  ' num2str(D(sortedidxs(iMode))-1)],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode))))/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode))))/dz)) ' dB/m)']});
     else
-      sgtitle({['Mode ' num2str(iMode) ', eigenvalue - 1 =  ' num2str(D(sortedidxs(iMode),sortedidxs(iMode))-1)],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode),sortedidxs(iMode)))^2)/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode),sortedidxs(iMode)))^2)/dz)) ' dB/m)']});
+      sgtitle({['Mode ' num2str(iMode) ', (eigenvalue - 1) =  ' num2str(D(sortedidxs(iMode))-1)],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode))))/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode))))/dz)) ' dB/m)']});
     end
   end
 end

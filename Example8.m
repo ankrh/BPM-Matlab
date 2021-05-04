@@ -42,7 +42,8 @@ P.shapes = [ -2.5e-6 0 5e-6    2  1.46;
 nModes = 10; % For mode finding
 plotModes = true; % If true, will plot the found modes
 sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
-P = findModes(P,nModes,sortByLoss,plotModes);
+singleCoreModes = false; % If true, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
+P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
 
 % P.E can be either a function that takes X, Y and Eparameters as inputs
 % and provides the complex E field as output, or it can be a struct with 3

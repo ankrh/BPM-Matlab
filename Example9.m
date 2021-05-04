@@ -41,7 +41,8 @@ P.bendingRoC = Inf; % [m] radius of curvature of the bend
 nModes = 30; % For mode finding
 plotModes = true; % If true, will plot the found modes
 sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
-P = findModes(P,nModes,sortByLoss,plotModes);
+singleCoreModes = false; % If true, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
+P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
 
 % P.E = P.modes(1); % The LP01 mode, relatively sensitive to bending-induced mode coupling
 P.E = P.modes(3); % The LP11e mode, about equally sensitive as LP01

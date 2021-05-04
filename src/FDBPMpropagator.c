@@ -3,9 +3,9 @@
  * 
  ** Compiling on Windows
  * Can be compiled with GCC using
- * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' .\src\FDBPMpropagator.c ".\src\libut.lib" -R2018a"
+ * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' -outdir private .\src\FDBPMpropagator.c ".\src\libut.lib" -R2018a"
  * ... or the Microsoft Visual C++ compiler (MSVC) with
- * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator.cpp; mex COMPFLAGS='/Zp8 /GR /EHs /nologo /MD /openmp /W4 /WX /wd4204 /wd4100' .\src\FDBPMpropagator.cpp ".\src\libut.lib" -R2018a"
+ * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator.cpp; mex COMPFLAGS='/Zp8 /GR /EHs /nologo /MD /openmp /W4 /WX /wd4204 /wd4100' -outdir private .\src\FDBPMpropagator.cpp ".\src\libut.lib" -R2018a"
  * 
  * The source code in this file is written is such a way that it is
  * compilable by either C or C++ compilers, either with GCC, MSVC or
@@ -14,12 +14,12 @@
  * installed. As of January 2020, mexcuda does not work with MSVC 2019,
  * so I'd recommend MSVC 2017. You also need the Parallel Computing
  * Toolbox, which you will find in the MATLAB addon manager. To compile, run:
- * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator_CUDA.cu; mexcuda -llibut COMPFLAGS='-use_fast_math -res-usage $COMPFLAGS' .\src\FDBPMpropagator_CUDA.cu -R2018a"
+ * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator_CUDA.cu; mexcuda -llibut COMPFLAGS='-use_fast_math -res-usage $COMPFLAGS' -outdir private .\src\FDBPMpropagator_CUDA.cu -R2018a"
  *
  ** Compiling on macOS
  * As of March 2021, the macOS compiler doesn't support libut (for ctrl+c 
  * breaking) or openmp (for multithreading).
- * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -std=c11 -Wall' ./src/FDBPMpropagator.c "./src/libut.lib" -R2018a"
+ * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -std=c11 -Wall' -outdir private ./src/FDBPMpropagator.c "./src/libut.lib" -R2018a"
  *
  * To get the MATLAB C compiler to work, try this:
  * 1. Install XCode from the App Store
@@ -480,7 +480,7 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
       float n_eff = n*(1-(sqrf(n)*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
       if(iz == P->iz_end-1) P->n_out[i] = n_eff;
       P->E2[i] *= fieldCorrection*P->multiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)))*absorption; // Here, multiplier only includes the edge absorber
-      float multipliernormsqr = sqrf(CREALF(P->multiplier[i]*absorption)) + sqrf(CIMAGF(P->multiplier[i]*absorption));
+      float multipliernormsqr = sqrf(CREALF(P->multiplier[i])*absorption) + sqrf(CIMAGF(P->multiplier[i])*absorption);
       if(multipliernormsqr > 1 - 10*FLT_EPSILON) multipliernormsqr = 1; // To avoid accumulating power discrepancies due to rounding errors
       precisePowerDiffThread += (sqrf(CREALF(P->E2[i])) + sqrf(CIMAGF(P->E2[i])))*(1 - 1/multipliernormsqr);
     }
@@ -564,6 +564,8 @@ void createDeviceStructs(struct parameters *P, struct parameters **P_devptr,
   gpuErrchk(cudaMemcpy(P_tempvar.shapeRIs,P->shapeRIs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
   gpuErrchk(cudaMalloc(&P_tempvar.shapegs,P->Nshapes*sizeof(float)));
   gpuErrchk(cudaMemcpy(P_tempvar.shapegs,P->shapegs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.shapeAbsorptions,P->Nshapes*sizeof(float)));
+  gpuErrchk(cudaMemcpy(P_tempvar.shapeAbsorptions,P->shapeAbsorptions,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
   gpuErrchk(cudaMalloc(&P_tempvar.shapexs_transformed,P->Nshapes*sizeof(float)));
   gpuErrchk(cudaMalloc(&P_tempvar.shapeys_transformed,P->Nshapes*sizeof(float)));
   gpuErrchk(cudaMalloc(&P_tempvar.shapeRs_transformed,P->Nshapes*sizeof(float)));
@@ -605,6 +607,7 @@ void retrieveAndFreeDeviceStructs(struct parameters *P, struct parameters *P_dev
   gpuErrchk(cudaFree(P_temp.shapeTypes));
   gpuErrchk(cudaFree(P_temp.shapeRIs));
   gpuErrchk(cudaFree(P_temp.shapegs));
+  gpuErrchk(cudaFree(P_temp.shapeAbsorptions));
   gpuErrchk(cudaFree(P_temp.shapexs_transformed));
   gpuErrchk(cudaFree(P_temp.shapeys_transformed));
   gpuErrchk(cudaFree(P_temp.shapeRs_transformed));

@@ -79,15 +79,10 @@ P.shapes = [ 0 0  5e-6  2  1.46];
 nModes = 10; % For mode finding
 plotModes = false; % If true, will plot the found modes
 sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
-P = findModes(P,nModes,sortByLoss,plotModes);
+singleCoreModes = false; % If true, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
+P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
 randvec = [0.974931557198556 + 0.222504963491603i ,  0.583350562881419 - 0.812220487790066i ,  0.915224078253766 - 0.402945264998293i , -0.432956662664553 - 0.901414737096290i ,  0.048613506502203 - 0.998817664534203i , -0.043136586317590 - 0.999069184251454i , -0.779356851920114 + 0.626580319963187i , -0.559597395571616 - 0.828764595569493i]; % Randomly generated array of mode coefficients for use in the superposition
-
-P.E = P.modes(1); % We do this to get the correct values for the "Lx" and "Ly" fields.
-P.E.field = randvec(1)*P.E.field; % The field needs to be multiplied by its coefficient
-for iMode = 2:8
-  P.E.field = P.E.field + randvec(iMode)*P.modes(iMode).field; % And here we add in the field contributions from the other modes
-end
-P.E.field = P.E.field*sqrt(sum(abs(P.E.field(:)).^2)/sum(abs(P.E.field(:)).^2)); % Normalize
+P.E = modeSuperposition(P,1:8,randvec); % Make a superposition of the first 8 modes with the above random coefficients
 
 % Run solver
 P = FD_BPM(P);

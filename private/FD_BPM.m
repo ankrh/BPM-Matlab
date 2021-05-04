@@ -59,9 +59,6 @@ end
 if ~isfield(P,'twistRate')
   P.twistRate = 0;
 end
-if ~isfield(P,'claddingAbsorptionCoeff')
-  P.claddingAbsorptionCoeff = 0;
-end
 if ~isfield(P,'rho_e')
   P.rho_e = 0.22;
 end
@@ -77,9 +74,6 @@ if size(P.shapes,2) == 5
   else
     P.shapes(:,6) = NaN;
   end
-end
-if ~isfield(P,'shapeAbsorptionCoeffs')
-  P.shapeAbsorptionCoeffs = zeros(size(P.shapes,1),1);
 end
 if P.saveVideo && ~isfield(P,'videoName')
   P.videoName = [P.name '.avi'];
@@ -236,9 +230,9 @@ d = -dz*k_0/(2*P.n_0); % defined such that in each step in the mex function, E =
 absorber = exp(-dz*max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha);
 multiplier = absorber;
 
-%% Calculate field absorption per step for each shape and for cladding based on intensity absorption coefficients
-shapeAbsorptions = exp(-dz*P.shapeAbsorptionCoeffs/2);
-claddingAbsorption = exp(-dz*P.claddingAbsorptionCoeff/2);
+%% Calculate field absorption per step for each shape and for cladding based on extinction coefficients (imaginary parts of the refractive indices)
+shapeAbsorptions = exp(-dz*2*pi*imag(P.shapes(:,5))/P.lambda);
+claddingAbsorption = exp(-dz*2*pi*imag(P.n_cladding)/P.lambda);
 
 %% Figure initialization
 h_f = figure(P.figNum);clf;
@@ -261,7 +255,7 @@ if isfield(P,'n_colorlimits')
 end
 xlabel('x [m]');
 ylabel('y [m]');
-title('Refractive index');
+title('Real part of refractive index');
 
 if priorData
   P.powers = [P.powers NaN(1,P.updates)];
@@ -381,7 +375,7 @@ end
 % tic;
 %% Load variables into a parameters struct and start looping, one iteration per update
 mexParameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
-  'shapes',single(P.shapes),'shapeAbsorptions',single(shapeAbsorptions),'n_cladding',single(P.n_cladding),'claddingAbsorption',single(claddingAbsorption),'multiplier',complex(single(multiplier)),'d',single(d),'n_0',single(P.n_0),...
+  'shapes',single(real(P.shapes)),'shapeAbsorptions',single(shapeAbsorptions),'n_cladding',single(real(P.n_cladding)),'claddingAbsorption',single(claddingAbsorption),'multiplier',complex(single(multiplier)),'d',single(d),'n_0',single(P.n_0),...
   'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
   'inputPrecisePower',P.powers(end-length(zUpdateIdxs)));
 
