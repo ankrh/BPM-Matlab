@@ -86,6 +86,7 @@ struct parameters {
   float twistPerStep;
   float d;
   float n_cladding;
+  float claddingAbsorption;
   float n_0;
   long Nshapes;
   float *shapexs;
@@ -94,6 +95,7 @@ struct parameters {
   float *shapeTypes;
   float *shapeRIs;
   float *shapegs;
+  float *shapeAbsorptions;
   float *shapexs_transformed;
   float *shapeys_transformed;
   float *shapeRs_transformed;
@@ -426,48 +428,59 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
       float y = P->dy*(iy - (P->Ny-1)/2.0f);
 
       float n = P->n_cladding;
+      float absorption = P->claddingAbsorption;
       for(long iShape=0;iShape<P->Nshapes;iShape++) {
         switch((int)P->shapeTypes[iShape]) {
           case 1: // Step-index disk
-            if(sqrf(x - P->shapexs_transformed[iShape]) + sqrf(y - P->shapeys_transformed[iShape]) < sqrf(P->shapeRs_transformed[iShape]))
+            if(sqrf(x - P->shapexs_transformed[iShape]) + sqrf(y - P->shapeys_transformed[iShape]) < sqrf(P->shapeRs_transformed[iShape])) {
               n = P->shapeRIs[iShape];
+              absorption = P->shapeAbsorptions[iShape];
+            }
             break;
           case 2: { // Antialiased step-index disk
             float delta = MAX(P->dx,P->dy); // Width of antialiasing slope
             float r_diff = sqrtf(sqrf(x - P->shapexs_transformed[iShape]) + sqrf(y - P->shapeys_transformed[iShape])) - P->shapeRs_transformed[iShape] + delta/2.0f;
             if(r_diff < 0) {
               n = P->shapeRIs[iShape];
+              absorption = P->shapeAbsorptions[iShape];
             } else if(r_diff < delta) {
               n = r_diff/delta*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
+              absorption = r_diff/delta*(P->claddingAbsorption - P->shapeAbsorptions[iShape]) + P->shapeAbsorptions[iShape];
             }
             break;
           }
           case 3: { // Parabolic graded index disk
             float r_ratio_sqr = (sqrf(x - P->shapexs_transformed[iShape]) + sqrf(y - P->shapeys_transformed[iShape]))/sqrf(P->shapeRs_transformed[iShape]);
-            if(r_ratio_sqr < 1)
+            if(r_ratio_sqr < 1) {
               n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
+              absorption = P->shapeAbsorptions[iShape];
+            }
             break;
           }
           case 4: { // 2D Hyperbolic GRIN lens
-              float r_ratio_sqr = (sqrf(x - P->shapexs_transformed[iShape])+sqrf(y - P->shapeys_transformed[iShape]))/sqrf(P->shapeRs_transformed[iShape]);
-              float r_abs = sqrtf(sqrf(x - P->shapexs_transformed[iShape])+sqrf(y - P->shapeys_transformed[iShape]));
-              if(r_ratio_sqr < 1)
-                n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1); // GRINTECH: n = n_0 * sech(gr)
+            float r_ratio_sqr = (sqrf(x - P->shapexs_transformed[iShape])+sqrf(y - P->shapeys_transformed[iShape]))/sqrf(P->shapeRs_transformed[iShape]);
+            float r_abs = sqrtf(sqrf(x - P->shapexs_transformed[iShape])+sqrf(y - P->shapeys_transformed[iShape]));
+            if(r_ratio_sqr < 1) {
+              n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1); // GRINTECH: n = n_0 * sech(gr)
+              absorption = P->shapeAbsorptions[iShape];
+            }
             break;
           }
           case 5: { // 1D (y) Hyperbolic GRIN lens
-              float r_ratio_sqr = sqrf(y - P->shapeys_transformed[iShape])/sqrf(P->shapeRs_transformed[iShape]);
-              float r_abs = y - P->shapeys_transformed[iShape];
-              if(r_ratio_sqr < 1)
-                n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1); 
+            float r_ratio_sqr = sqrf(y - P->shapeys_transformed[iShape])/sqrf(P->shapeRs_transformed[iShape]);
+            float r_abs = y - P->shapeys_transformed[iShape];
+            if(r_ratio_sqr < 1) {
+              n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1); 
+              absorption = P->shapeAbsorptions[iShape];
+            }
             break;
           }
         }
       }
       float n_eff = n*(1-(sqrf(n)*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
       if(iz == P->iz_end-1) P->n_out[i] = n_eff;
-      P->E2[i] *= fieldCorrection*P->multiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)));
-      float multipliernormsqr = sqrf(CREALF(P->multiplier[i])) + sqrf(CIMAGF(P->multiplier[i]));
+      P->E2[i] *= fieldCorrection*P->multiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)))*absorption; // Here, multiplier only includes the edge absorber
+      float multipliernormsqr = sqrf(CREALF(P->multiplier[i]*absorption)) + sqrf(CIMAGF(P->multiplier[i]*absorption));
       if(multipliernormsqr > 1 - 10*FLT_EPSILON) multipliernormsqr = 1; // To avoid accumulating power discrepancies due to rounding errors
       precisePowerDiffThread += (sqrf(CREALF(P->E2[i])) + sqrf(CIMAGF(P->E2[i])))*(1 - 1/multipliernormsqr);
     }
@@ -480,7 +493,7 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
     #endif // 2
     for(long i=0;i<P->Nx*P->Ny;i++) {
     #endif // 1
-      P->E2[i] *= fieldCorrection*P->multiplier[i];
+      P->E2[i] *= fieldCorrection*P->multiplier[i]; // Here, multiplier includes (a) the edge absorber, (b) any absorption within the main simulation window defined through the absorption coefficients of the cladding and cores and (c) the factor CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)))
       float multipliernormsqr = sqrf(CREALF(P->multiplier[i])) + sqrf(CIMAGF(P->multiplier[i]));
       if(multipliernormsqr > 1 - 10*FLT_EPSILON) multipliernormsqr = 1; // To avoid accumulating power discrepancies due to rounding errors
       precisePowerDiffThread += (sqrf(CREALF(P->E2[i])) + sqrf(CIMAGF(P->E2[i])))*(1 - 1/multipliernormsqr);
@@ -622,6 +635,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->twistPerStep = *(float *)mxGetData(mxGetField(prhs[1],0,"twistPerStep"));
   P->d = *(float *)mxGetData(mxGetField(prhs[1],0,"d"));
   P->n_cladding = *(float *)mxGetData(mxGetField(prhs[1],0,"n_cladding"));
+  P->claddingAbsorption = *(float *)mxGetData(mxGetField(prhs[1],0,"claddingAbsorption"));
   P->n_0 = *(float *)mxGetData(mxGetField(prhs[1],0,"n_0"));
   P->Nshapes = (long)mxGetM(mxGetField(prhs[1],0,"shapes"));
   P->shapexs = (float *)mxGetData(mxGetField(prhs[1],0,"shapes"));
@@ -630,6 +644,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->shapeTypes = P->shapeRs + P->Nshapes;
   P->shapeRIs = P->shapeTypes + P->Nshapes;
   P->shapegs = P->shapeRIs + P->Nshapes;
+  P->shapeAbsorptions = (float *)mxGetData(mxGetField(prhs[1],0,"shapeAbsorptions"));
   P->rho_e = *(float *)mxGetData(mxGetField(prhs[1],0,"rho_e"));
   P->RoC = *(float *)mxGetData(mxGetField(prhs[1],0,"RoC"));
   P->sinBendDirection = sin(*(float *)mxGetData(mxGetField(prhs[1],0,"bendDirection"))/180*PI);
@@ -645,7 +660,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   #ifndef __NVCC__
   P->E2 = (floatcomplex *)((P->iz_end - P->iz_start)%2? P->Efinal: malloc(P->Nx*P->Ny*sizeof(floatcomplex)));
   #endif
-  floatcomplex *MatlabMultiplier = (floatcomplex *)mxGetData(mxGetField(prhs[1],0,"multiplier")); // Array of multiplier values to apply to the E field after each step, which includes (1) the absorber outside the fiber and (2) the effects of fibre bending, if present
+  floatcomplex *MatlabMultiplier = (floatcomplex *)mxGetData(mxGetField(prhs[1],0,"multiplier")); // Array of multiplier values to apply to the E field after each step, due to the edge absorber outside the main simulation window
   P->multiplier = (floatcomplex *)malloc(P->Nx*P->Ny*sizeof(floatcomplex)); // If there's tapering or twisting, this is just a copy of MatlabMultiplier. Otherwise, it will be MatlabMultiplier multiplied by the factor that takes the refractive index profile into account, cexpf(I*P->d*(sqrf(n) - sqrf(P->n_0))).
   P->ax = *(floatcomplex *)mxGetData(mxGetField(prhs[1],0,"ax"));
   P->ay = *(floatcomplex *)mxGetData(mxGetField(prhs[1],0,"ay"));
@@ -659,47 +674,58 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
         float y = P->dy*(iy - (P->Ny-1)/2.0f);
         long i = ix + iy*P->Nx;
         float n = P->n_cladding;
+        float absorption = P->claddingAbsorption;
         for(long iShape=0;iShape<P->Nshapes;iShape++) {
           switch((int)P->shapeTypes[iShape]) {
             case 1: // Step-index disk
-              if(sqrf(x - P->shapexs[iShape]) + sqrf(y - P->shapeys[iShape]) < sqrf(P->shapeRs[iShape]))
+              if(sqrf(x - P->shapexs[iShape]) + sqrf(y - P->shapeys[iShape]) < sqrf(P->shapeRs[iShape])) {
                 n = P->shapeRIs[iShape];
+                absorption = P->shapeAbsorptions[iShape];
+              }
               break;
             case 2: { // Antialiased step-index disk
               float delta = MAX(P->dx,P->dy); // Width of antialiasing slope
               float r_diff = sqrtf(sqrf(x - P->shapexs[iShape]) + sqrf(y - P->shapeys[iShape])) - P->shapeRs[iShape] + delta/2.0f;
               if(r_diff < 0) {
                 n = P->shapeRIs[iShape];
+                absorption = P->shapeAbsorptions[iShape];
               } else if(r_diff < delta) {
                 n = r_diff/delta*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
+                absorption = r_diff/delta*(P->claddingAbsorption - P->shapeAbsorptions[iShape]) + P->shapeAbsorptions[iShape];
               }
               break;
             }
             case 3: { // Parabolic graded index disk
               float r_ratio_sqr = (sqrf(x - P->shapexs[iShape]) + sqrf(y - P->shapeys[iShape]))/sqrf(P->shapeRs[iShape]);
-              if(r_ratio_sqr < 1)
+              if(r_ratio_sqr < 1) {
                 n = r_ratio_sqr*(P->n_cladding - P->shapeRIs[iShape]) + P->shapeRIs[iShape];
+                absorption = P->shapeAbsorptions[iShape];
+              }
               break;
             }
             case 4: { // 2D Hyperbolic GRIN lens
               float r_ratio_sqr = (sqrf(x - P->shapexs[iShape])+sqrf(y - P->shapeys[iShape]))/sqrf(P->shapeRs[iShape]);
               float r_abs = sqrtf(sqrf(x - P->shapexs[iShape])+sqrf(y - P->shapeys[iShape]));
-              if(r_ratio_sqr < 1)
+              if(r_ratio_sqr < 1) {
                 n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1);  // GRINTECH: n = n_0 * sech(gr) = n_0*2*exp(gr)/(exp(2gr)+1)
+                absorption = P->shapeAbsorptions[iShape];
+              }
               break;
             }
             case 5: { // 1D (y) Hyperbolic GRIN lens
               float r_ratio_sqr = sqrf(y - P->shapeys[iShape])/sqrf(P->shapeRs[iShape]);
               float r_abs = y - P->shapeys[iShape];
-              if(r_ratio_sqr < 1)
+              if(r_ratio_sqr < 1) {
                 n =  2*P->shapeRIs[iShape] * exp(P->shapegs[iShape]*r_abs) / (exp(2*P->shapegs[iShape]*r_abs)+1); 
+                absorption = P->shapeAbsorptions[iShape];
+              }
               break;
             }
           }
         }
         float n_eff = n*(1-(sqrf(n)*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
         P->n_out[i] = n_eff;
-        P->multiplier[i] = MatlabMultiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)));
+        P->multiplier[i] = MatlabMultiplier[i]*CEXPF(I*P->d*(sqrf(n_eff) - sqrf(P->n_0)))*absorption;
       }
     }
   }
