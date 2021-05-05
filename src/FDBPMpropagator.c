@@ -19,7 +19,7 @@
  ** Compiling on macOS
  * As of March 2021, the macOS compiler doesn't support libut (for ctrl+c 
  * breaking) or openmp (for multithreading).
- * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -std=c11 -Wall' -outdir private ./src/FDBPMpropagator.c "./src/libut.lib" -R2018a"
+ * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -std=c11 -Wall' -outdir private ./src/FDBPMpropagator.c -R2018a"
  *
  * To get the MATLAB C compiler to work, try this:
  * 1. Install XCode from the App Store
