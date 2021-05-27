@@ -129,7 +129,8 @@ else
   [~,sortedidxs] = sort(imag(D),'ascend');
 end
 
-for iMode = nModes:-1:1
+% for iMode = nModes:-1:1
+for iMode = 1:nModes
   P.modes(iMode).Lx = Lx;
   P.modes(iMode).Ly = Ly;
   E = reshape(V(:,sortedidxs(iMode)),[Nx Ny]);

@@ -49,6 +49,7 @@
   #define CIMAGF(x) (x.imag())
   #define MAX(x,y) (max(x,y))
   #define MIN(x,y) (min(x,y))
+  #define FLOORF(x) (floor(x))
   #include <nvml.h>
   #define TILE_DIM 32
 #else
@@ -71,6 +72,7 @@
     #define CIMAGF(x) (std::imag(x))
     #define MAX(x,y) (std::max(x,y))
     #define MIN(x,y) (std::min(x,y))
+    #define FLOORF(x) (std::floor(x))
   #endif
 #endif
 
@@ -410,8 +412,8 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
     if(P->taperPerStep || P->twistPerStep) { // Rotate, scale, interpolate
       float x_src = scaling*(cosvalue*x - sinvalue*y);
       float y_src = scaling*(sinvalue*x + cosvalue*y);
-      float ix_src = MIN(MAX(0,x_src/P->dx + (P->Nx - 1)/2.0f),(P->Nx - 1)*(1-FLT_EPSILON)); // Fractional index, coerced to be within the source window
-      float iy_src = MIN(MAX(0,y_src/P->dy + (P->Ny - 1)/2.0f),(P->Ny - 1)*(1-FLT_EPSILON));
+      float ix_src = MIN(MAX(0.0f,x_src/P->dx + (P->Nx - 1)/2.0f),(P->Nx - 1)*(1-FLT_EPSILON)); // Fractional index, coerced to be within the source window
+      float iy_src = MIN(MAX(0.0f,y_src/P->dy + (P->Ny - 1)/2.0f),(P->Ny - 1)*(1-FLT_EPSILON));
       long ix_low = (long)FLOORF(ix_src);
       long iy_low = (long)FLOORF(iy_src);
       float ix_frac = ix_src - FLOORF(ix_src);
@@ -484,34 +486,18 @@ void createDeviceStructs(struct parameters *P, struct parameters **P_devptr,
   long N = P->Nx*P->Ny;
   struct parameters P_tempvar = *P;
 
-  gpuErrchk(cudaMalloc(&P_tempvar.shapexs,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapexs,P->shapexs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeys,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapeys,P->shapeys,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeRs,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapeRs,P->shapeRs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeTypes,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapeTypes,P->shapeTypes,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeRIs,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapeRIs,P->shapeRIs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapegs,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapegs,P->shapegs,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeAbsorptions,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMemcpy(P_tempvar.shapeAbsorptions,P->shapeAbsorptions,P->Nshapes*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapexs_transformed,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeys_transformed,P->Nshapes*sizeof(float)));
-  gpuErrchk(cudaMalloc(&P_tempvar.shapeRs_transformed,P->Nshapes*sizeof(float)));
-
   gpuErrchk(cudaMalloc(&P_tempvar.E1,N*sizeof(floatcomplex)));
   gpuErrchk(cudaMemcpy(P_tempvar.E1,P->E1,N*sizeof(floatcomplex),cudaMemcpyHostToDevice));
   gpuErrchk(cudaMalloc(&P_tempvar.E2,N*sizeof(floatcomplex)));
   gpuErrchk(cudaMalloc(&P_tempvar.Eyx,N*sizeof(floatcomplex)));
 
-  if(P->taperPerStep || P->twistPerStep) gpuErrchk(cudaMalloc(&P_tempvar.n_out,N*sizeof(float)));
+  gpuErrchk(cudaMalloc(&P_tempvar.n_out,N*sizeof(floatcomplex)));
 
   gpuErrchk(cudaMalloc(&P_tempvar.b,N*sizeof(floatcomplex)));
-  gpuErrchk(cudaMalloc(&P_tempvar.multiplier,N*sizeof(floatcomplex)));
-  gpuErrchk(cudaMemcpy(P_tempvar.multiplier,P->multiplier,N*sizeof(floatcomplex),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.multiplier,N*sizeof(float)));
+  gpuErrchk(cudaMemcpy(P_tempvar.multiplier,P->multiplier,N*sizeof(float),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.n_in,N*sizeof(floatcomplex)));
+  gpuErrchk(cudaMemcpy(P_tempvar.n_in,P->n_in,N*sizeof(floatcomplex),cudaMemcpyHostToDevice));
 
   gpuErrchk(cudaMalloc(P_devptr, sizeof(struct parameters)));
   gpuErrchk(cudaMemcpy(*P_devptr,&P_tempvar,sizeof(struct parameters),cudaMemcpyHostToDevice));
@@ -527,28 +513,16 @@ void retrieveAndFreeDeviceStructs(struct parameters *P, struct parameters *P_dev
   long N = P->Nx*P->Ny;
   struct parameters P_temp; gpuErrchk(cudaMemcpy(&P_temp,P_dev,sizeof(struct parameters),cudaMemcpyDeviceToHost));
   gpuErrchk(cudaMemcpy(P->Efinal,P_temp.E2,N*sizeof(floatcomplex),cudaMemcpyDeviceToHost));
-  if(P->taperPerStep || P->twistPerStep) {
-    gpuErrchk(cudaMemcpy(P->n_out,P_temp.n_out,N*sizeof(float),cudaMemcpyDeviceToHost));
-    gpuErrchk(cudaFree(P_temp.n_out));
-  }
+  gpuErrchk(cudaMemcpy(P->n_out,P_temp.n_out,N*sizeof(floatcomplex),cudaMemcpyDeviceToHost));
+  gpuErrchk(cudaFree(P_temp.n_out));
   P->precisePower = P_temp.precisePower;
-
-  gpuErrchk(cudaFree(P_temp.shapexs));
-  gpuErrchk(cudaFree(P_temp.shapeys));
-  gpuErrchk(cudaFree(P_temp.shapeRs));
-  gpuErrchk(cudaFree(P_temp.shapeTypes));
-  gpuErrchk(cudaFree(P_temp.shapeRIs));
-  gpuErrchk(cudaFree(P_temp.shapegs));
-  gpuErrchk(cudaFree(P_temp.shapeAbsorptions));
-  gpuErrchk(cudaFree(P_temp.shapexs_transformed));
-  gpuErrchk(cudaFree(P_temp.shapeys_transformed));
-  gpuErrchk(cudaFree(P_temp.shapeRs_transformed));
 
   gpuErrchk(cudaFree(P_temp.E1));
   gpuErrchk(cudaFree(P_temp.E2));
   gpuErrchk(cudaFree(P_temp.Eyx));
   gpuErrchk(cudaFree(P_temp.b));
   gpuErrchk(cudaFree(P_temp.multiplier));
+  gpuErrchk(cudaFree(P_temp.n_in));
   gpuErrchk(cudaFree(P_dev));
 
 

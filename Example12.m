@@ -63,9 +63,7 @@ P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
 P.E = P.modes(5);
 
 % Run solver
-tic
 P = FD_BPM(P);
-toc
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 % function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
