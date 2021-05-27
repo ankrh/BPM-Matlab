@@ -23,7 +23,7 @@ P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 
 %% Problem definition
 P.lambda = 1000e-9; % [m] Wavelength
-P.n_cladding = 1.45; % [] Cladding refractive index
+P.n_background = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
@@ -50,7 +50,7 @@ P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
 % fields: a 'field' field which is the complex E-field matrix, and 'Lx' and
 % 'Ly' fields that describe the side lengths of the provided E matrix. In
 % the case of a struct, the provided E field will be adapted to the new
-% grid using the interp2 function.
+% grid using the interpn function.
 P.E = P.modes(9); % The 9th mode is an LP31o-like mode
 
 % Run solver

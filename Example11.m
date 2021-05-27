@@ -4,7 +4,7 @@ clear P % Parameters struct
 % losses during propagation. The imaginary part of the refractive index is
 % called the extinction coefficient (kappa) and is related to the
 % absorption coefficient (alpha) by alpha = 4*pi*kappa/lambda. Both
-% n_cladding and the refractive indices of the individual shapes can be
+% n_background and the refractive indices of the individual shapes can be
 % complex.
 
 % Here, light is launched into two cores. The cladding and the bottom core
@@ -41,7 +41,7 @@ P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 %% Problem definition
 P.lambda = 1000e-9; % [m] Wavelength
 
-P.n_cladding = 1.45 + 1e-3i; % [] Cladding refractive index (may be complex)
+P.n_background = 1.45 + 1e-3i; % [] Cladding refractive index (may be complex)
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
@@ -68,7 +68,7 @@ P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
 % fields: a 'field' field which is the complex E-field matrix, and 'Lx' and
 % 'Ly' fields that describe the side lengths of the provided E matrix. In
 % the case of a struct, the provided E field will be adapted to the new
-% grid using the interp2 function.
+% grid using the interpn function.
 % P.E = @calcInitialE; % Defined at the end of this file
 P.E = modeSuperposition(P,[1 2]);
 

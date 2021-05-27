@@ -27,7 +27,7 @@ P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 
 %% Problem definition
 P.lambda = 800e-9; % [m] Wavelength
-P.n_cladding = 1.45; % [] Cladding refractive index
+P.n_background = 1.45; % [] Cladding refractive index
 P.n_0 = 1.4666; % [] reference refractive index
 
 P.shapes = [ 0 0 6e-6  2  1.4666];
