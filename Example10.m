@@ -52,7 +52,7 @@ P.alpha = 6e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 
 %% Problem definition
 P.lambda = 1000e-9; % [m] Wavelength
-P.n_cladding = 1.45; % [] Cladding refractive index
+P.n_background = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46;
 P.Lz = 10e-3; % [m] z propagation distances for this segment
 P.updates = P.Lz*updateFrequency;            % Number of times to update plot. Must be at least 1, showing the final state.
@@ -75,7 +75,7 @@ P.shapes = [ 0 0  5e-6  2  1.46];
 % fields: a 'field' field which is the complex E-field matrix, and 'Lx' and
 % 'Ly' fields that describe the side lengths of the provided E matrix. In
 % the case of a struct, the provided E field will be adapted to the new
-% grid using the interp2 function.
+% grid using the interpn function.
 nModes = 10; % For mode finding
 plotModes = false; % If true, will plot the found modes
 sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)

@@ -37,7 +37,7 @@ P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 
 %% Problem definition - straight multicore fibre
 P.lambda = 980e-9; % [m] Wavelength
-P.n_cladding = 1.45; % [] Cladding refractive index
+P.n_background = 1.45; % [] Cladding refractive index
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 0.3e-3; % [m] z propagation distances for this segment
 P.bendDirection = 0; % [degrees] direction of the bending, in a polar coordinate system with 0° to the right (towards positive x) and increasing angles in counterclockwise direction
@@ -69,7 +69,7 @@ P.shapes(:,5) = n_core;
 % fields: a 'field' field which is the complex E-field matrix, and 'Lx' and
 % 'Ly' fields that describe the side lengths of the provided E matrix. In
 % the case of a struct, the provided E field will be adapted to the new
-% grid using the interp2 function.
+% grid using the interpn function.
 load('exampleInputField.mat','E');
 P.E = E;
 

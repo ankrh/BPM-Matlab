@@ -35,7 +35,7 @@ P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 
 %% Problem definition
 P.lambda = 810e-9; % [m] Wavelength
-P.n_cladding = 1.0; % [] Cladding refractive index
+P.n_background = 1.0; % [] Background refractive index
 P.n_0 = 1.521; % [] reference refractive index
 P.Lz = 6.05e-3; % [m] z propagation distances for this segment
 
@@ -55,7 +55,7 @@ P.shapes = [ 0 0 0.5e-3  4  1.521 260];
 % fields: a 'field' field which is the complex E-field matrix, and 'Lx' and
 % 'Ly' fields that describe the side lengths of the provided E matrix. In
 % the case of a struct, the provided E field will be adapted to the new
-% grid using the interp2 function.
+% grid using the interpn function.
 P.E = @calcInitialE; % Defined at the end of this file
 
 % Run solver
