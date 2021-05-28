@@ -207,7 +207,7 @@ end
 %% Refractiv index initialization
 % If shapes is defined, calculate refractive index profile
 if isfield(P,'shapes')
-  n = P.n_background*ones(Nx,Ny); % May be complex
+  n = P.n_background*ones(Nx,Ny,'single'); % May be complex
   for iShape = 1:size(P.shapes,1)
     switch P.shapes(iShape,4)
       case 1
@@ -233,7 +233,7 @@ if isfield(P,'shapes')
     end
   end
 elseif isa(P.n,'function_handle') % Otherwise if P.n is a function
-  n = P.n(X,Y,P.n_background,P.nParameters);
+  n = single(P.n(X,Y,P.n_background,P.nParameters));
 else % Otherwise P.n must be a struct
   [Nx_source,Ny_source] = size(P.n.n);
   dx_source = P.n.Lx/Nx_source;
@@ -241,7 +241,7 @@ else % Otherwise P.n must be a struct
   x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
   y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
   [X_source,Y_source] = ndgrid(x_source,y_source);
-  n = interpn(X_source,Y_source,P.n.n,X,Y,'linear',P.n_background);
+  n = single(interpn(X_source,Y_source,double(P.n.n),X,Y,'linear',P.n_background));
 end
 
 %% Calculate z step size and positions

@@ -92,7 +92,7 @@ for iModeFinderRun = 1:size(shapesToInclude_2Darray,1)
     x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
     y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
     [X_source,Y_source] = ndgrid(x_source,y_source);
-    n = double(interpn(X_source,Y_source,P.n.n,X,Y,'linear',P.n_background));
+    n = interpn(X_source,Y_source,double(P.n.n),X,Y,'linear',P.n_background);
   end
 
   n_eff = real(n).*(1-(real(n).^2.*(X*cosd(P.bendDirection) + Y*sind(P.bendDirection))*P.rho_e/(2*P.bendingRoC))).*exp((X*cosd(P.bendDirection) + Y*sind(P.bendDirection))/P.bendingRoC);

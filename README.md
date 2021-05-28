@@ -66,8 +66,8 @@ Absorption strength of the absorbing padding. The absorption of the padding is i
 ##### Physical properties
 - `P.lambda`  
 Wavelength, in metres.
-- `P.n_cladding`  
-Refractive index of the cladding.
+- `P.n_background`  
+Refractive index of the background, typically corresponding to the cladding.
 - `P.n_0`  
 The reference refractive index, introduced during the derivation of the particular form of the paraxial Helmholtz equation used in BPM-Matlab. The refractive indices defined through `P.n_clad` and in `P.shapes` are the actual indices used in the simulation. `P.n_0` (the reference refractive index) has to be chosen such that the paraxial Helmholtz equation remains a good approximation, i.e., close or equal to the refractive indices where the main part of the energy is propagating in the simulation.
 - `P.Lz`  
@@ -80,14 +80,18 @@ Shape types in column 4 is an integer and can be one of the following:
  3. Parabolic graded index disk
  4. GRIN lens focusing in both x and y
  5. GRIN lens focusing only in y.
+- `P.n`  
+This is an alternative way of defining the refractive index to `P.shapes`. One one of P.n and P.shapes may be defined. When using P.n, the user may set it to either (a) a struct containing 3 fields definining the initial refractive index or (b) a function handle to calculate an initial refractive index as a function of x and y.  
+In the struct version, the `n` field is the complex (or real) refractive index matrix, and the `Lx` and `Ly` fields describe the side lengths of the provided n matrix. In the case of a struct, the provided refractive index will be adapted to the new grid using the `interpn` function.  
+In the function version, the function should be defined at the end of the model file and take `X`, `Y`, `n_background` and `nParameters` as inputs and provide the complex refractive index as output. `X` and `Y` are the physical locations of the pixels, while `nParameters` is a cell array that can optionally pass additional arguments to the function.
 - `P.E`  
-The user may choose either (a) a struct containing 3 fields definining the initial E-field or (b) a function handle to calculate an initial E-field as a function of x and y.  
-In the struct version, the 'field' field is the complex E-field matrix, and the `Lx` and `Ly` fields describe the side lengths of the provided E matrix. In the case of a struct, the provided E-field will be adapted to the new grid using the `interp2` function.  
+Defined very similarly to P.n, for this input the user may likewise choose either (a) a struct containing 3 fields definining the initial E-field or (b) a function handle to calculate an initial E-field as a function of x and y.  
+In the struct version, the `field` field is the complex E-field matrix, and the `Lx` and `Ly` fields describe the side lengths of the provided E matrix. In the case of a struct, the provided E-field will be adapted to the new grid using the `interpn` function. This input method is compatible with the output of the `findModes` function described below, you can for example write `P.E = P.modes(3)` to inject the E-field corresponding to hird found mode.
 In the function version, the function should be defined at the end of the model file and take `X`, `Y` and `Eparameters` as inputs and provide the complex E field as output. `X` and `Y` are the physical locations of the pixels, while `Eparameters` is a cell array that can optionally pass additional arguments to the function.
 
 #### Advanced parameters
 ##### Bending, Tapering, Twisting
-THe fibres can be bent, tapered and twisted as follows:
+The fibres can be bent, tapered and twisted as follows:
 
 - `P.taperScaling`  
 The ratio of the width of the structure at the end of the segment to the width at the beginning of the segment.
@@ -138,8 +142,16 @@ number of modes to find
 set to `true` if the solver should plot the found modes at the end of findModes
 - `sortByLoss`
 Set to `true` to sort the list of found modes in order of ascending loss. If `false`, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
+- `singleCoreModes`
+If `true` and if `P.shapes` is defined, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
 
-This will set `P.modes`, a struct array of containing the supported modes. You may then set `P.calcModeOverlaps` to `true` to calculate mode overlap integrals of propagating field with respect to the different modes that were set in the `P.modes` struct array.
+This will set `P.modes`, a struct array with each elemnt correspondng to one mode. Some of these may be non-guided (radiating). You may then set `P.calcModeOverlaps` to `true` to calculate mode overlap integrals of propagating field with respect to the different modes that were set in the `P.modes` struct array.
+
+A function is provided to make it easy to inject a field that is a superposition of modes. After running `findModes`, you can run `P.E = modeSuperposition(P,modeIdxs,coefficients)` with the arguments
+- `modeIdxs`
+An array containing the indices of the modes you want to superpose, for example [1 4 5] for superposing the first, fourth and fifth modes.
+- `coefficients`
+An optional array of the same length as `modeIdxs` containing the complex coefficients for each mode, thereby specifying both the amplitude and phase you want for each mode. If not specified, all coefficients will be assumed equal to 1.
 
 
 ### Compilation
