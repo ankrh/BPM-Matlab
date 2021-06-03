@@ -160,7 +160,9 @@ for iMode = 1:nModes
     else
       parity = '';
     end
-    P.modes(iMode).label = ['LP' num2str(l) num2str(m) parity];
+    P.modes(iMode).label = ['Mode ' num2str(iMode) ', LP' num2str(l) num2str(m) parity];
+  else
+    P.modes(iMode).label = ['Mode ' num2str(iMode)];
   end
   if plotModes
     h_f = figure(100+iMode);
@@ -190,11 +192,7 @@ for iMode = 1:nModes
     caxis([-pi pi]);
     axis equal; axis tight; axis xy;
     setColormap(gca,P.Phase_colormap);
-    if isfield(P.modes,'label')
-      sgtitle({['Mode ' num2str(iMode) ', ' P.modes(iMode).label ', (eigenvalue - 1) =  ' num2str(D(sortedidxs(iMode))-1)],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode))))/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode))))/dz)) ' dB/m)']});
-    else
-      sgtitle({['Mode ' num2str(iMode) ', (eigenvalue - 1) =  ' num2str(D(sortedidxs(iMode))-1)],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode))))/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode))))/dz)) ' dB/m)']});
-    end
+    sgtitle({[P.modes(iMode).label ', (eigenvalue - 1) =  ' num2str(D(sortedidxs(iMode))-1)],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode))))/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode))))/dz)) ' dB/m)']});
   end
 end
 drawnow;
