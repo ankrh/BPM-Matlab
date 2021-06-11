@@ -31,7 +31,7 @@ P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 
 %% Problem definition
 P.lambda = 1000e-9; % [m] Wavelength
-P.n_background = 1.45; % [] Cladding refractive index
+P.n_background = 1.45; % [] (may be complex) Background refractive index, (in this case, the cladding)
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 P.taperScaling = 1; % [] the ratio of the width of the structure at the end of the segment to the width at the beginning of the segment.
@@ -41,8 +41,8 @@ P.figTitle = 'Segment 1';
 % In the shapes 2D array, each row is a shape such as a core in a fiber.
 % Column 1 are the x coordinates, column 2 are the y coordinates, column 3
 % are radii, column 4 are the types of the shapes, column 5 are the peak
-% refractive indices and column 6 is the g parameter, only needed if any of
-% the shapes are GRIN lenses.
+% refractive indices (may be complex) and column 6 is the g parameter, only
+% needed if any of the shapes are GRIN lenses.
 
 % Shape types are 1: Circular step-index disk, 2: Antialiased circular
 % step-index disk, 3: Parabolic graded index disk, 4: GRIN lens focusing in
@@ -94,6 +94,6 @@ w_0 = 5e-6;
 amplitude1 = exp(-((X-1.5e-5).^2+Y.^2)/w_0^2);
 amplitude2 = 2*exp(-((X+12e-6).^2+(Y+7e-6).^2)/w_0^2);
 phase1 = zeros(size(X));
-phase2 = 8e5*Y;
+phase2 = 8e5*Y; % This beam component is defined with a phase that increases linearly with the y-coordinate, corresponding to a beam that is tilted slightly in the -y direction
 E = amplitude1.*exp(1i*phase1) + amplitude2.*exp(1i*phase2); % Electric field
 end

@@ -52,7 +52,7 @@ P.alpha = 6e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 
 %% Problem definition
 P.lambda = 1000e-9; % [m] Wavelength
-P.n_background = 1.45; % [] Cladding refractive index
+P.n_background = 1.45; % [] (may be complex) Background refractive index, (in this case, the cladding)
 P.n_0 = 1.46;
 P.Lz = 10e-3; % [m] z propagation distances for this segment
 P.updates = P.Lz*updateFrequency;            % Number of times to update plot. Must be at least 1, showing the final state.
@@ -62,8 +62,8 @@ P.figTitle = 'Segment 1';
 % In the shapes 2D array, each row is a shape such as a core in a fiber.
 % Column 1 are the x coordinates, column 2 are the y coordinates, column 3
 % are radii, column 4 are the types of the shapes, column 5 are the peak
-% refractive indices and column 6 is the g parameter, only needed if any of
-% the shapes are GRIN lenses.
+% refractive indices (may be complex) and column 6 is the g parameter, only
+% needed if any of the shapes are GRIN lenses.
 
 % Shape types are 1: Circular step-index disk, 2: Antialiased circular
 % step-index disk, 3: Parabolic graded index disk, 4: GRIN lens focusing in

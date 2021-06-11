@@ -41,7 +41,7 @@ P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 %% Problem definition
 P.lambda = 1000e-9; % [m] Wavelength
 
-P.n_background = 1.45 + 1e-3i; % [] Cladding refractive index (may be complex)
+P.n_background = 1.45 + 1e-3i; % [] (may be complex) Background refractive index, (in this case, the cladding)
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 

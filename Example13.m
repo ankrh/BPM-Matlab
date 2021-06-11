@@ -1,11 +1,11 @@
 clear P % Parameters struct
 
 % This example, like example 12, shows how to define a completely arbitrary
-% refractive index profile using the P.n input, but in this example we
-% specify P.n as a struct. In this example, we load a built-in MATLAB image
-% of the moon, scale it to values that are realistic refractive indices and
-% store it as the 'n' field of the P.n input. We choose some arbitrary
-% values for the 'Lx' and 'Ly' side length fields.
+% (complex) refractive index profile using the P.n input, but in this
+% example we specify P.n as a struct. In this example, we load a built-in
+% MATLAB image of the moon, scale it to values that are realistic
+% refractive indices and store it as the 'n' field of the P.n input. We
+% choose some arbitrary values for the 'Lx' and 'Ly' side length fields.
 
 % The mode solver also works with such arbitrary refractive index profiles,
 % which we demonstrate here by finding and launching the 5th mode into this
@@ -36,7 +36,7 @@ P.alpha = 3e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 
 %% Problem definition
 P.lambda = 1000e-9; % [m] Wavelength
-P.n_background = 1.45; % [] Background refractive index
+P.n_background = 1.45; % [] (may be complex) Background refractive index, (in this case, the cladding)
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
@@ -73,11 +73,3 @@ P = FD_BPM(P);
 P.twistRate = 1000;
 % Run solver
 P = FD_BPM(P);
-
-%% USER DEFINED E-FIELD INITIALIZATION FUNCTION
-% function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
-% end
-
-%% USER DEFINED RI INITIALIZATION FUNCTION
-% function n = calcInitialn(X,Y,n_background,nParameters) % This user-customizable function is the one that will be used to define the refractive index profile. You can either use analytical expressions or, e.g., load data from a file and use interpn to adapt the data to the simulation grid.
-% end
