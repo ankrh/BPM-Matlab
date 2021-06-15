@@ -135,7 +135,9 @@ for iMode = 1:nModes
   P.modes(iMode).Ly = Ly;
   E = reshape(V(:,sortedidxs(iMode)),[Nx Ny]);
   P.modes(iMode).field = E.*exp(-1i*angle(max(E(:)))); % Shift phase arbitrarily so that the resulting modes are (nearly) real
-  P.modes(iMode).eigenval = D(sortedidxs(iMode));
+  kappa = (1-real(D(sortedidxs(iMode))))/dz*P.lambda/(4*pi);
+  realn = sqrt(P.n_0^2 - 2*P.n_0*imag(D(sortedidxs(iMode))/(dz*k_0)));
+  P.modes(iMode).neff = realn + kappa*1i;
   if isfield(P,'shapes') && (isinf(P.bendingRoC) && (size(P.shapes,1) == 1 || singleCoreModes))
     [~,iMax] = max(E(:));
     xMax = X(iMax);
@@ -192,7 +194,7 @@ for iMode = 1:nModes
     caxis([-pi pi]);
     axis equal; axis tight; axis xy;
     setColormap(gca,P.Phase_colormap);
-    sgtitle({[P.modes(iMode).label ', (eigenvalue - 1) =  ' num2str(D(sortedidxs(iMode))-1)],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode))))/dz) ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode))))/dz)) ' dB/m)']});
+    sgtitle({[P.modes(iMode).label ', n_{eff} = ' num2str(realn,'%.6g') ' + ' num2str(kappa,'%.3g') 'i'],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode))))/dz,'%.3g') ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode))))/dz),'%.3g') ' dB/m)']});
   end
 end
 drawnow;
