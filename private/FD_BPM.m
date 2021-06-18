@@ -12,8 +12,8 @@ function P = FD_BPM(P)
 % (https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm)
 % ***********************************************************************
 
-if isunix
-  error('Error: BPM-Matlab doesn''t support Unix systems yet');
+if ~(ispc || ismac)
+  error('Error: BPM-Matlab doesn''t support Linux systems yet');
 end
 
 format long
