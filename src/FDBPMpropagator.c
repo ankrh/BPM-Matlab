@@ -426,8 +426,8 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
       n = P->n_in[i];
     }
     if(iz == P->iz_end-1) P->n_out[i] = n;
-    float n_eff = CREALF(n)*(1-(sqrf(CREALF(n))*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
-    floatcomplex a = P->multiplier[i]*CEXPF(P->d*(CIMAGF(n) + (sqrf(n_eff) - sqrf(P->n_0))*I/(2*P->n_0))); // Multiplier includes only the edge absorber
+    float n_bend = CREALF(n)*(1-(sqrf(CREALF(n))*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
+    floatcomplex a = P->multiplier[i]*CEXPF(P->d*(CIMAGF(n) + (sqrf(n_bend) - sqrf(P->n_0))*I/(2*P->n_0))); // Multiplier includes only the edge absorber
     P->E2[i] *= fieldCorrection*a;
     float anormsqr = sqrf(CREALF(a)) + sqrf(CIMAGF(a));
     if(anormsqr > 1 - 10*FLT_EPSILON) anormsqr = 1; // To avoid accumulating power discrepancies due to rounding errors

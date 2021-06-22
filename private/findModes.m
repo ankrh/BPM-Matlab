@@ -2,8 +2,8 @@ function P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes)
 if isfield(P,'n_cladding')
   error('Error: n_cladding has been renamed n_background');
 end
-if isfield(P,'nFunc') && isfield(P,'shapes')
-  error('Error: You must specify exactly one of the fields "shapes" and "nFunc"');
+if isfield(P,'n') && isfield(P,'shapes')
+  error('Error: You must specify exactly one of the fields "shapes" and "n"');
 end
 if ~isfield(P,'nParameters')
   P.nParameters = {};
@@ -95,9 +95,11 @@ for iModeFinderRun = 1:size(shapesToInclude_2Darray,1)
     n = interpn(X_source,Y_source,double(P.n.n),X,Y,'linear',P.n_background);
   end
 
-  n_eff = real(n).*(1-(real(n).^2.*(X*cosd(P.bendDirection) + Y*sind(P.bendDirection))*P.rho_e/(2*P.bendingRoC))).*exp((X*cosd(P.bendDirection) + Y*sind(P.bendDirection))/P.bendingRoC);
+  anycomplex = ~isreal(n);
+  
+  n_bend = real(n).*(1-(real(n).^2.*(X*cosd(P.bendDirection) + Y*sind(P.bendDirection))*P.rho_e/(2*P.bendingRoC))).*exp((X*cosd(P.bendDirection) + Y*sind(P.bendDirection))/P.bendingRoC);
 
-  delta_n_2 = real(n_eff).^2 - P.n_0^2;                              %delta_n^2 in the expression for FD BPM
+  delta_n_2 = real(n_bend).^2 - P.n_0^2;                              %delta_n^2 in the expression for FD BPM
 
   dz = 1e-10;
   absorber = exp(-dz*(max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha + 2*pi*imag(n)/P.lambda)); % First part is edge absorber, second is absorption from the imaginary part of the refractive indicres
@@ -137,7 +139,11 @@ for iMode = 1:nModes
   P.modes(iMode).field = E.*exp(-1i*angle(max(E(:)))); % Shift phase arbitrarily so that the resulting modes are (nearly) real
   kappa = (1-real(D(sortedidxs(iMode))))/dz*P.lambda/(4*pi);
   realn = sqrt(P.n_0^2 - 2*P.n_0*imag(D(sortedidxs(iMode))/(dz*k_0)));
-  P.modes(iMode).neff = realn + kappa*1i;
+  if anycomplex
+    P.modes(iMode).neff = realn + kappa*1i;
+  else
+    P.modes(iMode).neff = realn; % If the user did not specify any complex refractive indices, then the only contribution to kappa would be from the edge absorber, and showing a complex neff would just confuse people and not be very physically meaningful
+  end
   if isfield(P,'shapes') && (isinf(P.bendingRoC) && (size(P.shapes,1) == 1 || singleCoreModes))
     [~,iMax] = max(E(:));
     xMax = X(iMax);
@@ -194,7 +200,11 @@ for iMode = 1:nModes
     caxis([-pi pi]);
     axis equal; axis tight; axis xy;
     setColormap(gca,P.Phase_colormap);
-    sgtitle({[P.modes(iMode).label ', n_{eff} = ' num2str(realn,'%.6g') ' + ' num2str(kappa,'%.3g') 'i'],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode))))/dz,'%.3g') ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode))))/dz),'%.3g') ' dB/m)']});
+    if anycomplex
+      sgtitle({[P.modes(iMode).label ', n_{eff} = ' num2str(realn,'%.6g') ' + ' num2str(kappa,'%.3g') 'i'],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode))))/dz,'%.3g') ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode))))/dz),'%.3g') ' dB/m)']});
+    else
+      sgtitle({[P.modes(iMode).label ', n_{eff} = ' num2str(realn,'%.6g')],['rough loss estimate: ' num2str(-log(real(D(sortedidxs(iMode))))/dz,'%.3g') ' m^{-1} (' num2str((-10*log10(exp(-1)))*(-log(real(D(sortedidxs(iMode))))/dz),'%.3g') ' dB/m)']});
+    end
   end
 end
 drawnow;

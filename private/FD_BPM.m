@@ -24,8 +24,8 @@ k_0 = 2*pi/P.lambda;  % [m^-1] Wavenumber
 if isfield(P,'n_cladding')
   error('Error: n_cladding has been renamed n_background');
 end
-if isfield(P,'nFunc') && isfield(P,'shapes')
-  error('Error: You must specify exactly one of the fields "shapes" and "nFunc"');
+if isfield(P,'n') && isfield(P,'shapes')
+  error('Error: You must specify exactly one of the fields "shapes" and "n"');
 end
 if isfield(P,'shapes') && isempty(P.shapes)
   P.shapes = [0 0 0 1 0];
@@ -281,7 +281,7 @@ ax = dz/(4i*dx^2*k_0*P.n_0);
 ay = dz/(4i*dy^2*k_0*P.n_0);
 d = -dz*k_0;
 
-%% Calculate the static and dynamic multipliers
+%% Calculate the edge absorber multiplier
 multiplier = single(exp(-dz*max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha)); % Is real
 
 %% Figure initialization
