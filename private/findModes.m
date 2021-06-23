@@ -85,14 +85,14 @@ for iModeFinderRun = 1:size(shapesToInclude_2Darray,1)
     end
   elseif isa(P.n,'function_handle') % Otherwise if P.n is a function
     n = double(P.n(X,Y,P.n_background,P.nParameters));
-  else % Otherwise P.n must be a struct
-    [Nx_source,Ny_source] = size(P.n.n);
+  else % Otherwise P.n must be a struct.
+    [Nx_source,Ny_source,~] = size(P.n.n); % Might be 3D
     dx_source = P.n.Lx/Nx_source;
     dy_source = P.n.Ly/Ny_source;
     x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
     y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
     [X_source,Y_source] = ndgrid(x_source,y_source);
-    n = interpn(X_source,Y_source,double(P.n.n),X,Y,'linear',P.n_background);
+    n = interpn(X_source,Y_source,double(P.n.n(:,:,1)),X,Y,'linear',P.n_background); % If P.n.n is 3D we just use the first xy slice
   end
 
   anycomplex = ~isreal(n);

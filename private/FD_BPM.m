@@ -239,14 +239,37 @@ if isfield(P,'shapes')
 elseif isa(P.n,'function_handle') % Otherwise if P.n is a function
   n = single(P.n(X,Y,P.n_background,P.nParameters));
 else % Otherwise P.n must be a struct
-  [Nx_source,Ny_source] = size(P.n.n);
-  dx_source = P.n.Lx/Nx_source;
-  dy_source = P.n.Ly/Ny_source;
-  x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
-  y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
-  [X_source,Y_source] = ndgrid(x_source,y_source);
-  n = single(interpn(X_source,Y_source,double(P.n.n),X,Y,'linear',P.n_background));
+  [Nx_source,Ny_source,Nz_source] = size(P.n.n);
+  if Nz_source == 1 % If P.n.n is 2D, interpolate it to the simulation grid
+    dx_source = P.n.Lx/Nx_source;
+    dy_source = P.n.Ly/Ny_source;
+    x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
+    y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
+    [X_source,Y_source] = ndgrid(x_source,y_source);
+    n = single(interpn(X_source,Y_source,double(P.n.n),X,Y,'linear',P.n_background));
+  else % Otherwise it's 3D so we need to do the interpolation inside the mex function to conserve memory. But first we trim away any unnecessary repeated outer yz or xz slices that only contain n_background.
+    [Nx_orig,Ny_orig,~] = size(P.n.n);
+    n_xmin = find(any(single(P.n.n) ~= single(P.n_background),[2 3]),1,'first');
+    n_xmax = find(any(single(P.n.n) ~= single(P.n_background),[2 3]),1,'last');
+    xtrim = min(n_xmin-1,Nx_orig - n_xmax);
+    n_ymin = find(any(single(P.n.n) ~= single(P.n_background),[1 3]),1,'first');
+    n_ymax = find(any(single(P.n.n) ~= single(P.n_background),[1 3]),1,'last');
+    ytrim = min(n_ymin-1,Ny_orig - n_ymax);
+    P.n.n = padarray(P.n.n(xtrim+1:Nx_orig-xtrim,ytrim+1:Ny_orig-ytrim,:),1,P.n_background);
+    P.n.Lx = P.n.Lx*(Nx_orig - xtrim + 1)/Nx_orig;
+    P.n.Ly = P.n.Ly*(Ny_orig - ytrim + 1)/Ny_orig;
+
+                  [Nx_trim,Ny_trim,~] = size(P.n.n);
+                  dx_source = P.n.Lx/Nx_trim;
+                  dy_source = P.n.Ly/Ny_trim;
+                  dz_source = P.Lz/Nz_source;
+                  x_source = dx_source*(-(Nx_trim-1)/2:(Nx_trim-1)/2);
+                  y_source = dy_source*(-(Ny_trim-1)/2:(Ny_trim-1)/2);
+                  z_source = dz_source*(0.5:Nz_source-0.5);
+                  plotVolumetric(100,x_source,y_source,z_source,P.n.n);
+  end
 end
+n_slice = n(:,:,1);
 
 %% Calculate z step size and positions
 Nz = max(P.updates,round(P.Lz/P.dz_target)); % Number of z steps in this segment
@@ -290,9 +313,9 @@ h_f.WindowState = 'maximized';
 
 h_axis1 = subplot(2,2,1);
 if P.downsampleImages
-  h_im1 = imagesc(x_plot,y_plot,real(n(ix_plot,iy_plot)).');
+  h_im1 = imagesc(x_plot,y_plot,real(n_slice(ix_plot,iy_plot)).');
 else
-  h_im1 = imagesc(x,y,real(n).');
+  h_im1 = imagesc(x,y,real(n_slice).');
 end
 axis xy
 axis equal
@@ -429,7 +452,7 @@ end
 %   'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
 %   'inputPrecisePower',P.powers(end-length(zUpdateIdxs)));
 mexParameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
-  'multiplier',single(multiplier),'n_mat',complex(single(n)),'d',single(d),'n_0',single(P.n_0),...
+  'multiplier',single(multiplier),'n_mat',complex(single(n)),'n_Lx',P.n.Lx,'n_Ly',P.n.Ly,'n_Lz',P.Lz,'d',single(d),'n_0',single(P.n_0),'n_background',single(P.n_background),...
   'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
   'inputPrecisePower',P.powers(end-length(zUpdateIdxs)));
 
@@ -443,19 +466,19 @@ for updidx = 1:length(zUpdateIdxs)
   end
   checkMexInputs(E,mexParameters,typename);
   if P.useGPU
-    [E,n,precisePower] = FDBPMpropagator_CUDA(E,mexParameters);
+    [E,n_slice,precisePower] = FDBPMpropagator_CUDA(E,mexParameters);
   else
-    [E,n,precisePower] = FDBPMpropagator(E,mexParameters);
+    [E,n_slice,precisePower] = FDBPMpropagator(E,mexParameters);
   end
 
   %% Update figure contents
   if P.downsampleImages
-    h_im1.CData = real(n(ix_plot,iy_plot)).'; % Refractive index at this update
+    h_im1.CData = real(n_slice(ix_plot,iy_plot)).'; % Refractive index at this update
     h_im3a.CData = abs(E(ix_plot,iy_plot).').^2; % Intensity at this update
     h_im3b.CData = angle(E(ix_plot,iy_plot).'); % Phase at this update
     h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
   else
-    h_im1.CData = real(n).'; % Refractive index at this update
+    h_im1.CData = real(n_slice).'; % Refractive index at this update
     h_im3a.CData = abs(E.').^2; % Intensity at this update
     h_im3b.CData = angle(E.'); % Phase at this update
     h_im3b.AlphaData = max(0,(1+log10(abs(E.'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
@@ -507,7 +530,7 @@ if isfield(P,'shapes')
 end
 
 P.E = struct('field',E,'Lx',Lx,'Ly',Ly);
-P.n = struct('n',n,'Lx',Lx,'Ly',Ly);
+P.n = struct('n',n_slice,'Lx',Lx,'Ly',Ly);
 
 P.x = x;
 P.y = y;
