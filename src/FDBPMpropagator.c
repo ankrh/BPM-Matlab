@@ -86,6 +86,7 @@ struct parameters {
   long Ny;
   float dx;
   float dy;
+  float dz;
   long iz_start;
   long iz_end;
   float taperPerStep;
@@ -93,6 +94,12 @@ struct parameters {
   float d;
   float n_0;
   floatcomplex *n_in;
+  float n_dx;
+  long  n_Nx;
+  float n_dy;
+  long  n_Ny;
+  float n_dz;
+  long  n_Nz;
   floatcomplex *Efinal;
   floatcomplex *E1;
   floatcomplex *E2;
@@ -409,7 +416,7 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
     long iy = i/P->Nx;
     float y = P->dy*(iy - (P->Ny-1)/2.0f);
     floatcomplex n = 0;
-    if(P->taperPerStep || P->twistPerStep) { // Rotate, scale, interpolate
+    if(P->taperPerStep || P->twistPerStep) { // Rotate, scale, interpolate. If we are tapering or twisting, we know that the RIP is 2D
       float x_src = scaling*(cosvalue*x - sinvalue*y);
       float y_src = scaling*(sinvalue*x + cosvalue*y);
       float ix_src = MIN(MAX(0.0f,x_src/P->dx + (P->Nx - 1)/2.0f),(P->Nx - 1)*(1-FLT_EPSILON)); // Fractional index, coerced to be within the source window
@@ -422,8 +429,27 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
           P->n_in[ix_low + 1 + P->Nx*(iy_low    )]*(    ix_frac)*(1 - iy_frac) +
           P->n_in[ix_low     + P->Nx*(iy_low + 1)]*(1 - ix_frac)*(    iy_frac) + 
           P->n_in[ix_low + 1 + P->Nx*(iy_low + 1)]*(    ix_frac)*(    iy_frac); // Bilinear interpolation
-    } else {
+    } else if(P.n_Nz == 1) { // 2D RIP
       n = P->n_in[i];
+    } else { // 3D RIP
+      float z = iz*P->dz;
+      float ix_src = MIN(MAX(0.0f,x/P->n_dx + (P->n_Nx - 1)/2.0f),(P->n_Nx - 1)*(1-FLT_EPSILON)); // Fractional index, coerced to be within the n window
+      float iy_src = MIN(MAX(0.0f,y/P->n_dy + (P->n_Ny - 1)/2.0f),(P->n_Ny - 1)*(1-FLT_EPSILON));
+      float iz_src = MIN(MAX(0.0f,z/P->n_dz                     ),(P->n_Nz - 1)*(1-FLT_EPSILON));
+      long ix_low = (long)FLOORF(ix_src);
+      long iy_low = (long)FLOORF(iy_src);
+      long iz_low = (long)FLOORF(iz_src);
+      float ix_frac = ix_src - FLOORF(ix_src);
+      float iy_frac = iy_src - FLOORF(iy_src);
+      float iz_frac = iz_src - FLOORF(iz_src);
+      n = P->n_in[ix_low     + P->n_Nx*(iy_low    ) + P->n_Ny*P->n_Nx*(iz_low    )]*(1 - ix_frac)*(1 - iy_frac)*(1 - iz_frac) +
+          P->n_in[ix_low + 1 + P->n_Nx*(iy_low    ) + P->n_Ny*P->n_Nx*(iz_low    )]*(    ix_frac)*(1 - iy_frac)*(1 - iz_frac) +
+          P->n_in[ix_low     + P->n_Nx*(iy_low + 1) + P->n_Ny*P->n_Nx*(iz_low    )]*(1 - ix_frac)*(    iy_frac)*(1 - iz_frac) +
+          P->n_in[ix_low + 1 + P->n_Nx*(iy_low + 1) + P->n_Ny*P->n_Nx*(iz_low    )]*(    ix_frac)*(    iy_frac)*(1 - iz_frac) +
+          P->n_in[ix_low     + P->n_Nx*(iy_low    ) + P->n_Ny*P->n_Nx*(iz_low + 1)]*(1 - ix_frac)*(1 - iy_frac)*(    iz_frac) +
+          P->n_in[ix_low + 1 + P->n_Nx*(iy_low    ) + P->n_Ny*P->n_Nx*(iz_low + 1)]*(    ix_frac)*(1 - iy_frac)*(    iz_frac) +
+          P->n_in[ix_low     + P->n_Nx*(iy_low + 1) + P->n_Ny*P->n_Nx*(iz_low + 1)]*(1 - ix_frac)*(    iy_frac)*(    iz_frac) +
+          P->n_in[ix_low + 1 + P->n_Nx*(iy_low + 1) + P->n_Ny*P->n_Nx*(iz_low + 1)]*(    ix_frac)*(    iy_frac)*(    iz_frac); // Trilinear interpolation
     }
     if(iz == P->iz_end-1) P->n_out[i] = n;
     float n_bend = CREALF(n)*(1-(sqrf(CREALF(n))*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
@@ -545,6 +571,13 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->d = *(float *)mxGetData(mxGetField(prhs[1],0,"d"));
   P->n_0 = *(float *)mxGetData(mxGetField(prhs[1],0,"n_0"));
   P->n_in = (floatcomplex *)mxGetData(mxGetField(prhs[1],0,"n_mat"));
+  mwSize const *dimPtr = mxGetDimensions(mxGetField(prhs[1],0,"n_mat"));
+  P->n_Nx = (long)dimPtr[0];
+  P->n_Ny = (long)dimPtr[1];
+  P->n_Nz = (long)dimPtr[2];
+  P->n_dx = P->n_Nz > 1?(float *)mxGetData(mxGetField(prhs[1],0,"n_d"))[0]:0;
+  P->n_dy = P->n_Nz > 1?(float *)mxGetData(mxGetField(prhs[1],0,"n_d"))[1]:0;
+  P->n_dz = P->n_Nz > 1?(float *)mxGetData(mxGetField(prhs[1],0,"n_d"))[2]:0;
   P->rho_e = *(float *)mxGetData(mxGetField(prhs[1],0,"rho_e"));
   P->RoC = *(float *)mxGetData(mxGetField(prhs[1],0,"RoC"));
   P->sinBendDirection = sin(*(float *)mxGetData(mxGetField(prhs[1],0,"bendDirection"))/180*PI);

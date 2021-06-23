@@ -81,6 +81,12 @@ end
 if ~isfield(P,'bendDirection')
   P.bendDirection = 0;
 end
+if isfield(P,'n') && size(P.n.n,3) > 1 && P.twistRate
+  error('You cannot specify both twisting and a 3D refractive index profile');
+end
+if isfield(P,'n') && size(P.n.n,3) > 1 && P.taperScaling
+  error('You cannot specify both tapering and a 3D refractive index profile');
+end
 if isfield(P,'shapes') && size(P.shapes,2) == 5
   if any(P.shapes(:,4) == 4) || any(P.shapes(:,4) == 5)
     error('Since you have a GRIN lens, you must define the gradient constant g in the shapes array');
@@ -208,7 +214,8 @@ if ~priorData
   P.Einitial = E;
 end
 
-%% Refractiv index initialization
+%% Refractive index initialization
+n_d = [];
 % If shapes is defined, calculate refractive index profile
 if isfield(P,'shapes')
   n = P.n_background*ones(Nx,Ny,'single'); % May be complex
@@ -248,27 +255,25 @@ else % Otherwise P.n must be a struct
     [X_source,Y_source] = ndgrid(x_source,y_source);
     n = single(interpn(X_source,Y_source,double(P.n.n),X,Y,'linear',P.n_background));
   else % Otherwise it's 3D so we need to do the interpolation inside the mex function to conserve memory. But first we trim away any unnecessary repeated outer yz or xz slices that only contain n_background.
-    [Nx_orig,Ny_orig,~] = size(P.n.n);
     n_xmin = find(any(single(P.n.n) ~= single(P.n_background),[2 3]),1,'first');
     n_xmax = find(any(single(P.n.n) ~= single(P.n_background),[2 3]),1,'last');
-    xtrim = min(n_xmin-1,Nx_orig - n_xmax);
+    xtrim = min(n_xmin-1,Nx_source - n_xmax);
     n_ymin = find(any(single(P.n.n) ~= single(P.n_background),[1 3]),1,'first');
     n_ymax = find(any(single(P.n.n) ~= single(P.n_background),[1 3]),1,'last');
-    ytrim = min(n_ymin-1,Ny_orig - n_ymax);
-    P.n.n = padarray(P.n.n(xtrim+1:Nx_orig-xtrim,ytrim+1:Ny_orig-ytrim,:),1,P.n_background);
-    P.n.Lx = P.n.Lx*(Nx_orig - xtrim + 1)/Nx_orig;
-    P.n.Ly = P.n.Ly*(Ny_orig - ytrim + 1)/Ny_orig;
+    ytrim = min(n_ymin-1,Ny_source - n_ymax);
+    n = single(padarray(P.n.n(xtrim+1:Nx_source-xtrim,ytrim+1:Ny_source-ytrim,:),1,P.n_background));
+    n_d(1) = P.n.Lx/Nx_source;
+    n_d(2) = P.n.Ly/Ny_source;
+    n_d(3) = P.Lz/Nz_source;
 
-                  [Nx_trim,Ny_trim,~] = size(P.n.n);
-                  dx_source = P.n.Lx/Nx_trim;
-                  dy_source = P.n.Ly/Ny_trim;
-                  dz_source = P.Lz/Nz_source;
-                  x_source = dx_source*(-(Nx_trim-1)/2:(Nx_trim-1)/2);
-                  y_source = dy_source*(-(Ny_trim-1)/2:(Ny_trim-1)/2);
-                  z_source = dz_source*(0.5:Nz_source-0.5);
+                  [Nx_trim,Ny_trim,~] = size(n);
+                  x_source = n_d(1)*(-(Nx_trim-1)/2:(Nx_trim-1)/2);
+                  y_source = n_d(2)*(-(Ny_trim-1)/2:(Ny_trim-1)/2);
+                  z_source = n_d(3)*(0.5:Nz_source-0.5);
                   plotVolumetric(100,x_source,y_source,z_source,P.n.n);
   end
 end
+if 
 n_slice = n(:,:,1);
 
 %% Calculate z step size and positions
@@ -451,8 +456,8 @@ end
 %   'shapes',single(real(P.shapes)),'shapeAbsorptions',single(shapeAbsorptions),'n_background',single(real(P.n_background)),'backgroundAbsorption',single(backgroundAbsorption),'multiplier',complex(single(multiplier)),'d',single(d),'n_0',single(P.n_0),...
 %   'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
 %   'inputPrecisePower',P.powers(end-length(zUpdateIdxs)));
-mexParameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
-  'multiplier',single(multiplier),'n_mat',complex(single(n)),'n_Lx',P.n.Lx,'n_Ly',P.n.Ly,'n_Lz',P.Lz,'d',single(d),'n_0',single(P.n_0),'n_background',single(P.n_background),...
+mexParameters = struct('dx',single(dx),'dy',single(dy),'dz',single(dz),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
+  'multiplier',single(multiplier),'n_mat',complex(single(n)),'n_d',single(n_d),'d',single(d),'n_0',single(P.n_0),...
   'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
   'inputPrecisePower',P.powers(end-length(zUpdateIdxs)));
 
@@ -546,6 +551,8 @@ assert(isa(P.dx,typename));
 assert(isreal(P.dx));
 assert(isa(P.dy,typename));
 assert(isreal(P.dy));
+assert(isa(P.n_d,typename));
+assert(isreal(P.n_d));
 assert(isa(P.taperPerStep,typename));
 assert(isreal(P.taperPerStep));
 assert(isa(P.twistPerStep,typename));
