@@ -84,7 +84,7 @@ end
 if isfield(P,'n') && size(P.n.n,3) > 1 && P.twistRate
   error('You cannot specify both twisting and a 3D refractive index profile');
 end
-if isfield(P,'n') && size(P.n.n,3) > 1 && P.taperScaling
+if isfield(P,'n') && size(P.n.n,3) > 1 && P.taperScaling ~= 1
   error('You cannot specify both tapering and a 3D refractive index profile');
 end
 if isfield(P,'shapes') && size(P.shapes,2) == 5
@@ -215,7 +215,7 @@ if ~priorData
 end
 
 %% Refractive index initialization
-n_d = [];
+d_n = [];
 % If shapes is defined, calculate refractive index profile
 if isfield(P,'shapes')
   n = P.n_background*ones(Nx,Ny,'single'); % May be complex
@@ -243,8 +243,10 @@ if isfield(P,'shapes')
         clear r
     end
   end
+  n_slice = n;
 elseif isa(P.n,'function_handle') % Otherwise if P.n is a function
   n = single(P.n(X,Y,P.n_background,P.nParameters));
+  n_slice = n;
 else % Otherwise P.n must be a struct
   [Nx_source,Ny_source,Nz_source] = size(P.n.n);
   if Nz_source == 1 % If P.n.n is 2D, interpolate it to the simulation grid
@@ -254,6 +256,7 @@ else % Otherwise P.n must be a struct
     y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
     [X_source,Y_source] = ndgrid(x_source,y_source);
     n = single(interpn(X_source,Y_source,double(P.n.n),X,Y,'linear',P.n_background));
+    n_slice = n;
   else % Otherwise it's 3D so we need to do the interpolation inside the mex function to conserve memory. But first we trim away any unnecessary repeated outer yz or xz slices that only contain n_background.
     n_xmin = find(any(single(P.n.n) ~= single(P.n_background),[2 3]),1,'first');
     n_xmax = find(any(single(P.n.n) ~= single(P.n_background),[2 3]),1,'last');
@@ -261,20 +264,25 @@ else % Otherwise P.n must be a struct
     n_ymin = find(any(single(P.n.n) ~= single(P.n_background),[1 3]),1,'first');
     n_ymax = find(any(single(P.n.n) ~= single(P.n_background),[1 3]),1,'last');
     ytrim = min(n_ymin-1,Ny_source - n_ymax);
-    n = single(padarray(P.n.n(xtrim+1:Nx_source-xtrim,ytrim+1:Ny_source-ytrim,:),1,P.n_background));
-    n_d(1) = P.n.Lx/Nx_source;
-    n_d(2) = P.n.Ly/Ny_source;
-    n_d(3) = P.Lz/Nz_source;
+    n = single(padarray(P.n.n(xtrim+1:Nx_source-xtrim,ytrim+1:Ny_source-ytrim,:),[1 1],P.n_background));
+    d_n(1) = P.n.Lx/Nx_source;
+    d_n(2) = P.n.Ly/Ny_source;
+    d_n(3) = P.Lz/(Nz_source-1);
 
-                  [Nx_trim,Ny_trim,~] = size(n);
-                  x_source = n_d(1)*(-(Nx_trim-1)/2:(Nx_trim-1)/2);
-                  y_source = n_d(2)*(-(Ny_trim-1)/2:(Ny_trim-1)/2);
-                  z_source = n_d(3)*(0.5:Nz_source-0.5);
-                  plotVolumetric(100,x_source,y_source,z_source,P.n.n);
+    [Nx_trim,Ny_trim,~] = size(n);
+    x_source = d_n(1)*(-(Nx_trim-1)/2:(Nx_trim-1)/2);
+    y_source = d_n(2)*(-(Ny_trim-1)/2:(Ny_trim-1)/2);
+    z_source = d_n(3)*(0:Nz_source-1);
+    plotVolumetric(202,x_source,y_source,z_source,real(n));
+    myDaspect = daspect;
+    sortedMyDaspect = sort(myDaspect);
+    myDaspect(myDaspect == sortedMyDaspect(1)) = sortedMyDaspect(2);
+    daspect(myDaspect);
+    title('Real part of refractive index');xlabel('x [m]');ylabel('y [m]');zlabel('z [m]');
+    [X_source,Y_source] = ndgrid(x_source,y_source);
+    n_slice = single(interpn(X_source,Y_source,double(n(:,:,1)),X,Y,'linear',P.n_background));
   end
 end
-if 
-n_slice = n(:,:,1);
 
 %% Calculate z step size and positions
 Nz = max(P.updates,round(P.Lz/P.dz_target)); % Number of z steps in this segment
@@ -457,7 +465,7 @@ end
 %   'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
 %   'inputPrecisePower',P.powers(end-length(zUpdateIdxs)));
 mexParameters = struct('dx',single(dx),'dy',single(dy),'dz',single(dz),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
-  'multiplier',single(multiplier),'n_mat',complex(single(n)),'n_d',single(n_d),'d',single(d),'n_0',single(P.n_0),...
+  'multiplier',single(multiplier),'n_mat',complex(single(n)),'d_n',single(d_n),'d',single(d),'n_0',single(P.n_0),...
   'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
   'inputPrecisePower',P.powers(end-length(zUpdateIdxs)));
 
@@ -551,8 +559,8 @@ assert(isa(P.dx,typename));
 assert(isreal(P.dx));
 assert(isa(P.dy,typename));
 assert(isreal(P.dy));
-assert(isa(P.n_d,typename));
-assert(isreal(P.n_d));
+assert(isa(P.d_n,typename));
+assert(isreal(P.d_n));
 assert(isa(P.taperPerStep,typename));
 assert(isreal(P.taperPerStep));
 assert(isa(P.twistPerStep,typename));

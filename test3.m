@@ -6,7 +6,7 @@ P.useAllCPUs = false; % If false, BPM-Matlab will leave one processor unused. Us
 P.useGPU = false; % (Default: false) Use CUDA acceleration for NVIDIA GPUs
 
 %% Visualization parameters
-P.updates = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
+P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
 P.plotEmax = 1; % Max of color scale in the intensity plot, relative to the peak of initial intensity
 
 %% Resolution-related parameters (check for convergence)
@@ -34,20 +34,20 @@ P.Lz = 2e-3; % [m] z propagation distances for this segment
 % using the interpn function.
 Lx = 20e-6; Ly = 20e-6;
 Nx = 100; Ny = 80; Nz = 30;
-dx = Lx/Nx; dy = Ly/Ny; dz = P.Lz/Nz;
+dx = Lx/Nx; dy = Ly/Ny; dz = P.Lz/(Nz-1);
 x = dx*(-(Nx-1)/2:(Nx-1)/2);
 y = dy*(-(Ny-1)/2:(Ny-1)/2);
-z = dz*(0.5:Nz-0.5);
+z = dz*(0:Nz-1);
 [X,Y,Z] = ndgrid(x,y,z);
-n = P.n_background + max(0,0.02*(1 - ((X-3e-6)/6e-6).^2 - (Y/4e-6).^2 - (Z/2e-3).^2));
+n = P.n_background + (1 + 0.001i)*max(0,0.02*(1 - ((X-3e-6)/6e-6).^2 - (Y/4e-6).^2 - (Z/1.8e-3).^2));
 P.n = struct('Lx',Lx,'Ly',Ly,'n',n);
-plotVolumetric(1,x,y,z,P.n.n);
+plotVolumetric(201,x,y,z,real(P.n.n));
 
-% nModes = 3; % For mode finding
-% plotModes = true; % If true, will plot the found modes
-% sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
-% singleCoreModes = false; % If true, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
-% P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
+nModes = 3; % For mode finding
+plotModes = true; % If true, will plot the found modes
+sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
+singleCoreModes = false; % If true, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
+P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
 
 % P.E can be either a function that takes X, Y and Eparameters as inputs
 % and provides the complex E field as output, or it can be a struct with 3
@@ -55,11 +55,11 @@ plotVolumetric(1,x,y,z,P.n.n);
 % 'Ly' fields that describe the side lengths of the provided E matrix. In
 % the case of a struct, the provided E field will be adapted to the new
 % grid using the interpn function.
-P.E = @calcInitialE; % Defined at the end of this file
+% P.E = @calcInitialE; % Defined at the end of this file
+P.E = P.modes(1);
 
 % Run solver
 P = FD_BPM(P);
-return;
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size
