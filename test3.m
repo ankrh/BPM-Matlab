@@ -32,16 +32,23 @@ P.Lz = 2e-3; % [m] z propagation distances for this segment
 % 'Ly' fields that describe the side lengths of the provided n matrix. In
 % the case of a struct, the provided n will be adapted to the new grid
 % using the interpn function.
-Lx = 20e-6; Ly = 20e-6;
-Nx = 100; Ny = 80; Nz = 30;
-dx = Lx/Nx; dy = Ly/Ny; dz = P.Lz/(Nz-1);
-x = dx*(-(Nx-1)/2:(Nx-1)/2);
-y = dy*(-(Ny-1)/2:(Ny-1)/2);
-z = dz*(0:Nz-1);
-[X,Y,Z] = ndgrid(x,y,z);
-n = P.n_background + (1 + 0.001i)*max(0,0.02*(1 - ((X-3e-6)/6e-6).^2 - (Y/4e-6).^2 - (Z/1.8e-3).^2));
-P.n = struct('Lx',Lx,'Ly',Ly,'n',n);
-plotVolumetric(201,x,y,z,real(P.n.n));
+P.n.func = @calc3Dn;
+P.n.Nx = 50;
+P.n.Ny = 40;
+P.n.Nz = 100;
+P.n.Lx = 20e-6;
+P.n.Ly = 20e-6;
+
+% Lx = 20e-6; Ly = 20e-6;
+% Nx = 100; Ny = 80; Nz = 30;
+% dx = Lx/Nx; dy = Ly/Ny; dz = P.Lz/(Nz-1);
+% x = dx*(-(Nx-1)/2:(Nx-1)/2);
+% y = dy*(-(Ny-1)/2:(Ny-1)/2);
+% z = dz*(0:Nz-1);
+% [X,Y,Z] = ndgrid(x,y,z);
+% n = P.n_background + (1 + 0.001i)*max(0,0.02*(1 - ((X-3e-6)/6e-6).^2 - (Y/4e-6).^2 - (Z/1.8e-3).^2));
+% P.n = struct('Lx',Lx,'Ly',Ly,'n',n);
+% plotVolumetric(201,x,y,z,real(P.n.n));
 
 nModes = 3; % For mode finding
 plotModes = true; % If true, will plot the found modes
@@ -77,4 +84,8 @@ n = n_background*ones(size(X)); % Start by setting all pixels to n_background
 xwidth = 1500e-9;
 ywidth = 400e-9;
 n(abs(X) < xwidth/2 & abs(Y) < ywidth/2) = 2; % Equation for ellipse with part of the side cut off
+end
+
+function n = calc3Dn(X,Y,Z,n_background,nParameters)
+n = n_background + (1 + 0.001i)*max(0,0.02*(1 - ((X-3e-6)/6e-6).^2 - (Y/4e-6).^2 - (Z/1.8e-3).^2));
 end

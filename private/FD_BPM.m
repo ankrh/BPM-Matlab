@@ -81,11 +81,24 @@ end
 if ~isfield(P,'bendDirection')
   P.bendDirection = 0;
 end
-if isfield(P,'n') && size(P.n.n,3) > 1 && P.twistRate
-  error('You cannot specify both twisting and a 3D refractive index profile');
-end
-if isfield(P,'n') && size(P.n.n,3) > 1 && P.taperScaling ~= 1
-  error('You cannot specify both tapering and a 3D refractive index profile');
+if isfield(P,'n')
+  if ~isfield(P.n,'n') && ~isfield(P.n,'func')
+    error('If you specify "n", it must contain either the field "func" or "n"');
+  end
+  if (isfield(P.n,'n') && size(P.n.n,3) > 1) || (isfield(P.n,'func') && nargin(P.n.func) == 5) % A 3D array or 3D function has been provided
+    if P.twistRate
+      error('You cannot specify both twisting and a 3D refractive index profile');
+    end
+    if P.taperScaling ~= 1
+      error('You cannot specify both tapering and a 3D refractive index profile');
+    end
+  end
+  if isfield(P.n,'n') && ~(isfield(P.n,'Lx') && isfield(P.n,'Ly'))
+    error('You must specify the side lengths Lx and Ly if you provide an array (2D or 3D) for the refractive index');
+  end
+  if isfield(P.n,'func') && nargin(P.n.func) == 5 && ~(isfield(P.n,'Lx') && isfield(P.n,'Ly') && isfield(P.n,'Nx') && isfield(P.n,'Ny') && isfield(P.n,'Nz'))
+    error('You must specify the side lengths Lx and Ly as well as the refractive index array resolutions Nx, Ny and Nz if you provide a 3D refractive index function');
+  end
 end
 if isfield(P,'shapes') && size(P.shapes,2) == 5
   if any(P.shapes(:,4) == 4) || any(P.shapes(:,4) == 5)
@@ -203,8 +216,7 @@ else % Interpolate source E field to new grid
   dy_source = P.E.Ly/Ny_source;
   x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
   y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
-  [X_source,Y_source] = ndgrid(x_source,y_source);
-  E = interpn(X_source,Y_source,P.E.field,X,Y,'linear',0);
+  E = interpn(x_source,y_source,P.E.field,x,y.','linear',0);
   E = E*sqrt(sum(abs(P.E.field(:)).^2)/sum(abs(E(:)).^2));
 end
 
@@ -215,7 +227,7 @@ if ~priorData
 end
 
 %% Refractive index initialization
-d_n = [];
+d_n = []; % Array of dx, dy and dz for the refractive index profile, only used for 3D arrays
 % If shapes is defined, calculate refractive index profile
 if isfield(P,'shapes')
   n = P.n_background*ones(Nx,Ny,'single'); % May be complex
@@ -243,45 +255,52 @@ if isfield(P,'shapes')
         clear r
     end
   end
-  n_slice = n;
-elseif isa(P.n,'function_handle') % Otherwise if P.n is a function
-  n = single(P.n(X,Y,P.n_background,P.nParameters));
-  n_slice = n;
-else % Otherwise P.n must be a struct
+elseif isfield(P.n,'func') % Otherwise if P.n has a function field
+  if nargin(P.n.func) == 4 % It's 2D
+    n = single(P.n.func(X,Y,P.n_background,P.nParameters));
+  else % It's 3D. We evaluate it on the user requested grid and trim the result
+    d_n(1) = P.n.Lx/P.n.Nx;
+    d_n(2) = P.n.Ly/P.n.Ny;
+    d_n(3) = P.Lz/(P.n.Nz-1);
+    x_n = d_n(1)*(-(P.n.Nx-1)/2:(P.n.Nx-1)/2);
+    y_n = d_n(2)*(-(P.n.Ny-1)/2:(P.n.Ny-1)/2);
+    z_n = d_n(3)*(0:P.n.Nz-1);
+    [X_n,Y_n,Z_n] = ndgrid(single(x_n),single(y_n),single(z_n));
+    n = single(P.n.func(X_n,Y_n,Z_n,P.n_background,P.nParameters));
+    clear X_n Y_n Z_n
+    n = trimRI(n,P.n_background);
+  end
+else % Otherwise a P.n.n array must have been specified
   [Nx_source,Ny_source,Nz_source] = size(P.n.n);
   if Nz_source == 1 % If P.n.n is 2D, interpolate it to the simulation grid
     dx_source = P.n.Lx/Nx_source;
     dy_source = P.n.Ly/Ny_source;
     x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
     y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
-    [X_source,Y_source] = ndgrid(x_source,y_source);
-    n = single(interpn(X_source,Y_source,double(P.n.n),X,Y,'linear',P.n_background));
-    n_slice = n;
+    n = interpn(x_source,y_source,P.n.n,x,y.','linear',P.n_background);
   else % Otherwise it's 3D so we need to do the interpolation inside the mex function to conserve memory. But first we trim away any unnecessary repeated outer yz or xz slices that only contain n_background.
-    n_xmin = find(any(single(P.n.n) ~= single(P.n_background),[2 3]),1,'first');
-    n_xmax = find(any(single(P.n.n) ~= single(P.n_background),[2 3]),1,'last');
-    xtrim = min(n_xmin-1,Nx_source - n_xmax);
-    n_ymin = find(any(single(P.n.n) ~= single(P.n_background),[1 3]),1,'first');
-    n_ymax = find(any(single(P.n.n) ~= single(P.n_background),[1 3]),1,'last');
-    ytrim = min(n_ymin-1,Ny_source - n_ymax);
-    n = single(padarray(P.n.n(xtrim+1:Nx_source-xtrim,ytrim+1:Ny_source-ytrim,:),[1 1],P.n_background));
     d_n(1) = P.n.Lx/Nx_source;
     d_n(2) = P.n.Ly/Ny_source;
     d_n(3) = P.Lz/(Nz_source-1);
-
-    [Nx_trim,Ny_trim,~] = size(n);
-    x_source = d_n(1)*(-(Nx_trim-1)/2:(Nx_trim-1)/2);
-    y_source = d_n(2)*(-(Ny_trim-1)/2:(Ny_trim-1)/2);
-    z_source = d_n(3)*(0:Nz_source-1);
-    plotVolumetric(202,x_source,y_source,z_source,real(n));
-    myDaspect = daspect;
-    sortedMyDaspect = sort(myDaspect);
-    myDaspect(myDaspect == sortedMyDaspect(1)) = sortedMyDaspect(2);
-    daspect(myDaspect);
-    title('Real part of refractive index');xlabel('x [m]');ylabel('y [m]');zlabel('z [m]');
-    [X_source,Y_source] = ndgrid(x_source,y_source);
-    n_slice = single(interpn(X_source,Y_source,double(n(:,:,1)),X,Y,'linear',P.n_background));
+    n = trimRI(P.n.n,P.n_background);
   end
+end
+
+% Get the initial slice and, if 3D, plot it volumetrically
+[Nx_n,Ny_n,Nz_n] = size(n);
+if Nz_n > 1
+  x_n = d_n(1)*(-(Nx_n-1)/2:(Nx_n-1)/2);
+  y_n = d_n(2)*(-(Ny_n-1)/2:(Ny_n-1)/2);
+  z_n = d_n(3)*(0:Nz_n-1);
+  plotVolumetric(202,x_n,y_n,z_n,real(n));
+  myDaspect = daspect;
+  sortedMyDaspect = sort(myDaspect);
+  myDaspect(myDaspect == sortedMyDaspect(1)) = sortedMyDaspect(2);
+  daspect(myDaspect);
+  title('Real part of refractive index');xlabel('x [m]');ylabel('y [m]');zlabel('z [m]');
+  n_slice = interpn(x_n,y_n,n(:,:,1),x,y.','linear',P.n_background);
+else
+  n_slice = n;
 end
 
 %% Calculate z step size and positions
@@ -596,4 +615,17 @@ function setColormap(gca,colormapType)
      case 5
         colormap(gca,cividisColormap);
     end
+end
+
+function n = trimRI(n,n_background)
+n = single(n);
+n_background = single(n_background);
+[Nx,Ny,~] = size(n);
+xmin = find(any(n ~= n_background,[2 3]),1,'first');
+xmax = find(any(n ~= n_background,[2 3]),1,'last');
+xtrim = min(xmin-1,Nx - xmax);
+ymin = find(any(n ~= n_background,[1 3]),1,'first');
+ymax = find(any(n ~= n_background,[1 3]),1,'last');
+ytrim = min(ymin-1,Ny - ymax);
+n = padarray(n(xtrim+1:Nx-xtrim,ytrim+1:Ny-ytrim,:),[1 1],n_background);
 end
