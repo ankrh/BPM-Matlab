@@ -1,7 +1,7 @@
 clear P % Parameters struct
 
 % This example is a reproduction of the RP Fiber Power demo file “Long
-% period Bragg grating.fpw”, in which a fiber refractive index is
+% period Bragg grating.fpw�?, in which a fiber refractive index is
 % defined with a super-Gaussian profile and a sinusoidal variation along z.
 % This fiber grating functions as a mode converter between LP01 and LP03.
 
@@ -12,11 +12,11 @@ clear P % Parameters struct
 % and dbeta = 2*pi/Lambda. dbeta is in this case passed to the RI function
 % as the first cell in the nParameters cell array.
 
-% The P.n.Nx, P.n.Ny, P.n.Nz, P.n.Lx and P.n.Ly fields are necessary but
-% used only for calculation of the RI and are set to ensure that the RI
-% is calculated in a large enough window and with high enough resolution.
-% High values of P.n.Nx*P.n.Ny*P.n.Nz will require large amounts of memory
-% (CPU or GPU).
+% For 3D RI functions, the P.n.Nx, P.n.Ny, P.n.Nz, P.n.Lx and P.n.Ly fields
+% are necessary but used only for calculation of the RI and should be set to
+% ensure that the RI is calculated in a large enough window and with high
+% enough resolution. High values of P.n.Nx*P.n.Ny*P.n.Nz will require large
+% amounts of memory (CPU or GPU).
 
 % First, the grating length Lambda is set to infinity (dbeta = 0) and the
 % modes of the unmodulated fiber are found. By manual inspection of the
@@ -27,7 +27,7 @@ clear P % Parameters struct
 % refractive indices of the LP01 and LP03 modes.
 
 % After calculating the optimal Lambda and setting the corresponding dbeta
-% in nParameters, FD_BPM is run. We can observe how the mode overlap with
+% in nParameters, FD_BPM is run. We can observe how the field's overlap with
 % the LP03 mode reaches nearly 1 around z = 12.9 cm.
 
 %% General and solver-related settings

@@ -95,7 +95,7 @@ A 2D or 3D array containing the (complex) refractive index values. For a 3D arra
 - `P.n.Lx` and `P.n.Ly`
 The x and y widths of the provided `P.n.n` data OR in the case of a 3D function in `P.n.func`, the side lengths of the window in which the refractive index function will be evaluated.
 - `P.n.Nx`, `P.n.Ny` and `P.n.Nz`
-The x, y and z resolutions that a 3D `P.n.func` function will be evaluated with.
+The x, y and z resolutions that a 3D `P.n.func` function will be evaluated with. High values of P.n.Nx*P.n.Ny*P.n.Nz will require large amounts of memory (CPU or GPU).
 
 - `P.E`  
 There are three ways to define the initial E-field:

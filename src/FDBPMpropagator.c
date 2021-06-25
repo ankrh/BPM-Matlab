@@ -510,6 +510,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line) {
 void createDeviceStructs(struct parameters *P, struct parameters **P_devptr,
                          struct debug *D, struct debug **D_devptr) {
   long N = P->Nx*P->Ny;
+  long N_n = P->Nx_n*P->Ny_n*P->Nz_n;
   struct parameters P_tempvar = *P;
 
   gpuErrchk(cudaMalloc(&P_tempvar.E1,N*sizeof(floatcomplex)));
@@ -522,8 +523,8 @@ void createDeviceStructs(struct parameters *P, struct parameters **P_devptr,
   gpuErrchk(cudaMalloc(&P_tempvar.b,N*sizeof(floatcomplex)));
   gpuErrchk(cudaMalloc(&P_tempvar.multiplier,N*sizeof(float)));
   gpuErrchk(cudaMemcpy(P_tempvar.multiplier,P->multiplier,N*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.n_in,N*sizeof(floatcomplex)));
-  gpuErrchk(cudaMemcpy(P_tempvar.n_in,P->n_in,N*sizeof(floatcomplex),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.n_in,N_n*sizeof(floatcomplex)));
+  gpuErrchk(cudaMemcpy(P_tempvar.n_in,P->n_in,N_n*sizeof(floatcomplex),cudaMemcpyHostToDevice));
 
   gpuErrchk(cudaMalloc(P_devptr, sizeof(struct parameters)));
   gpuErrchk(cudaMemcpy(*P_devptr,&P_tempvar,sizeof(struct parameters),cudaMemcpyHostToDevice));
