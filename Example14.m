@@ -1,7 +1,7 @@
 clear P % Parameters struct
 
-% This example is a reproduction of the RP Fiber Power demo file â€œLong
-% period Bragg grating.fpwâ€?, in which a fiber refractive index is
+% This example is a reproduction of the RP Fiber Power demo file "Long
+% period Bragg grating.fpw", in which a fiber refractive index is
 % defined with a super-Gaussian profile and a sinusoidal variation along z.
 % This fiber grating functions as a mode converter between LP01 and LP03.
 
@@ -13,10 +13,10 @@ clear P % Parameters struct
 % as the first cell in the nParameters cell array.
 
 % For 3D RI functions, the P.n.Nx, P.n.Ny, P.n.Nz, P.n.Lx and P.n.Ly fields
-% are necessary but used only for calculation of the RI and should be set to
-% ensure that the RI is calculated in a large enough window and with high
-% enough resolution. High values of P.n.Nx*P.n.Ny*P.n.Nz will require large
-% amounts of memory (CPU or GPU).
+% are necessary but used only for calculation of the RI. They should be set
+% to ensure that the RI is calculated in a large enough window and with
+% high enough resolution. High values of P.n.Nx*P.n.Ny*P.n.Nz will require
+% large amounts of memory (CPU or GPU).
 
 % First, the grating length Lambda is set to infinity (dbeta = 0) and the
 % modes of the unmodulated fiber are found. By manual inspection of the

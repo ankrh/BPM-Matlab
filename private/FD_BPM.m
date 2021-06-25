@@ -24,8 +24,8 @@ k_0 = 2*pi/P.lambda;  % [m^-1] Wavenumber
 if isfield(P,'n_cladding')
   error('Error: n_cladding has been renamed n_background');
 end
-if isfield(P,'n') && isfield(P,'shapes')
-  error('Error: You must specify exactly one of the fields "shapes" and "n"');
+if ~isfield(P,'n') && ~isfield(P,'shapes')
+  error('If you don''t specify "shapes", you must specify "n"');
 end
 if isfield(P,'n') && isa(P.n,'function_handle')
   error('The method of defining a refractive index function has changed. The function handle must now be stored in P.n.func instead of P.n.');

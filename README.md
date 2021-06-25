@@ -89,7 +89,7 @@ Shape types in column 4 is an integer and can be one of the following:
  4. GRIN lens focusing in both x and y
  5. GRIN lens focusing only in y.
 - `P.n`  
-This is an alternative way of defining the refractive index to `P.shapes` that allows more control of the refractive index. Only one of P.n and P.shapes may be defined. When using P.n, the user must define either a P.n.n field or a P.n.func field.
+This is an alternative way of defining the refractive index to `P.shapes` that allows more control of the refractive index. If `P.shapes` isn't defined, `P.n` must be. When using `P.n`, the user must define either a `P.n.n` field or a `P.n.func` field.
 - `P.n.n`
 A 2D or 3D array containing the (complex) refractive index values. For a 3D array, it is assumed to stretch in the z direction from `z = 0` to `z = P.Lz`. The spacing between points in the x and y directions is `P.n.Lx/P.n.Nx` and `P.n.Ly/P.n.Ny`, but the spacing in the z direction is `P.Lz/(P.n.Nz - 1)` since the first and last slices are taken to be exactly at `z = 0` and `z = P.Lz`.
 - `P.n.Lx` and `P.n.Ly`
