@@ -30,7 +30,7 @@ P.lambda = 800e-9; % [m] Wavelength
 P.n_background = 1.45; % [] (may be complex) Background refractive index, (in this case, the cladding)
 P.n_0 = 1.4666; % [] reference refractive index
 
-P.shapes = [ 0 0 6e-6  2  1.4666];
+P.shapes = [ 0 0 6e-6  2  1.4666]; % See the readme file for details
 
 %% Segment 1
 P.Lz = 5e-4; % [m] z propagation distances for this segment

@@ -40,30 +40,16 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index, (in th
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-% To define the refractive index profile, you can use either P.shapes or
-% P.n. Here we use P.n, which can be either a function that takes X, Y,
-% n_background and nParameters as inputs and provides the complex (or real)
-% refractive index profile as output, or it can be a struct with 3 fields:
-% an 'n' field which is the complex refractive index matrix, and 'Lx' and
-% 'Ly' fields that describe the side lengths of the provided n matrix. In
-% the case of a struct, the provided n will be adapted to the new grid
-% using the interpn function.
 P.n = struct('n',flipud(single(imread('moon.tif'))).'/255*0.02 + P.n_background, ...
              'Lx',10e-6, ...
-             'Ly',10e-6*(537/358));
+             'Ly',10e-6*(537/358)); % See the readme file for details
 
-% P.E can be either a function that takes X, Y and Eparameters as inputs
-% and provides the complex E field as output, or it can be a struct with 3
-% fields: a 'field' field which is the complex E-field matrix, and 'Lx' and
-% 'Ly' fields that describe the side lengths of the provided E matrix. In
-% the case of a struct, the provided E field will be adapted to the new
-% grid using the interpn function.
 nModes = 5; % For mode finding
 plotModes = true; % If true, will plot the found modes
 sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
 singleCoreModes = false; % If true and if P.shapes is defined, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
 P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
-P.E = P.modes(5);
+P.E = P.modes(5); % See the readme file for details
 
 %% First segment, non-twisted fiber
 % Run solver

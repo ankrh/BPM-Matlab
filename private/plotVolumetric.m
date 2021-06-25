@@ -147,10 +147,10 @@ else
 end
 h_checkbox1 = uicontrol('Parent',h_f,'Style','checkbox','BackgroundColor','w','Position',[70,90,20,20]);
 h_checkbox1text = uicontrol('style','text','String','log10 plot','BackgroundColor','w','Position',[16,87,50,20]);
-if ~checkboxvisible
+% if ~checkboxvisible
   set(h_checkbox1,'Visible','off');
   set(h_checkbox1text,'Visible','off');
-end
+% end
 
 h_surfxback  = surface(repmat(xb,ny,nz),repmat(y', 1,nz),repmat(z ,ny, 1),squeeze(h_f.UserData(xbi,:,:)),'LineStyle','none');
 h_surfyback  = surface(repmat(x', 1,nz),repmat(yh,nx,nz),repmat(z ,nx, 1),squeeze(h_f.UserData(:,end,:)),'LineStyle','none');

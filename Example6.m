@@ -48,15 +48,7 @@ pitch = 15e-6; % [m] Intercore spacing
 R = 2e-6; % [m] Core radius
 n_core = 1.46; % Cores' refractive index 
 
-% In the shapes 2D array, each row is a shape such as a core in a fiber.
-% Column 1 are the x coordinates, column 2 are the y coordinates, column 3
-% are radii, column 4 are the types of the shapes, column 5 are the peak
-% refractive indices (may be complex) and column 6 is the g parameter, only
-% needed if any of the shapes are GRIN lenses.
-
-% Shape types are 1: Circular step-index disk, 2: Antialiased circular
-% step-index disk, 3: Parabolic graded index disk, 4: GRIN lens focusing in
-% both x and y, 5: GRIN lens focusing only in y.
+% See the readme file for details on P.shapes
 P.shapes = NaN(nCores,5);
 P.shapes(:,1) = pitch*sqrt(1:nCores).*cos((1:nCores)*pi*(3-sqrt(5))); % Fermat's Golden Spiral core x positions
 P.shapes(:,2) = pitch*sqrt(1:nCores).*sin((1:nCores)*pi*(3-sqrt(5))); % Fermat's Golden Spiral core y positions
@@ -64,14 +56,8 @@ P.shapes(:,3) = R;
 P.shapes(:,4) = 2; % Anti-aliased step index disks
 P.shapes(:,5) = n_core;
 
-% P.E can be either a function that takes X, Y and Eparameters as inputs
-% and provides the complex E field as output, or it can be a struct with 3
-% fields: a 'field' field which is the complex E-field matrix, and 'Lx' and
-% 'Ly' fields that describe the side lengths of the provided E matrix. In
-% the case of a struct, the provided E field will be adapted to the new
-% grid using the interpn function.
 load('exampleInputField.mat','E');
-P.E = E;
+P.E = E; % See the readme file for details
 
 % Run solver
 P = FD_BPM(P);

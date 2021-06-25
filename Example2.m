@@ -38,26 +38,11 @@ P.taperScaling = 1; % [] the ratio of the width of the structure at the end of t
 P.twistRate = 0; % [rad/m] the rate of rotation in units of radians per meter.
 P.figTitle = 'Segment 1';
 
-% In the shapes 2D array, each row is a shape such as a core in a fiber.
-% Column 1 are the x coordinates, column 2 are the y coordinates, column 3
-% are radii, column 4 are the types of the shapes, column 5 are the peak
-% refractive indices (may be complex) and column 6 is the g parameter, only
-% needed if any of the shapes are GRIN lenses.
-
-% Shape types are 1: Circular step-index disk, 2: Antialiased circular
-% step-index disk, 3: Parabolic graded index disk, 4: GRIN lens focusing in
-% both x and y, 5: GRIN lens focusing only in y.
 P.shapes = [ -7e-6   -7e-6    10e-6  1  1.46;
              15e-6    0     1.25e-6  2  1.46;
-              2e-6   12e-6    10e-6  3  1.465];
+              2e-6   12e-6    10e-6  3  1.465]; % See the readme file for details
 
-% P.E can be either a function that takes X, Y and Eparameters as inputs
-% and provides the complex E field as output, or it can be a struct with 3
-% fields: a 'field' field which is the complex E-field matrix, and 'Lx' and
-% 'Ly' fields that describe the side lengths of the provided E matrix. In
-% the case of a struct, the provided E field will be adapted to the new
-% grid using the interpn function.
-P.E = @calcInitialE; % Defined at the end of this file
+P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
 
 % Run solver
 P = FD_BPM(P);

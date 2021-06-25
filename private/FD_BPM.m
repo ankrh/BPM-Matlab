@@ -27,6 +27,9 @@ end
 if isfield(P,'n') && isfield(P,'shapes')
   error('Error: You must specify exactly one of the fields "shapes" and "n"');
 end
+if isfield(P,'n') && isa(P.n,'function_handle')
+  error('The method of defining a refractive index function has changed. The function handle must now be stored in P.n.func instead of P.n.');
+end
 if isfield(P,'shapes') && isempty(P.shapes)
   P.shapes = [0 0 0 1 0];
 end

@@ -31,23 +31,9 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index, (in th
 P.n_0 = 1.47; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-% To define the refractive index profile, you can use either P.shapes or
-% P.n. Here we use P.n, which can be either a function that takes X, Y,
-% n_background and nParameters as inputs and provides the complex (or real)
-% refractive index profile as output, or it can be a struct with 3 fields:
-% an 'n' field which is the complex refractive index matrix, and 'Lx' and
-% 'Ly' fields that describe the side lengths of the provided n matrix. In
-% the case of a struct, the provided n will be adapted to the new grid
-% using the interpn function.
-P.n = @calcInitialn; % Defined at the end of the file
+P.n.func = @calcRI; % Defined at the end of this file. See the readme file for details
 
-% P.E can be either a function that takes X, Y and Eparameters as inputs
-% and provides the complex E field as output, or it can be a struct with 3
-% fields: a 'field' field which is the complex E-field matrix, and 'Lx' and
-% 'Ly' fields that describe the side lengths of the provided E matrix. In
-% the case of a struct, the provided E field will be adapted to the new
-% grid using the interpn function.
-P.E = @calcInitialE; % Defined at the end of this file
+P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
 
 % Run solver
 P = FD_BPM(P);
@@ -62,7 +48,7 @@ E = amplitude.*exp(1i*phase); % Electric field
 end
 
 %% USER DEFINED RI INITIALIZATION FUNCTION
-function n = calcInitialn(X,Y,n_background,nParameters) % This user-customizable function is the one that will be used to define the refractive index profile. You can either use analytical expressions or, e.g., load data from a file and use interpn to adapt the data to the simulation grid.
+function n = calcRI(X,Y,n_background,nParameters) % This user-customizable function is the one that will be used to define the refractive index profile. You can either use analytical expressions or, e.g., load data from a file and use interpn to adapt the data to the simulation grid.
 % n may be complex
 n = n_background*ones(size(X)); % Start by setting all pixels to n_background
 n(X.^2/2 + Y.^2 < (2e-6)^2 & X > -2e-6) = n_background + 0.02; % Equation for ellipse with part of the side cut off
