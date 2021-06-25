@@ -72,6 +72,14 @@ Refractive index of the background, typically corresponding to the cladding.
 The reference refractive index, introduced during the derivation of the particular form of the paraxial Helmholtz equation used in BPM-Matlab. The refractive indices defined through `P.n_clad` and in `P.shapes` are the actual indices used in the simulation. `P.n_0` (the reference refractive index) has to be chosen such that the paraxial Helmholtz equation remains a good approximation, i.e., close or equal to the refractive indices where the main part of the energy is propagating in the simulation.
 - `P.Lz`  
 Length of the segment propagated through, in metres.
+
+There are five ways to define the refractive index profile:
+1) Defining the P.shapes field in which different rows correspond to different geometric shapes, such as circular fiber cores.
+2) Defining a function in P.n.func that takes X, Y, n_background and nParameters as inputs and provides the 2D refractive index as an output. You'd typically put this function definition at the end of the model file.
+3) Defining a 2D array of refractive indices in P.n.n with x and y side lengths specified in P.n.Lx and P.n.Ly. This array could, e.g., be imported from a data file.
+4) Defining a function in P.n.func that takes X, Y, Z, n_background and nParameters as inputs and provides the 3D refractive index as an output. P.n.Lx, P.n.Ly, P.n.Nx, P.n.Ny and P.n.Nz are the side lengths and resolutions of the window in which the refractive index function will be evaluated. The z side length will always be P.Lz. As with method 2, you'd usually put this function definition at the end of the model file.
+5) Defining a 3D array of refractive indices in P.n.n with x and y side lengths specified in P.n.Lx and P.n.Ly. The first xy slice corresponds to the refractive index exactly at z = 0, and the last slice to z = P.Lz. As with method 3, this is useful for refractive index data imported from a file.
+
 - `P.shapes`  
 Shapes is a 2D array that describes the refractive index distribution in terms of geometric shapes. Each row is a shape such as a circular core in a fiber. Column 1 are the x coordinates, column 2 are the y coordinates, column 3 are radii, column 4 are the types of the shapes, column 5 are the peak refractive indices and column 6 is the g parameter, only needed if any of the shapes are GRIN lenses.  
 Shape types in column 4 is an integer and can be one of the following:  
@@ -81,13 +89,19 @@ Shape types in column 4 is an integer and can be one of the following:
  4. GRIN lens focusing in both x and y
  5. GRIN lens focusing only in y.
 - `P.n`  
-This is an alternative way of defining the refractive index to `P.shapes`. One one of P.n and P.shapes may be defined. When using P.n, the user may set it to either (a) a struct containing 3 fields definining the initial refractive index or (b) a function handle to calculate an initial refractive index as a function of x and y.  
-In the struct version, the `n` field is the complex (or real) refractive index matrix, and the `Lx` and `Ly` fields describe the side lengths of the provided n matrix. In the case of a struct, the provided refractive index will be adapted to the new grid using the `interpn` function.  
-In the function version, the function should be defined at the end of the model file and take `X`, `Y`, `n_background` and `nParameters` as inputs and provide the complex refractive index as output. `X` and `Y` are the physical locations of the pixels, while `nParameters` is a cell array that can optionally pass additional arguments to the function.
+This is an alternative way of defining the refractive index to `P.shapes` that allows more control of the refractive index. Only one of P.n and P.shapes may be defined. When using P.n, the user must define either a P.n.n field or a P.n.func field.
+- `P.n.n`
+A 2D or 3D array containing the (complex) refractive index values. For a 3D array, it is assumed to stretch in the z direction from `z = 0` to `z = P.Lz`. The spacing between points in the x and y directions is `P.n.Lx/P.n.Nx` and `P.n.Ly/P.n.Ny`, but the spacing in the z direction is `P.Lz/(P.n.Nz - 1)` since the first and last slices are taken to be exactly at `z = 0` and `z = P.Lz`.
+- `P.n.Lx` and `P.n.Ly`
+The x and y widths of the provided `P.n.n` data OR in the case of a 3D function in `P.n.func`, the side lengths of the window in which the refractive index function will be evaluated.
+- `P.n.Nx`, `P.n.Ny` and `P.n.Nz`
+The x, y and z resolutions that a 3D `P.n.func` function will be evaluated with. High values of P.n.Nx*P.n.Ny*P.n.Nz will require large amounts of memory (CPU or GPU).
+
 - `P.E`  
-Defined very similarly to P.n, for this input the user may likewise choose either (a) a struct containing 3 fields definining the initial E-field or (b) a function handle to calculate an initial E-field as a function of x and y.  
-In the struct version, the `field` field is the complex E-field matrix, and the `Lx` and `Ly` fields describe the side lengths of the provided E matrix. In the case of a struct, the provided E-field will be adapted to the new grid using the `interpn` function. This input method is compatible with the output of the `findModes` function described below, you can for example write `P.E = P.modes(3)` to inject the E-field corresponding to hird found mode.
-In the function version, the function should be defined at the end of the model file and take `X`, `Y` and `Eparameters` as inputs and provide the complex E field as output. `X` and `Y` are the physical locations of the pixels, while `Eparameters` is a cell array that can optionally pass additional arguments to the function.
+There are three ways to define the initial E-field:
+1) Defining P.E as a function that takes X, Y and Eparameters as inputs and provides the complex E-field as output. You'd typically define this function at the end of the model file. `Eparameters` is a cell array that can optionally pass additional arguments to the function.
+2) Defining P.E as a struct with 3 fields: a 'field' field which is the complex E-field matrix, and 'Lx' and 'Ly' fields that describe the side lengths of the provided E matrix. In the case of a struct, the provided E-field will be adapted to the new grid using the interpn function.
+3) After calling findModes(), setting P.E equal to one of the elements of P.modes, for example P.E = P.modes(1) for the fundamental mode. A superposition field can be created using the modeSuperposition() function.
 
 #### Advanced parameters
 ##### Bending, Tapering, Twisting

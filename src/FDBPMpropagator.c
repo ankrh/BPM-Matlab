@@ -86,6 +86,7 @@ struct parameters {
   long Ny;
   float dx;
   float dy;
+  float dz;
   long iz_start;
   long iz_end;
   float taperPerStep;
@@ -93,6 +94,12 @@ struct parameters {
   float d;
   float n_0;
   floatcomplex *n_in;
+  float dx_n;
+  long  Nx_n;
+  float dy_n;
+  long  Ny_n;
+  float dz_n;
+  long  Nz_n;
   floatcomplex *Efinal;
   floatcomplex *E1;
   floatcomplex *E2;
@@ -409,7 +416,7 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
     long iy = i/P->Nx;
     float y = P->dy*(iy - (P->Ny-1)/2.0f);
     floatcomplex n = 0;
-    if(P->taperPerStep || P->twistPerStep) { // Rotate, scale, interpolate
+    if(P->taperPerStep || P->twistPerStep) { // Rotate, scale, interpolate. If we are tapering or twisting, we know that the RIP is 2D
       float x_src = scaling*(cosvalue*x - sinvalue*y);
       float y_src = scaling*(sinvalue*x + cosvalue*y);
       float ix_src = MIN(MAX(0.0f,x_src/P->dx + (P->Nx - 1)/2.0f),(P->Nx - 1)*(1-FLT_EPSILON)); // Fractional index, coerced to be within the source window
@@ -422,8 +429,27 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
           P->n_in[ix_low + 1 + P->Nx*(iy_low    )]*(    ix_frac)*(1 - iy_frac) +
           P->n_in[ix_low     + P->Nx*(iy_low + 1)]*(1 - ix_frac)*(    iy_frac) + 
           P->n_in[ix_low + 1 + P->Nx*(iy_low + 1)]*(    ix_frac)*(    iy_frac); // Bilinear interpolation
-    } else {
+    } else if(P->Nz_n == 1) { // 2D RIP
       n = P->n_in[i];
+    } else { // 3D RIP
+      float z = iz*P->dz;
+      float ix_n = MIN(MAX(0.0f,x/P->dx_n + (P->Nx_n - 1)/2.0f),(P->Nx_n - 1)*(1-FLT_EPSILON)); // Fractional index, coerced to be within the n window
+      float iy_n = MIN(MAX(0.0f,y/P->dy_n + (P->Ny_n - 1)/2.0f),(P->Ny_n - 1)*(1-FLT_EPSILON));
+      float iz_n = MIN(MAX(0.0f,z/P->dz_n                     ),(P->Nz_n - 1)*(1-FLT_EPSILON));
+      long ix_n_low = (long)FLOORF(ix_n);
+      long iy_n_low = (long)FLOORF(iy_n);
+      long iz_n_low = (long)FLOORF(iz_n);
+      float ix_n_frac = ix_n - FLOORF(ix_n);
+      float iy_n_frac = iy_n - FLOORF(iy_n);
+      float iz_n_frac = iz_n - FLOORF(iz_n);
+      n = P->n_in[ix_n_low     + P->Nx_n*(iy_n_low    ) + P->Ny_n*P->Nx_n*(iz_n_low    )]*(1 - ix_n_frac)*(1 - iy_n_frac)*(1 - iz_n_frac) +
+          P->n_in[ix_n_low + 1 + P->Nx_n*(iy_n_low    ) + P->Ny_n*P->Nx_n*(iz_n_low    )]*(    ix_n_frac)*(1 - iy_n_frac)*(1 - iz_n_frac) +
+          P->n_in[ix_n_low     + P->Nx_n*(iy_n_low + 1) + P->Ny_n*P->Nx_n*(iz_n_low    )]*(1 - ix_n_frac)*(    iy_n_frac)*(1 - iz_n_frac) +
+          P->n_in[ix_n_low + 1 + P->Nx_n*(iy_n_low + 1) + P->Ny_n*P->Nx_n*(iz_n_low    )]*(    ix_n_frac)*(    iy_n_frac)*(1 - iz_n_frac) +
+          P->n_in[ix_n_low     + P->Nx_n*(iy_n_low    ) + P->Ny_n*P->Nx_n*(iz_n_low + 1)]*(1 - ix_n_frac)*(1 - iy_n_frac)*(    iz_n_frac) +
+          P->n_in[ix_n_low + 1 + P->Nx_n*(iy_n_low    ) + P->Ny_n*P->Nx_n*(iz_n_low + 1)]*(    ix_n_frac)*(1 - iy_n_frac)*(    iz_n_frac) +
+          P->n_in[ix_n_low     + P->Nx_n*(iy_n_low + 1) + P->Ny_n*P->Nx_n*(iz_n_low + 1)]*(1 - ix_n_frac)*(    iy_n_frac)*(    iz_n_frac) +
+          P->n_in[ix_n_low + 1 + P->Nx_n*(iy_n_low + 1) + P->Ny_n*P->Nx_n*(iz_n_low + 1)]*(    ix_n_frac)*(    iy_n_frac)*(    iz_n_frac); // Trilinear interpolation
     }
     if(iz == P->iz_end-1) P->n_out[i] = n;
     float n_bend = CREALF(n)*(1-(sqrf(CREALF(n))*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
@@ -484,6 +510,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line) {
 void createDeviceStructs(struct parameters *P, struct parameters **P_devptr,
                          struct debug *D, struct debug **D_devptr) {
   long N = P->Nx*P->Ny;
+  long N_n = P->Nx_n*P->Ny_n*P->Nz_n;
   struct parameters P_tempvar = *P;
 
   gpuErrchk(cudaMalloc(&P_tempvar.E1,N*sizeof(floatcomplex)));
@@ -496,8 +523,8 @@ void createDeviceStructs(struct parameters *P, struct parameters **P_devptr,
   gpuErrchk(cudaMalloc(&P_tempvar.b,N*sizeof(floatcomplex)));
   gpuErrchk(cudaMalloc(&P_tempvar.multiplier,N*sizeof(float)));
   gpuErrchk(cudaMemcpy(P_tempvar.multiplier,P->multiplier,N*sizeof(float),cudaMemcpyHostToDevice));
-  gpuErrchk(cudaMalloc(&P_tempvar.n_in,N*sizeof(floatcomplex)));
-  gpuErrchk(cudaMemcpy(P_tempvar.n_in,P->n_in,N*sizeof(floatcomplex),cudaMemcpyHostToDevice));
+  gpuErrchk(cudaMalloc(&P_tempvar.n_in,N_n*sizeof(floatcomplex)));
+  gpuErrchk(cudaMemcpy(P_tempvar.n_in,P->n_in,N_n*sizeof(floatcomplex),cudaMemcpyHostToDevice));
 
   gpuErrchk(cudaMalloc(P_devptr, sizeof(struct parameters)));
   gpuErrchk(cudaMemcpy(*P_devptr,&P_tempvar,sizeof(struct parameters),cudaMemcpyHostToDevice));
@@ -538,6 +565,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->Ny = (long)mxGetN(prhs[0]);
   P->dx = *(float *)mxGetData(mxGetField(prhs[1],0,"dx"));
   P->dy = *(float *)mxGetData(mxGetField(prhs[1],0,"dy"));
+  P->dz = *(float *)mxGetData(mxGetField(prhs[1],0,"dz"));
   P->iz_start = *(long *)mxGetData(mxGetField(prhs[1],0,"iz_start"));
   P->iz_end = *(long *)mxGetData(mxGetField(prhs[1],0,"iz_end"));
   P->taperPerStep = *(float *)mxGetData(mxGetField(prhs[1],0,"taperPerStep"));
@@ -545,12 +573,20 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->d = *(float *)mxGetData(mxGetField(prhs[1],0,"d"));
   P->n_0 = *(float *)mxGetData(mxGetField(prhs[1],0,"n_0"));
   P->n_in = (floatcomplex *)mxGetData(mxGetField(prhs[1],0,"n_mat"));
+  mwSize nDims = mxGetNumberOfDimensions(mxGetField(prhs[1],0,"n_mat"));
+  mwSize const *dimPtr = mxGetDimensions(mxGetField(prhs[1],0,"n_mat"));
+  P->Nx_n = (long)dimPtr[0];
+  P->Ny_n = (long)dimPtr[1];
+  P->Nz_n = nDims > 2? (long)dimPtr[2]: 1;
+  P->dx_n = P->Nz_n > 1? ((float *)mxGetData(mxGetField(prhs[1],0,"d_n")))[0]: 0;
+  P->dy_n = P->Nz_n > 1? ((float *)mxGetData(mxGetField(prhs[1],0,"d_n")))[1]: 0;
+  P->dz_n = P->Nz_n > 1? ((float *)mxGetData(mxGetField(prhs[1],0,"d_n")))[2]: 0;
   P->rho_e = *(float *)mxGetData(mxGetField(prhs[1],0,"rho_e"));
   P->RoC = *(float *)mxGetData(mxGetField(prhs[1],0,"RoC"));
   P->sinBendDirection = sin(*(float *)mxGetData(mxGetField(prhs[1],0,"bendDirection"))/180*PI);
   P->cosBendDirection = cos(*(float *)mxGetData(mxGetField(prhs[1],0,"bendDirection"))/180*PI);
   P->E1 = (floatcomplex *)mxGetData(prhs[0]); // Input E field
-  mwSize const *dimPtr = mxGetDimensions(prhs[0]);
+  dimPtr = mxGetDimensions(prhs[0]);
   P->Efinal = (floatcomplex *)mxGetData(plhs[0] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxCOMPLEX)); // Output E field
   P->n_out = (floatcomplex *)mxGetData(plhs[1] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxCOMPLEX)); // Output refractive index
   P->precisePower = *(double *)mxGetData(mxGetField(prhs[1],0,"inputPrecisePower"));
