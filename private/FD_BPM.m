@@ -630,5 +630,8 @@ xtrim = min(xmin-1,Nx - xmax);
 ymin = find(any(n ~= n_background,[1 3]),1,'first');
 ymax = find(any(n ~= n_background,[1 3]),1,'last');
 ytrim = min(ymin-1,Ny - ymax);
-n = padarray(n(xtrim+1:Nx-xtrim,ytrim+1:Ny-ytrim,:),[1 1],n_background);
+
+n_temp = n(xtrim+1:Nx-xtrim,ytrim+1:Ny-ytrim,:);
+n = n_background*ones(size(n_temp) + [2 2 0], class(n_temp));
+n(2:end-1, 2:end-1, :) = n_temp;
 end
