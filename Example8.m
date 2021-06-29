@@ -27,7 +27,7 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index, (in th
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-P.shapes = [ -2.5e-6 0 5e-6    2  1.46;
+P.shapes = [ -2.5e-6 0 5e-6    1  1.46;
               5e-6   0 2.5e-6  3  1.47]; % See the readme file for details
 
 nModes = 10; % For mode finding

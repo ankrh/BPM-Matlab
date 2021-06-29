@@ -84,8 +84,8 @@ There are five ways to define the refractive index profile:
 Shapes is a 2D array that describes the refractive index distribution in terms of geometric shapes. Each row is a shape such as a circular core in a fiber. Column 1 are the x coordinates, column 2 are the y coordinates, column 3 are radii, column 4 are the types of the shapes, column 5 are the peak refractive indices and column 6 is the g parameter, only needed if any of the shapes are GRIN lenses.  
 Shape types in column 4 is an integer and can be one of the following:  
  1. Circular step-index disk
- 2. Antialiased circular step-index disk
- 3. Parabolic graded index disk
+ 2. (unused)
+ 3. Parabolic graded index disk (note that the shape's outer edge has refractive index = n_background)
  4. GRIN lens focusing in both x and y
  5. GRIN lens focusing only in y.
 - `P.n`  

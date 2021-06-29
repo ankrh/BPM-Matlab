@@ -45,8 +45,8 @@ P.n_background = 1.45 + 1e-3i; % [] (may be complex) Background refractive index
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-P.shapes = [ 0 -10e-6 5e-6  2  1.46 + 1e-3i;
-             0  10e-6 5e-6  2  1.46 + 0i]; % See the readme file for details
+P.shapes = [ 0 -10e-6 5e-6  1  1.46 + 1e-3i;
+             0  10e-6 5e-6  1  1.46 + 0i]; % See the readme file for details
 
 nModes = 2; % For mode finding
 plotModes = true; % If true, will plot the found modes

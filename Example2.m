@@ -39,7 +39,7 @@ P.twistRate = 0; % [rad/m] the rate of rotation in units of radians per meter.
 P.figTitle = 'Segment 1';
 
 P.shapes = [ -7e-6   -7e-6    10e-6  1  1.46;
-             15e-6    0     1.25e-6  2  1.46;
+             15e-6    0     1.25e-6  1  1.46;
               2e-6   12e-6    10e-6  3  1.465]; % See the readme file for details
 
 P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details

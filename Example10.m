@@ -59,7 +59,7 @@ P.updates = P.Lz*updateFrequency;            % Number of times to update plot. M
 P.taperScaling = 0.3;
 P.figTitle = 'Segment 1';
 
-P.shapes = [ 0 0  5e-6  2  1.46]; % See the readme file for details
+P.shapes = [ 0 0  5e-6  1  1.46]; % See the readme file for details
 
 nModes = 10; % For mode finding
 plotModes = false; % If true, will plot the found modes

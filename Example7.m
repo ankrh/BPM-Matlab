@@ -48,7 +48,7 @@ P.shapes = NaN(nCores,5);
 P.shapes(:,1) = pitch*sqrt(1:nCores).*cos((1:nCores)*pi*(3-sqrt(5))); % Fermat's Golden Spiral core x positions
 P.shapes(:,2) = pitch*sqrt(1:nCores).*sin((1:nCores)*pi*(3-sqrt(5))); % Fermat's Golden Spiral core y positions
 P.shapes(:,3) = R;
-P.shapes(:,4) = 2; % Anti-aliased step index disks
+P.shapes(:,4) = 1; % Step index disks
 P.shapes(:,5) = n_core;
 
 load('exampleInputField.mat','E');

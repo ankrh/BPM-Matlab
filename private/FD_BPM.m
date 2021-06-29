@@ -33,6 +33,9 @@ end
 if isfield(P,'shapes') && isempty(P.shapes)
   P.shapes = [0 0 0 1 0];
 end
+if isfield(P,'shapes') && any(P.shapes(:,4) == 2)
+  error('Antialiased shapes (shape type 2) are deprecated. Use non-antialiased shapes instead (shape type 1).');
+end
 if ~isfield(P,'figNum')
   P.figNum = 1;
 end

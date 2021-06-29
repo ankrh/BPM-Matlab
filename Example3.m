@@ -43,7 +43,7 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index, (in th
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-P.shapes = [ 0 0 5e-6  2  1.46]; % See the readme file for details
+P.shapes = [ 0 0 5e-6  1  1.46]; % See the readme file for details
 
 P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
 
