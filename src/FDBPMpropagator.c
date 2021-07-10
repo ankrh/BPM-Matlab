@@ -431,8 +431,8 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
       n = P->n_in[i];
     } else { // 3D RIP
       float z = iz*P->dz;
-      long ix_n = MIN(MAX(0,ix - (P->Nx - P->Nx_n)/2),P->Nx_n-1);
-      long iy_n = MIN(MAX(0,iy - (P->Ny - P->Ny_n)/2),P->Ny_n-1);
+      long ix_n = MIN(MAX(0L,ix - (P->Nx - P->Nx_n)/2),P->Nx_n-1);
+      long iy_n = MIN(MAX(0L,iy - (P->Ny - P->Ny_n)/2),P->Ny_n-1);
       float iz_n = MIN(MAX(0.0f,z/P->dz_n),(P->Nz_n - 1)*(1-FLT_EPSILON)); // Fractional index, coerced to be within the n window
       long iz_n_low = (long)FLOORF(iz_n);
       float iz_n_frac = iz_n - FLOORF(iz_n);
