@@ -12,19 +12,15 @@ clear P % Parameters struct
 % and dbeta = 2*pi/Lambda. dbeta is in this case passed to the RI function
 % as the first cell in the nParameters cell array.
 
-% For 3D RI functions, the P.n.Nx, P.n.Ny, P.n.Nz, P.n.Lx and P.n.Ly fields
-% are necessary but used only for calculation of the RI. They should be set
-% to ensure that the RI is calculated in a large enough window and with
-% high enough resolution. High values of P.n.Nx*P.n.Ny*P.n.Nz will require
-% large amounts of memory (CPU or GPU).
+% For 3D RI functions, the P.n.Nz field is necessary to ensure that the RI
+% is calculated with a high enough resolution in z. High values of
+% P.Nx*P.Ny*P.n.Nz will require large amounts of memory (CPU or GPU). If
+% memory is a problem, you can split the simulation into multiple segments.
 
 % First, the grating length Lambda is set to infinity (dbeta = 0) and the
-% modes of the unmodulated fiber are found. By manual inspection of the
-% mode profiles we find that LP01 is mode 1, LP02 is mode 6 and LP03 is
-% mode 15. From the theory of long period gratings we know that Lambda =
-% lambda/(neff_1 - neff_15) in order to achieve phase matching, where
-% lambda is the wavelength and neff_1 and neff_15 are the effective
-% refractive indices of the LP01 and LP03 modes.
+% modes of the unmodulated fiber are found. From the theory of long period
+% gratings we know that Lambda = lambda/(neff_LP01 - neff_LP03) in order to
+% achieve phase matching, where lambda is the wavelength.
 
 % After calculating the optimal Lambda and setting the corresponding dbeta
 % in nParameters, FD_BPM is run. We can observe how the field's overlap with
@@ -53,11 +49,7 @@ P.n_0 = 1.442; % [] reference refractive index
 P.Lz = 140e-3; % [m] z propagation distances for this segment
 
 P.n.func = @calcRI; % See the readme file for details
-P.n.Nx = 200;
-P.n.Ny = 200;
 P.n.Nz = 1500;
-P.n.Lx = 100e-6;
-P.n.Ly = 100e-6;
 
 P.nParameters = {0}; % No grating for initial mode finding
 
@@ -66,9 +58,7 @@ plotModes = true; % If true, will plot the found modes
 sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
 singleCoreModes = false; % If true, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
 P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
-P.modes(1).label = 'LP01';
-P.modes(6).label = 'LP02';
-P.modes(15).label = 'LP03';
+
 P.calcModeOverlaps = true;
 
 Lambda = P.lambda/(P.modes(1).neff - P.modes(15).neff)

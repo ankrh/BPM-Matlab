@@ -76,19 +76,19 @@ Length of the segment propagated through, in metres.
 There are four ways to define the refractive index profile:
 1) Defining a function in P.n.func that takes X, Y, n_background and nParameters as inputs and provides the 2D refractive index as an output. You'd typically put this function definition at the end of the model file.
 2) Defining a 2D array of refractive indices in P.n.n with x and y side lengths specified in P.n.Lx and P.n.Ly. This array could, e.g., be imported from a data file.
-3) Defining a function in P.n.func that takes X, Y, Z, n_background and nParameters as inputs and provides the 3D refractive index as an output. P.n.Lx, P.n.Ly, P.n.Nx, P.n.Ny and P.n.Nz are the side lengths and resolutions of the window in which the refractive index function will be evaluated. The z side length will always be P.Lz. As with method 2, you'd usually put this function definition at the end of the model file.
-4) Defining a 3D array of refractive indices in P.n.n with x and y side lengths specified in P.n.Lx and P.n.Ly. The first xy slice corresponds to the refractive index exactly at z = 0, and the last slice to z = P.Lz. As with method 3, this is useful for refractive index data imported from a file.
+3) Defining a function in P.n.func that takes X, Y, Z, n_background and nParameters as inputs and provides the 3D refractive index as an output. P.n.Nz is the z resolution which the refractive index function will be evaluated with. The z side length will always be P.Lz. As with method 2, you'd usually put this function definition at the end of the model file.
+4) Defining a 3D array of refractive indices in P.n.n with x and y side lengths specified in P.n.Lx and P.n.Ly. The first xy slice corresponds to the refractive index exactly at z = 0, and the last slice to z = P.Lz. As with method 2, this is useful for refractive index data imported from a file.
 
 - `P.n`  
 This field contains various subfields for defining the refractive index. The user must define either a `P.n.n` field or a `P.n.func` field.
 - `P.n.func`
 A function handle (specified, e.g., as `P.n.func = @calcRI`, where calcRI is the name of the function). The function may either be for a 2D refractive index distribution, in which case it takes 4 inputs (X,Y,n_background,nParameters) or it may be for a 3D refractive index distribution in which case it takes 5 inputs (X,Y,Z,n_background,nParameters).
 - `P.n.n`
-An alternative to specifying `P.n.func`, this is a 2D or 3D array containing the (complex) refractive index values. For a 3D array, it is assumed to stretch in the z direction from `z = 0` to `z = P.Lz`. The spacing between points in the x and y directions is `P.n.Lx/P.n.Nx` and `P.n.Ly/P.n.Ny`, but the spacing in the z direction is `P.Lz/(P.n.Nz - 1)` since the first and last slices are taken to be exactly at `z = 0` and `z = P.Lz`.
+An alternative to specifying `P.n.func`, this is a 2D or 3D array containing the (complex) refractive index values. For a 3D array, it is assumed to stretch in the z direction from `z = 0` to `z = P.Lz`. The spacing between points in the x and y directions is `P.n.Lx/size(P.n.n,1)` and `P.n.Ly/size(P.n.n,2)`, but the spacing in the z direction is `P.Lz/(size(P.n.n,3) - 1)` since the first and last slices are taken to be exactly at `z = 0` and `z = P.Lz`.
 - `P.n.Lx` and `P.n.Ly`
-The x and y widths of the provided `P.n.n` data OR in the case of a 3D function in `P.n.func`, the side lengths of the window in which the refractive index function will be evaluated.
-- `P.n.Nx`, `P.n.Ny` and `P.n.Nz`
-The x, y and z resolutions that a 3D `P.n.func` function will be evaluated with. High values of P.n.Nx*P.n.Ny*P.n.Nz will require large amounts of memory (CPU or GPU).
+The x and y widths of the provided `P.n.n` data.
+- `P.n.Nz`
+The z resolution that the 3D `P.n.func` function will be evaluated with. High values of P.Nx*P.Ny*P.n.Nz will require large amounts of memory (CPU or GPU). If memory is a problem, you can split the simulation into multiple segments.
 
 - `P.E`  
 There are three ways to define the initial E-field:

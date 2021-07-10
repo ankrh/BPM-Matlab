@@ -5,18 +5,20 @@ end
 if isfield(P,'shapes')
   error('The P.shapes field has been deprecated. Use the P.n field to define the refractive index instead, as shown in the example files.');
 end
-if isfield(P,'n')
-  if ~isfield(P.n,'n') && ~isfield(P.n,'func')
-    error('P.n must contain either the field "func" or "n"');
-  end
-  if isfield(P.n,'n') && ~(isfield(P.n,'Lx') && isfield(P.n,'Ly'))
-    error('You must specify the side lengths Lx and Ly if you provide an array (2D or 3D) for the refractive index');
-  end
-  if isfield(P.n,'func') && nargin(P.n.func) == 5 && ~(isfield(P.n,'Lx') && isfield(P.n,'Ly') && isfield(P.n,'Nx') && isfield(P.n,'Ny') && isfield(P.n,'Nz'))
-    error('You must specify the side lengths Lx and Ly as well as the refractive index array resolutions Nx, Ny and Nz if you provide a 3D refractive index function');
-  end
-else
+if ~isfield(P,'n')
   error('You must specify the P.n field');
+end
+if isa(P.n,'function_handle')
+  error('The method of defining a refractive index function has changed. The function handle must now be stored in P.n.func instead of P.n.');
+end
+if ~isfield(P.n,'n') && ~isfield(P.n,'func')
+  error('P.n must contain either the field "func" or "n"');
+end
+if ~isfield(P.n,'func') && ~(isfield(P.n,'Lx') && isfield(P.n,'Ly'))
+  error('You must specify the side lengths Lx and Ly if you provide an array (2D or 3D) for the refractive index');
+end
+if isfield(P.n,'func') && nargin(P.n.func) == 5 && ~isfield(P.n,'Nz')
+  error('You must specify the refractive index array z resolution P.n.Nz if you provide a 3D refractive index function');
 end
 if ~isfield(P,'nParameters')
   P.nParameters = {};
@@ -72,32 +74,19 @@ tic
 if isfield(P.n,'func') % If P.n has a function field
   if nargin(P.n.func) == 4 % It's 2D
     n = single(P.n.func(X,Y,P.n_background,P.nParameters));
-  else % It's 3D. We evaluate it on the user requested grid but with only z = 0 and then interpolate out to the full grid
-    d_n(1) = P.n.Lx/P.n.Nx;
-    d_n(2) = P.n.Ly/P.n.Ny;
-    d_n(3) = P.Lz/(P.n.Nz-1);
-    x_n = d_n(1)*(-(P.n.Nx-1)/2:(P.n.Nx-1)/2);
-    y_n = d_n(2)*(-(P.n.Ny-1)/2:(P.n.Ny-1)/2);
-    z_n = 0;
-    [X_n,Y_n,Z_n] = ndgrid(single(x_n),single(y_n),single(z_n));
-    n = single(P.n.func(X_n,Y_n,Z_n,P.n_background,P.nParameters));
-    clear X_n Y_n Z_n
-    n = interpn(x_n,y_n,n,x,y.','linear',P.n_background);
+  else % It's 3D. We evaluate it on the grid for z = 0
+    n = single(P.n.func(X,Y,zeros(size(X)),P.n_background,P.nParameters));
   end
 else % Otherwise a P.n.n array must have been specified
   [Nx_source,Ny_source,Nz_source] = size(P.n.n);
+  dx_source = P.n.Lx/Nx_source;
+  dy_source = P.n.Ly/Ny_source;
+  x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
+  y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
   if Nz_source == 1 % If P.n.n is 2D, interpolate it to the simulation grid
-    dx_source = P.n.Lx/Nx_source;
-    dy_source = P.n.Ly/Ny_source;
-    x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
-    y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
     n = interpn(x_source,y_source,P.n.n,x,y.','linear',P.n_background);
-  else % Otherwise it's 3D so we take the first slice and interpolate to the siulation grid
-    d_n(1) = P.n.Lx/Nx_source;
-    d_n(2) = P.n.Ly/Ny_source;
-    x_n = d_n(1)*(-(P.n.Nx-1)/2:(P.n.Nx-1)/2);
-    y_n = d_n(2)*(-(P.n.Ny-1)/2:(P.n.Ny-1)/2);
-    n = interpn(x_n,y_n,P.n.n(:,:,1),x,y.','linear',P.n_background);
+  else % Otherwise it's 3D so we take the first slice and interpolate to the simulation grid
+    n = interpn(x_source,y_source,P.n.n(:,:,1),x,y.','linear',P.n_background);
   end
 end
 
