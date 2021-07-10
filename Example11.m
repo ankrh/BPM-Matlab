@@ -45,8 +45,7 @@ P.n_background = 1.45 + 1e-3i; % [] (may be complex) Background refractive index
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-P.shapes = [ 0 -10e-6 5e-6  1  1.46 + 1e-3i;
-             0  10e-6 5e-6  1  1.46 + 0i]; % See the readme file for details
+P.n.func = @calcRI;
 
 nModes = 2; % For mode finding
 plotModes = true; % If true, will plot the found modes
@@ -66,4 +65,11 @@ offset = 2.5e-6;
 amplitude = exp(-((X-offset).^2+Y.^2)/w_0^2);
 phase = zeros(size(X));
 E = amplitude.*exp(1i*phase); % Electric field
+end
+
+%% USER DEFINED RI INITIALIZATION FUNCTION
+function n = calcRI(X,Y,n_background,nParameters)
+n = n_background*ones(size(X));
+n((X.^2 + (Y + 10e-6).^2 < 5e-6^2)) = 1.46 + 1e-3i;
+n((X.^2 + (Y - 10e-6).^2 < 5e-6^2)) = 1.46;
 end

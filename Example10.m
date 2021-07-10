@@ -59,7 +59,7 @@ P.updates = P.Lz*updateFrequency;            % Number of times to update plot. M
 P.taperScaling = 0.3;
 P.figTitle = 'Segment 1';
 
-P.shapes = [ 0 0  5e-6  1  1.46]; % See the readme file for details
+P.n.func = @calcRI;
 
 nModes = 10; % For mode finding
 plotModes = false; % If true, will plot the found modes
@@ -93,3 +93,10 @@ imagesc(P.z,P.y,abs([P.yzSlice{1} P.yzSlice{2}]).^2);
 axis xy;
 xlabel('z [m]');
 ylabel('y [m]');
+
+%% USER DEFINED RI FUNCTIONS
+function n = calcRI(X,Y,n_background,nParameters)
+% n may be complex
+n = n_background*ones(size(X)); % Start by setting all pixels to n_background
+n(X.^2 + Y.^2 < 5e-6^2) = 1.46;
+end

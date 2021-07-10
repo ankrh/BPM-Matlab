@@ -69,29 +69,22 @@ Wavelength, in metres.
 - `P.n_background`  
 Refractive index of the background, typically corresponding to the cladding.
 - `P.n_0`  
-The reference refractive index, introduced during the derivation of the particular form of the paraxial Helmholtz equation used in BPM-Matlab. The refractive indices defined through `P.n_clad` and in `P.shapes` are the actual indices used in the simulation. `P.n_0` (the reference refractive index) has to be chosen such that the paraxial Helmholtz equation remains a good approximation, i.e., close or equal to the refractive indices where the main part of the energy is propagating in the simulation.
+The reference refractive index, introduced during the derivation of the particular form of the paraxial Helmholtz equation used in BPM-Matlab. The refractive indices defined through `P.n_background` and in `P.n` are the actual indices used in the simulation. `P.n_0` (the reference refractive index) has to be chosen such that the paraxial Helmholtz equation remains a good approximation, i.e., close or equal to the refractive indices where the main part of the energy is propagating in the simulation.
 - `P.Lz`  
 Length of the segment propagated through, in metres.
 
-There are five ways to define the refractive index profile:
-1) Defining the P.shapes field in which different rows correspond to different geometric shapes, such as circular fiber cores.
-2) Defining a function in P.n.func that takes X, Y, n_background and nParameters as inputs and provides the 2D refractive index as an output. You'd typically put this function definition at the end of the model file.
-3) Defining a 2D array of refractive indices in P.n.n with x and y side lengths specified in P.n.Lx and P.n.Ly. This array could, e.g., be imported from a data file.
-4) Defining a function in P.n.func that takes X, Y, Z, n_background and nParameters as inputs and provides the 3D refractive index as an output. P.n.Lx, P.n.Ly, P.n.Nx, P.n.Ny and P.n.Nz are the side lengths and resolutions of the window in which the refractive index function will be evaluated. The z side length will always be P.Lz. As with method 2, you'd usually put this function definition at the end of the model file.
-5) Defining a 3D array of refractive indices in P.n.n with x and y side lengths specified in P.n.Lx and P.n.Ly. The first xy slice corresponds to the refractive index exactly at z = 0, and the last slice to z = P.Lz. As with method 3, this is useful for refractive index data imported from a file.
+There are four ways to define the refractive index profile:
+1) Defining a function in P.n.func that takes X, Y, n_background and nParameters as inputs and provides the 2D refractive index as an output. You'd typically put this function definition at the end of the model file.
+2) Defining a 2D array of refractive indices in P.n.n with x and y side lengths specified in P.n.Lx and P.n.Ly. This array could, e.g., be imported from a data file.
+3) Defining a function in P.n.func that takes X, Y, Z, n_background and nParameters as inputs and provides the 3D refractive index as an output. P.n.Lx, P.n.Ly, P.n.Nx, P.n.Ny and P.n.Nz are the side lengths and resolutions of the window in which the refractive index function will be evaluated. The z side length will always be P.Lz. As with method 2, you'd usually put this function definition at the end of the model file.
+4) Defining a 3D array of refractive indices in P.n.n with x and y side lengths specified in P.n.Lx and P.n.Ly. The first xy slice corresponds to the refractive index exactly at z = 0, and the last slice to z = P.Lz. As with method 3, this is useful for refractive index data imported from a file.
 
-- `P.shapes`  
-Shapes is a 2D array that describes the refractive index distribution in terms of geometric shapes. Each row is a shape such as a circular core in a fiber. Column 1 are the x coordinates, column 2 are the y coordinates, column 3 are radii, column 4 are the types of the shapes, column 5 are the peak refractive indices and column 6 is the g parameter, only needed if any of the shapes are GRIN lenses.  
-Shape types in column 4 is an integer and can be one of the following:  
- 1. Circular step-index disk
- 2. (unused)
- 3. Parabolic graded index disk (note that the shape's outer edge has refractive index = n_background)
- 4. GRIN lens focusing in both x and y
- 5. GRIN lens focusing only in y.
 - `P.n`  
-This is an alternative way of defining the refractive index to `P.shapes` that allows more control of the refractive index. If `P.shapes` isn't defined, `P.n` must be. When using `P.n`, the user must define either a `P.n.n` field or a `P.n.func` field.
+This field contains various subfields for defining the refractive index. The user must define either a `P.n.n` field or a `P.n.func` field.
+- `P.n.func`
+A function handle (specified, e.g., as `P.n.func = @calcRI`, where calcRI is the name of the function). The function may either be for a 2D refractive index distribution, in which case it takes 4 inputs (X,Y,n_background,nParameters) or it may be for a 3D refractive index distribution in which case it takes 5 inputs (X,Y,Z,n_background,nParameters).
 - `P.n.n`
-A 2D or 3D array containing the (complex) refractive index values. For a 3D array, it is assumed to stretch in the z direction from `z = 0` to `z = P.Lz`. The spacing between points in the x and y directions is `P.n.Lx/P.n.Nx` and `P.n.Ly/P.n.Ny`, but the spacing in the z direction is `P.Lz/(P.n.Nz - 1)` since the first and last slices are taken to be exactly at `z = 0` and `z = P.Lz`.
+An alternative to specifying `P.n.func`, this is a 2D or 3D array containing the (complex) refractive index values. For a 3D array, it is assumed to stretch in the z direction from `z = 0` to `z = P.Lz`. The spacing between points in the x and y directions is `P.n.Lx/P.n.Nx` and `P.n.Ly/P.n.Ny`, but the spacing in the z direction is `P.Lz/(P.n.Nz - 1)` since the first and last slices are taken to be exactly at `z = 0` and `z = P.Lz`.
 - `P.n.Lx` and `P.n.Ly`
 The x and y widths of the provided `P.n.n` data OR in the case of a 3D function in `P.n.func`, the side lengths of the window in which the refractive index function will be evaluated.
 - `P.n.Nx`, `P.n.Ny` and `P.n.Nz`
@@ -146,8 +139,8 @@ Each call to `P = FD_BPM(P);` will add a new segment to the simulation that uses
 BPM-Matlab comes with an FD-BPM and an FFT-BPM solver. FD-BPM should be used for propagation through media with a non-uniform refractive index, while FFT-BPM should be used for propagation through media with uniform refractive index. Check Example3.m for a comparison.
 
 #### Optional Mode solver
-BPM-Matlab includes a mode solver that can calculate the supported modes of the waveguide and calculate the overlap of the simulated E-field with these modes. Check Example9.m on how to do so. The modes are *not* used for the propagation simulation itself.
-To use the mode solver, find the modes supported by the waveguide (after you set all the other parameters of P, especially P.shapes) by using
+BPM-Matlab includes a mode solver that can calculate the supported modes of the waveguide and calculate the overlap of the simulated E-field with these modes. Check Example9.m on how to do so. The modes are *not* used for the propagation simulation itself. The mode finder will not return unguided modes. The modes will be labeled with LPlm designations if the refractive index is assessed to be radially symmetric, otherwise the modes will simply be labeled sequentially (Mode 1, 2, 3 etc.).
+To use the mode solver, find the modes supported by the waveguide (after you set all the other parameters of P, especially P.n) by using
 `P = findModes(P,nModes,sortByLoss,plotModes);` with
 
 - `nModes`  
@@ -157,9 +150,9 @@ set to `true` if the solver should plot the found modes at the end of findModes
 - `sortByLoss`
 Set to `true` to sort the list of found modes in order of ascending loss. If `false`, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
 - `singleCoreModes`
-If `true` and if `P.shapes` is defined, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
+If `true`, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
 
-This will set `P.modes`, a struct array with each elemnt correspondng to one mode. Some of these may be non-guided (radiating). You may then set `P.calcModeOverlaps` to `true` to calculate mode overlap integrals of propagating field with respect to the different modes that were set in the `P.modes` struct array.
+This will set `P.modes`, a struct array with each elemnt correspondng to one mode. You may then set `P.calcModeOverlaps` to `true` to calculate mode overlap integrals of propagating field with respect to the different modes that were set in the `P.modes` struct array.
 
 A function is provided to make it easy to inject a field that is a superposition of modes. After running `findModes`, you can run `P.E = modeSuperposition(P,modeIdxs,coefficients)` with the arguments
 - `modeIdxs`

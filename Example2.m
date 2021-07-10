@@ -38,9 +38,7 @@ P.taperScaling = 1; % [] the ratio of the width of the structure at the end of t
 P.twistRate = 0; % [rad/m] the rate of rotation in units of radians per meter.
 P.figTitle = 'Segment 1';
 
-P.shapes = [ -7e-6   -7e-6    10e-6  1  1.46;
-             15e-6    0     1.25e-6  1  1.46;
-              2e-6   12e-6    10e-6  3  1.465]; % See the readme file for details
+P.n.func = @calcRI;
 
 P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
 
@@ -68,7 +66,7 @@ P = FD_BPM(P);
 %% Next segment
 P.figTitle = 'Segment 4';
 P.Lz = 3e-3;
-P.shapes = P.shapes(3,:);
+P.n.func = @calcRIsegment4;
 
 % Run solver
 P = FD_BPM(P);
@@ -81,4 +79,33 @@ amplitude2 = 2*exp(-((X+12e-6).^2+(Y+7e-6).^2)/w_0^2);
 phase1 = zeros(size(X));
 phase2 = 8e5*Y; % This beam component is defined with a phase that increases linearly with the y-coordinate, corresponding to a beam that is tilted slightly in the -y direction
 E = amplitude1.*exp(1i*phase1) + amplitude2.*exp(1i*phase2); % Electric field
+end
+
+%% USER DEFINED RI FUNCTIONS
+function n = calcRI(X,Y,n_background,nParameters)
+% n may be complex
+n = n_background*ones(size(X)); % Start by setting all pixels to n_background
+% Cores 1 and 2 are step index:
+n((X + 7e-6).^2 + (Y + 7e-6).^2 < 10e-6^2) = 1.46;
+n((X - 15e-6).^2 + Y.^2 < 1.25e-6^2) = 1.46;
+
+% Core 3 is graded index:
+corepos = [2e-6 12e-6];
+r = 10e-6;
+R3 = sqrt((X - corepos(1)).^2 + (Y - corepos(2)).^2);
+n(R3 < r) = n_background + (1.465 - n_background)*(1 - (R3(R3 < r)/r).^2); % Equation for parabolic graded index core
+end
+
+function n = calcRIsegment4(X,Y,n_background,nParameters)
+% n may be complex
+n = n_background*ones(size(X)); % Start by setting all pixels to n_background
+
+% Here we only want the third core, which has been tapered down and rotated
+% by 2*pi:
+corepos_initial = [2e-6 12e-6];
+r_initial = 10e-6;
+corepos_final = 0.15*corepos_initial; % The cores have rotated one whole revolution (2*pi), so we don't need to apply a rotation here.
+r_final = 0.15*r_initial;
+R3 = sqrt((X - corepos_final(1)).^2 + (Y - corepos_final(2)).^2);
+n(R3 < r_final) = n_background + (1.465 - n_background)*(1 - (R3(R3 < r_final)/r_final).^2); % Equation for parabolic graded index core
 end

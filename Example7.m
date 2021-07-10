@@ -43,13 +43,7 @@ pitch = 15e-6; % [m] Intercore spacing
 R = 2e-6; % [m] Core radius
 n_core = 1.46; % Cores' refractive index 
 
-% See the readme file for details on P.shapes
-P.shapes = NaN(nCores,5);
-P.shapes(:,1) = pitch*sqrt(1:nCores).*cos((1:nCores)*pi*(3-sqrt(5))); % Fermat's Golden Spiral core x positions
-P.shapes(:,2) = pitch*sqrt(1:nCores).*sin((1:nCores)*pi*(3-sqrt(5))); % Fermat's Golden Spiral core y positions
-P.shapes(:,3) = R;
-P.shapes(:,4) = 1; % Step index disks
-P.shapes(:,5) = n_core;
+P.n.func = @calcRI;
 
 load('exampleInputField.mat','E');
 P.E = E; % See the readme file for details
@@ -72,4 +66,18 @@ P.finalizeVideo = true; % finalizeVideo should only be set to true in the last s
 % Run solver
 [E_out_fft] = FFT_BPM(P);
 
+%% USER DEFINED RI FUNCTIONS
+function n = calcRI(X,Y,n_background,nParameters)
+% n may be complex
+nCores = 30;
+pitch = 15e-6;
+R = 2e-6;
+n_core = 1.46;
 
+n = n_background*ones(size(X)); % Start by setting all pixels to n_background
+for iCore=1:nCores
+  xCore = pitch*sqrt(iCore).*cos(iCore*pi*(3-sqrt(5)));
+  yCore = pitch*sqrt(iCore).*sin(iCore*pi*(3-sqrt(5)));
+  n((X - xCore).^2 + (Y - yCore).^2 < R^2) = n_core;
+end
+end

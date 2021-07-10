@@ -27,8 +27,7 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index, (in th
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-P.shapes = [ -2.5e-6 0 5e-6    1  1.46;
-              5e-6   0 2.5e-6  3  1.47]; % See the readme file for details
+P.n.func = @calcRI;
 
 nModes = 10; % For mode finding
 plotModes = true; % If true, will plot the found modes
@@ -40,3 +39,17 @@ P.E = P.modes(9); % The 9th mode is an LP31o-like mode
 
 % Run solver
 FD_BPM(P);
+
+%% USER DEFINED RI FUNCTIONS
+function n = calcRI(X,Y,n_background,nParameters)
+% n may be complex
+n = n_background*ones(size(X)); % Start by setting all pixels to n_background
+% Core 1 is step index:
+n((X + 2.5e-6).^2 + Y.^2 < 5e-6^2) = 1.46;
+
+% Core 2 is graded index:
+corepos = [5e-6 0];
+r = 2.5e-6;
+R = sqrt((X - corepos(1)).^2 + (Y - corepos(2)).^2);
+n(R < r) = n_background + (1.47 - n_background)*(1 - (R(R < r)/r).^2); % Equation for parabolic graded index core
+end

@@ -28,7 +28,7 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index (in thi
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-P.shapes = [ 0 0 5e-6  1  1.46]; % See the readme file for details
+P.n.func = @calcRI;
 
 P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
 
@@ -42,4 +42,11 @@ offset = 2.5e-6;
 amplitude = exp(-((X-offset).^2+Y.^2)/w_0^2);
 phase = zeros(size(X));
 E = amplitude.*exp(1i*phase); % Electric field
+end
+
+%% USER DEFINED RI FUNCTIONS
+function n = calcRI(X,Y,n_background,nParameters)
+% n may be complex
+n = n_background*ones(size(X)); % Start by setting all pixels to n_background
+n(X.^2 + Y.^2 < 5e-6^2) = 1.46;
 end

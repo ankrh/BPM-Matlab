@@ -1,9 +1,9 @@
 clear P % Parameters struct
 
-% This example starts shows the propagation of an LP mode in a multimode
-% fiber. The MMF is divided into four segments, where the first and last
-% are straight, the second is bent in the x direction and the third is bent
-% in the y direction. Plotting of the mode overlaps has been enabled by
+% This example shows the propagation of an LP mode in a multimode fiber.
+% The MMF is divided into four segments, where the first and last are
+% straight, the second is bent in the x direction and the third is bent in
+% the y direction. Plotting of the mode overlaps has been enabled by
 % setting P.calcModeOverlaps = true. Due to symmetry, the modes with odd
 % parity are not excited in the first two segments despite the bending.
 
@@ -30,7 +30,7 @@ P.lambda = 800e-9; % [m] Wavelength
 P.n_background = 1.45; % [] (may be complex) Background refractive index, (in this case, the cladding)
 P.n_0 = 1.4666; % [] reference refractive index
 
-P.shapes = [ 0 0 6e-6  1  1.4666]; % See the readme file for details
+P.n.func = @calcRI;
 
 %% Segment 1
 P.Lz = 5e-4; % [m] z propagation distances for this segment
@@ -73,3 +73,10 @@ P.bendDirection = 0;
 P.bendingRoC = Inf;
 
 P = FD_BPM(P);
+
+%% USER DEFINED RI FUNCTIONS
+function n = calcRI(X,Y,n_background,nParameters)
+% n may be complex
+n = n_background*ones(size(X)); % Start by setting all pixels to n_background
+n(X.^2 + Y.^2 < 6e-6^2) = 1.4666;
+end

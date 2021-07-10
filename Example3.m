@@ -1,7 +1,7 @@
 clear P % Parameters struct
 
 % This example starts in the same way as example 1. To demonstrate that in
-% media with uniform refractive index n_0, either the FFTBPM or FDBPM
+% media with uniform refractive index n_background, either the FFTBPM or FDBPM
 % solver can be used for propagation. The output of example 1 is propagated
 % 2e-4 m through a medium of uniform refractive index 1.45 with both
 % solvers. You can see that the results are identical by comparing figures
@@ -43,7 +43,7 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index, (in th
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-P.shapes = [ 0 0 5e-6  1  1.46]; % See the readme file for details
+P.n.func = @calcRI;
 
 P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
 
@@ -57,7 +57,7 @@ P.figNum = 2;
 P.figTitle = 'FD BPM';
 
 P.n_0 = 1.45;
-P.shapes = []; % Remove the shape
+P.n.func = @calcRIuniform;
 
 P.Lx_main = 100e-6;        % [m] x side length of main area
 P.Ly_main = 100e-6;        % [m] y side length of main area
@@ -85,4 +85,16 @@ offset = 2.5e-6;
 amplitude = exp(-((X-offset).^2+Y.^2)/w_0^2);
 phase = zeros(size(X));
 E = amplitude.*exp(1i*phase); % Electric field
+end
+
+%% USER DEFINED RI FUNCTIONS
+function n = calcRI(X,Y,n_background,nParameters)
+% n may be complex
+n = n_background*ones(size(X)); % Start by setting all pixels to n_background
+n(X.^2 + Y.^2 < 5e-6^2) = 1.46;
+end
+
+function n = calcRIuniform(X,Y,n_background,nParameters)
+% n may be complex
+n = n_background*ones(size(X));
 end

@@ -1,11 +1,10 @@
 clear P % Parameters struct
 
-% This example shows how to define a refractive index profile using the P.n
-% input instead of the P.shapes input. P.n.func is a handle to a
-% user-defined function at the end of the model file (this file), in which
-% the user can specify the refractive index profile using a series of
-% analytical expressions. In this example, we define the refractive index
-% profile to be an ellipsoidal core with part of one side cut off.
+% This example serves as inspiration on how to define differently shaped
+% cores based on arbitrary mathematical expressions. We define an
+% elliptical core in the refractive index function, and add a condition, X
+% > -2e-6, to further tweak the shape of the core by "cutting off" one side
+% of the core.
 
 %% General and solver-related settings
 P.name = mfilename;

@@ -24,17 +24,24 @@ k_0 = 2*pi/P.lambda;  % [m^-1] Wavenumber
 if isfield(P,'n_cladding')
   error('Error: n_cladding has been renamed n_background');
 end
-if ~isfield(P,'n') && ~isfield(P,'shapes')
-  error('If you don''t specify "shapes", you must specify "n"');
+if isfield(P,'shapes')
+  error('The P.shapes field has been deprecated. Use the P.n field to define the refractive index instead, as shown in the example files.');
+end
+if isfield(P,'n')
+  if ~isfield(P.n,'n') && ~isfield(P.n,'func')
+    error('P.n must contain either the field "func" or "n"');
+  end
+  if isfield(P.n,'n') && ~(isfield(P.n,'Lx') && isfield(P.n,'Ly'))
+    error('You must specify the side lengths Lx and Ly if you provide an array (2D or 3D) for the refractive index');
+  end
+  if isfield(P.n,'func') && nargin(P.n.func) == 5 && ~(isfield(P.n,'Lx') && isfield(P.n,'Ly') && isfield(P.n,'Nx') && isfield(P.n,'Ny') && isfield(P.n,'Nz'))
+    error('You must specify the side lengths Lx and Ly as well as the refractive index array resolutions Nx, Ny and Nz if you provide a 3D refractive index function');
+  end
+else
+  error('You must specify the P.n field');
 end
 if isfield(P,'n') && isa(P.n,'function_handle')
   error('The method of defining a refractive index function has changed. The function handle must now be stored in P.n.func instead of P.n.');
-end
-if isfield(P,'shapes') && isempty(P.shapes)
-  P.shapes = [0 0 0 1 0];
-end
-if isfield(P,'shapes') && any(P.shapes(:,4) == 2)
-  error('Antialiased shapes (shape type 2) are deprecated. Use non-antialiased shapes instead (shape type 1).');
 end
 if ~isfield(P,'figNum')
   P.figNum = 1;
@@ -104,13 +111,6 @@ if isfield(P,'n')
   end
   if isfield(P.n,'func') && nargin(P.n.func) == 5 && ~(isfield(P.n,'Lx') && isfield(P.n,'Ly') && isfield(P.n,'Nx') && isfield(P.n,'Ny') && isfield(P.n,'Nz'))
     error('You must specify the side lengths Lx and Ly as well as the refractive index array resolutions Nx, Ny and Nz if you provide a 3D refractive index function');
-  end
-end
-if isfield(P,'shapes') && size(P.shapes,2) == 5
-  if any(P.shapes(:,4) == 4) || any(P.shapes(:,4) == 5)
-    error('Since you have a GRIN lens, you must define the gradient constant g in the shapes array');
-  else
-    P.shapes(:,6) = NaN;
   end
 end
 if P.saveVideo && ~isfield(P,'videoName')
@@ -207,9 +207,6 @@ if ~priorData
     P.E.field = P.E.field/sqrt(sum(abs(P.E.field(:)).^2));
   end
   P.originalEinput = P.E;
-  if isfield(P,'shapes')
-    P.originalShapesInput = P.shapes;
-  end
 end
 
 %% Beam initialization
@@ -234,34 +231,7 @@ end
 
 %% Refractive index initialization
 d_n = []; % Array of dx, dy and dz for the refractive index profile, only used for 3D arrays
-% If shapes is defined, calculate refractive index profile
-if isfield(P,'shapes')
-  n = P.n_background*ones(Nx,Ny,'single'); % May be complex
-  for iShape = 1:size(P.shapes,1)
-    switch P.shapes(iShape,4)
-      case 1
-        n((X - P.shapes(iShape,1)).^2 + (Y - P.shapes(iShape,2)).^2 < P.shapes(iShape,3)^2) = P.shapes(iShape,5);
-      case 2
-        delta = max(dx,dy);
-        r_diff = sqrt((X - P.shapes(iShape,1)).^2 + (Y - P.shapes(iShape,2)).^2) - P.shapes(iShape,3) + delta/2;
-        n(r_diff < 0) = P.shapes(iShape,5);
-        n(r_diff >= 0 & r_diff < delta) = r_diff(r_diff >= 0 & r_diff < delta)/delta*(P.n_background - P.shapes(iShape,5)) + P.shapes(iShape,5);
-        clear r_diff
-      case 3
-        r_ratio_sqr = ((X - P.shapes(iShape,1)).^2 + (Y - P.shapes(iShape,2)).^2)/P.shapes(iShape,3)^2;
-        n(r_ratio_sqr < 1) = r_ratio_sqr(r_ratio_sqr < 1)*(P.n_background - P.shapes(iShape,5)) + P.shapes(iShape,5);
-        clear r_ratio_sqr
-      case 4
-        r = sqrt((X - P.shapes(iShape,1)).^2 + (Y - P.shapes(iShape,2)).^2);
-        n(r < P.shapes(iShape,3)) = P.shapes(iShape,5)*sech(P.shapes(iShape,6)*r(r < P.shapes(iShape,3)));
-        clear r
-      case 5
-        r = abs(Y - P.shapes(iShape,2));
-        n(r < P.shapes(iShape,3)) = P.shapes(iShape,5)*sech(P.shapes(iShape,6)*r(r < P.shapes(iShape,3)));
-        clear r
-    end
-  end
-elseif isfield(P.n,'func') % Otherwise if P.n has a function field
+if isfield(P.n,'func') % If P.n has a function field
   if nargin(P.n.func) == 4 % It's 2D
     n = single(P.n.func(X,Y,P.n_background,P.nParameters));
   else % It's 3D. We evaluate it on the user requested grid and trim the result
@@ -319,14 +289,8 @@ if ~P.disableStepsizeWarning
   dz_max1 = max_a*4*dx^2*k_0*P.n_0;
   dz_max2 = max_a*4*dy^2*k_0*P.n_0;
   dz_max3 = max_d*2*P.n_0/k_0;
-  if isfield(P,'shapes') && (any(P.shapes(:,4) == 1) || any(P.shapes(:,4) == 2))
-    if dz > min([dz_max1 dz_max2 dz_max3])
-      warning('z step size is high (> %.1e m), which may introduce numerical artifacts. You can disable this warning by setting P.disableStepsizeWarning = true.',min([dz_max1 dz_max2 dz_max3]));
-    end
-  else
-    if dz > min([dz_max1 dz_max2])
-      warning('z step size is high (> %.1e m), which may introduce numerical artifacts. You can disable this warning by setting P.disableStepsizeWarning = true.',min(dz_max1,dz_max2));
-    end
+  if dz > min([dz_max1 dz_max2 dz_max3])
+    warning('z step size is high (> %.1e m), which may introduce numerical artifacts. You can disable this warning by setting P.disableStepsizeWarning = true.',min([dz_max1 dz_max2 dz_max3]));
   end
 end
 
@@ -406,13 +370,6 @@ xlabel('x [m]');
 ylabel('y [m]');
 title('Intensity [W/m^2]');
 line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
-if isfield(P,'shapes') && (P.taperScaling == 1 && P.twistRate == 0)
-  for iShape = 1:size(P.shapes,1)
-    if P.shapes(iShape,4) <=3
-      line(P.shapes(iShape,1) + P.shapes(iShape,3)*cos(linspace(0,2*pi,100)),P.shapes(iShape,2) + P.shapes(iShape,3)*sin(linspace(0,2*pi,100)),'color','w','linestyle','--');
-    end
-  end
-end
 setColormap(gca,P.Intensity_colormap);
 if isfield(P,'plotEmax')
   caxis('manual');
@@ -440,13 +397,6 @@ ylim([-1 1]*Ly/(2*P.displayScaling));
 colorbar;
 caxis([-pi pi]);
 line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
-if isfield(P,'shapes') && (P.taperScaling == 1 && P.twistRate == 0)
-  for iShape = 1:size(P.shapes,1)
-    if P.shapes(iShape,4) <=3
-      line(P.shapes(iShape,1) + P.shapes(iShape,3)*cos(linspace(0,2*pi,100)),P.shapes(iShape,2) + P.shapes(iShape,3)*sin(linspace(0,2*pi,100)),'color','w','linestyle','--');
-    end
-  end
-end
 xlabel('x [m]');
 ylabel('y [m]');
 title('Phase [rad]');
@@ -485,10 +435,6 @@ end
 
 % tic;
 %% Load variables into a parameters struct and start looping, one iteration per update
-% mexParameters = struct('dx',single(dx),'dy',single(dy),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
-%   'shapes',single(real(P.shapes)),'shapeAbsorptions',single(shapeAbsorptions),'n_background',single(real(P.n_background)),'backgroundAbsorption',single(backgroundAbsorption),'multiplier',complex(single(multiplier)),'d',single(d),'n_0',single(P.n_0),...
-%   'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
-%   'inputPrecisePower',P.powers(end-length(zUpdateIdxs)));
 mexParameters = struct('dx',single(dx),'dy',single(dy),'dz',single(dz),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
   'multiplier',single(multiplier),'n_mat',complex(single(n)),'d_n',single(d_n),'d',single(d),'n_0',single(P.n_0),...
   'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
@@ -508,7 +454,7 @@ for updidx = 1:length(zUpdateIdxs)
   else
     [E,n_slice,precisePower] = FDBPMpropagator(E,mexParameters);
   end
-
+  
   %% Update figure contents
   if P.downsampleImages
     h_im1.CData = real(n_slice(ix_plot,iy_plot)).'; % Refractive index at this update
@@ -558,15 +504,7 @@ if P.saveVideo
   end
 end
 
-%% Calculate the output shapes and store the final E field as the new input field
-if isfield(P,'shapes')
-  shapesFinal = P.shapes;
-  shapesFinal(:,1) = P.taperScaling*(cos(P.twistRate*P.Lz)*P.shapes(:,1) - sin(P.twistRate*P.Lz)*P.shapes(:,2));
-  shapesFinal(:,2) = P.taperScaling*(sin(P.twistRate*P.Lz)*P.shapes(:,1) + cos(P.twistRate*P.Lz)*P.shapes(:,2));
-  shapesFinal(:,3) = P.taperScaling*P.shapes(:,3);
-  P.shapes = shapesFinal;
-end
-
+%% Store the final E field and n as the new inputs
 P.E = struct('field',E,'Lx',Lx,'Ly',Ly);
 P.n = struct('n',n_slice,'Lx',Lx,'Ly',Ly);
 
