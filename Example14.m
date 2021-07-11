@@ -1,5 +1,9 @@
 clear P % Parameters struct
 
+% This example shows how to define a 3D refractive index, e.g., modulated
+% along the z axis. It also shows that the E-field simulation results can
+% be stored in a 3D array and plotted volumetrically.
+
 % This example is a reproduction of the RP Fiber Power demo file "Long
 % period Bragg grating.fpw", in which a fiber refractive index is
 % defined with a super-Gaussian profile and a sinusoidal variation along z.
@@ -32,6 +36,7 @@ P.name = mfilename;
 %% Visualization parameters
 P.updates = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
 P.plotEmax = 3; % Max of color scale in the intensity plot, relative to the peak of initial intensity
+P.storeE3D = true; % Store the E-field at each update and plot them all volumetrically at the end of FD_BPM
 
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 100e-6;        % [m] x side length of main area

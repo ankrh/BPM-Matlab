@@ -38,15 +38,17 @@ If the model contains multiple segments, BPM-Matlab will add a new segment with 
 - `P.name`  
 A descriptive name of the model. This will only be used if you choose to automatically save the output of the simulation. Good practice is to use the same name as the model filename.
 - `P.useAllCPUs`  
-BPM-Matlab will by default leave one processor core unused, which is useful for doing other work on the PC while simulations are running. If you are in need for speed and don't plan to use your PC while doing the simulation, set this parameter to true.
+(Default: false) BPM-Matlab will by default leave one processor core unused, which is useful for doing other work on the PC while simulations are running. If you are in need for speed and don't plan to use your PC while doing the simulation, set this parameter to true.
 - `P.useGPU`  
-This allows to use CUDA acceleration for NVIDIA GPUs. The default is false. Only set this to true if you have a CUDA enabled NVIDIA GPU.
+(Default: false) This allows to use CUDA acceleration for NVIDIA GPUs. Only set this to true if you have a CUDA enabled NVIDIA GPU.
 
 ##### Visualization parameters
 - `P.updates`  
 The number of times during the simulation the plot in the frontend should update. This is useful for following the E-field evolution, but adds overhead to the calculation, as for each update, the currently calculated full simulation window has to be extracted and displayed. If you're only interested in the E-field at the end of the waveguide, set this to 1.
 - `P.plotEmax`  
 Here you can set the maximum of the color scale in the intensity plot, relative to the peak of initial intensity. If left unset, the intensity plot autoscales.
+- `P.storeE3D`
+(Default: false) If this is set to true, FD_BPM will store all the update slices of the propagated E-field in the 3D array P.E3D, and will also plot it volumetrically once the simulation is complete. It will only store one segment at a time, however.
 
 ##### Resolution related paramaters
 Be aware that you have to ensure yourself that the pixel size and z step size are small enough for the simulation to converge. This is typically done by doing a manual parameter scan of the resolution parameters.
@@ -101,23 +103,23 @@ There are three ways to define the initial E-field:
 The fibres can be bent, tapered and twisted as follows:
 
 - `P.taperScaling`  
-The ratio of the width of the structure at the end of the segment to the width at the beginning of the segment.
+(Default: 1) The ratio of the width of the structure at the end of the segment to the width at the beginning of the segment.
 - `P.twistRate`  
-The rate of rotation in units of radians per meter.
+(Default: 0) The rate of rotation in units of radians per meter.
 - `P.bendDirection`  
-Direction of the bending in degrees, in a polar coordinate system with 0° to the right (towards positive x) and increasing angles in counterclockwise direction.
+(Default: 0) Direction of the bending in degrees, in a polar coordinate system with 0° to the right (towards positive x) and increasing angles in counterclockwise direction.
 - `P.bendingRoC`  
-Radius of curvature of the bend in meters.
+(Default: Inf) Radius of curvature of the bend in meters.
 
 ##### Video saving
 Optionally, the figure can be saved to a video during simulation, check Example6.m on how to do that. The following parameters can be used:
 
 - `P.saveVideo`  
-Set this to `true` to record the field intensity and phase profiles at different transverse planes in preparation of saving to a video. Default is `false`.
+(Default: false) Set this to `true` to record the field intensity and phase profiles at different transverse planes in preparation of saving to a video.
 - `P.videoName`  
 Set the name of the video to be saved.
 - `P.finalizeVideo`  
-This controls whether the video should be finalised and saved after the current segment. Set this to `true` if the current segment is the last segment in your simulation, and to `false` otherwise.
+(Default: true) This controls whether the video should be finalised and saved after the current segment. Set this to `true` if the current segment is the last segment in your simulation, and to `false` otherwise.
 
 ##### Colormaps of the graphs
 
@@ -148,11 +150,11 @@ number of modes to try to find
 
 After nModes, three different Name,Value pairs can be added to the list of arguments. They can be any of the following:
 - `plotModes`
-(default: `true`) Set to `false` to tell the solver to not plot the found modes at the end of findModes.
+(Default: `true`) Set to `false` to tell the solver to not plot the found modes at the end of findModes.
 - `sortByLoss`
-(default: `false`) Set to `true` to sort the list of found modes in order of ascending loss. If `false`, sorts in order of ascending real part of the effective refractive index.
+(Default: `false`) Set to `true` to sort the list of found modes in order of ascending loss. If `false`, sorts in order of ascending real part of the effective refractive index.
 - `singleCoreModes`
-(default: `false`) If `true`, finds modes for each core individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
+(Default: `false`) If `true`, finds modes for each core individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
 
 findModes will upon completion set `P.modes`, a struct array with each elemnt correspondng to one mode. You may then set `P.calcModeOverlaps` to `true` to, when propagating the beam, calculate mode overlap integrals of propagating field with respect to the different modes that were set in the `P.modes` struct array.
 

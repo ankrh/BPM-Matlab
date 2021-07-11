@@ -13,6 +13,7 @@ clf;
 axes
 
 xyzaxes = false; % Assume axes are not necessarily spatial axes and should not be labeled or set "axis equal"
+xyequal = false;
 checkboxvisible = true; % Assume the log10 checkbox should be visible
 directmapping = false; % Assume CDataMapping should not be set to direct
 reverseZ = false; % Assume z axis is not inverted
@@ -45,6 +46,17 @@ elseif(any(strcmp(varargin,'LightSheetStack')))
   reverseX = true;
   swapYZ = true;
   axeslabels = {'xS [µm]','yS [µm]','zS [µm]'}; % In case of xyzaxes, what should the x, y, z labels be
+elseif(any(strcmp(varargin,'BPM-Matlab_RI')))
+  checkboxvisible = false;
+  xyzaxes = true;
+  axeslabels = {'x [m]','y [m]','z [m]'}; % In case of xyzaxes, what should the x, y, z labels be
+  xyequal = true;
+elseif(any(strcmp(varargin,'BPM-Matlab_I')))
+  fromZero = true;
+  xyzaxes = true;
+  axeslabels = {'x [m]','y [m]','z [m]'}; % In case of xyzaxes, what should the x, y, z labels be
+  xyequal = true;
+  colormap(parula);
 end
 
 if swapYZ
@@ -147,10 +159,10 @@ else
 end
 h_checkbox1 = uicontrol('Parent',h_f,'Style','checkbox','BackgroundColor','w','Position',[70,90,20,20]);
 h_checkbox1text = uicontrol('style','text','String','log10 plot','BackgroundColor','w','Position',[16,87,50,20]);
-% if ~checkboxvisible
+if ~checkboxvisible
   set(h_checkbox1,'Visible','off');
   set(h_checkbox1text,'Visible','off');
-% end
+end
 
 h_surfxback  = surface(repmat(xb,ny,nz),repmat(y', 1,nz),repmat(z ,ny, 1),squeeze(h_f.UserData(xbi,:,:)),'LineStyle','none');
 h_surfyback  = surface(repmat(x', 1,nz),repmat(yh,nx,nz),repmat(z ,nx, 1),squeeze(h_f.UserData(:,end,:)),'LineStyle','none');
@@ -172,7 +184,14 @@ h_zline = line([xs xh xh xl xl xs xs],[yl yl yh yh yl yl yh],[zs zs zs zs zs zs 
 
 axis tight
 if xyzaxes
-  axis equal
+  if xyequal
+    myDaspect = daspect;
+    sortedMyDaspect = sort(myDaspect);
+    myDaspect(myDaspect == sortedMyDaspect(1)) = sortedMyDaspect(2);
+    daspect(myDaspect);
+  else
+    axis equal
+  end
   xlabel(axeslabels{1})
   if swapYZ
     ylabel(axeslabels{3})
@@ -182,6 +201,7 @@ if xyzaxes
     zlabel(axeslabels{3})
   end
 end
+  
 set(gca,'fontsize',18)
 if reverseZ
   set(gca,'ZDir','reverse')

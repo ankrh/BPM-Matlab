@@ -48,6 +48,9 @@ end
 if isfield(P.n,'func') && nargin(P.n.func) == 5 && ~isfield(P.n,'Nz')
   error('You must specify the refractive index array z resolution P.n.Nz if you provide a 3D refractive index function');
 end
+if ~isfield(P,'storeE3D')
+  P.storeE3D = false;
+end
 if ~isfield(P,'figNum')
   P.figNum = 1;
 end
@@ -262,11 +265,7 @@ if Nz_n > 1
   x_n = dx*(-(Nx_n-1)/2:(Nx_n-1)/2);
   y_n = dy*(-(Ny_n-1)/2:(Ny_n-1)/2);
   z_n = dz_n*(0:Nz_n-1);
-  plotVolumetric(201,x_n,y_n,z_n,real(n));
-  myDaspect = daspect;
-  sortedMyDaspect = sort(myDaspect);
-  myDaspect(myDaspect == sortedMyDaspect(1)) = sortedMyDaspect(2);
-  daspect(myDaspect);
+  plotVolumetric(201,x_n,y_n,z_n,real(n),'BPM-Matlab_RI');
   title('Real part of refractive index');xlabel('x [m]');ylabel('y [m]');zlabel('z [m]');
 end
 
@@ -334,6 +333,10 @@ else
   P.yzSlice = {NaN(Ny,P.updates+1)};
   P.xzSlice{1}(:,1) = E(:,round((Nx-1)/2+1));
   P.yzSlice{1}(:,1) = E(round((Ny-1)/2+1),:);
+end
+if P.storeE3D
+  P.E3D = complex(NaN(Nx,Ny,P.updates+1,'single'));
+  P.E3D(:,:,1) = E;
 end
 
 subplot(2,2,2);
@@ -445,6 +448,9 @@ for updidx = 1:length(zUpdateIdxs)
   else
     [E,n_slice,precisePower] = FDBPMpropagator(E,mexParameters);
   end
+  if P.storeE3D
+    P.E3D(:,:,updidx + 1) = E;
+  end
   
   %% Update figure contents
   if P.downsampleImages
@@ -493,6 +499,11 @@ if P.saveVideo
   else
     P.videoHandle = video;
   end
+end
+
+%% If storing the 3D E data, plot it volumetrically
+if P.storeE3D
+  plotVolumetric(202,x,y,P.z,abs(P.E3D).^2,'BPM-Matlab_I');
 end
 
 %% Store the final E field and n as the new inputs
