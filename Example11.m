@@ -47,11 +47,7 @@ P.Lz = 2e-3; % [m] z propagation distances for this segment
 
 P.n.func = @calcRI;
 
-nModes = 2; % For mode finding
-plotModes = true; % If true, will plot the found modes
-sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
-singleCoreModes = true; % If true, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
-P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
+P = findModes(P,2,'singleCoreModes',true,'sortByLoss',true); % Find 2 modes, one for each core by itself. Sort them so that lowest loss mode is first.
 
 P.E = modeSuperposition(P,[1 2]); % See the readme file for details
 

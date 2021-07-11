@@ -44,11 +44,7 @@ P.n = struct('n',flipud(single(imread('moon.tif'))).'/255*0.02 + P.n_background,
              'Lx',10e-6, ...
              'Ly',10e-6*(537/358)); % See the readme file for details
 
-nModes = 5; % For mode finding
-plotModes = true; % If true, will plot the found modes
-sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
-singleCoreModes = false; % If true and if P.shapes is defined, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
-P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
+P = findModes(P,5);
 P.E = P.modes(5); % See the readme file for details
 
 %% First segment, non-twisted fiber

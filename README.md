@@ -139,20 +139,22 @@ Each call to `P = FD_BPM(P);` will add a new segment to the simulation that uses
 BPM-Matlab comes with an FD-BPM and an FFT-BPM solver. FD-BPM should be used for propagation through media with a non-uniform refractive index, while FFT-BPM should be used for propagation through media with uniform refractive index. Check Example3.m for a comparison.
 
 #### Optional Mode solver
-BPM-Matlab includes a mode solver that can calculate the supported modes of the waveguide and calculate the overlap of the simulated E-field with these modes. Check Example9.m on how to do so. The modes are *not* used for the propagation simulation itself. The mode finder will not return unguided modes. The modes will be labeled with LPlm designations if the refractive index is assessed to be radially symmetric, otherwise the modes will simply be labeled sequentially (Mode 1, 2, 3 etc.).
+BPM-Matlab includes a mode solver that can calculate the supported modes of the waveguide and calculate the overlap of the simulated E-field with these modes. Check Example9.m on how to do so. The mode finder starts its search at effective refractive indices equal to n_0, so if the mode finder fails to identify the lower-order modes, try increasing n_0. The modes are *not* used for the propagation simulation itself. The mode finder will not return unguided modes. The modes will be labeled with LPlm designations if the refractive index is assessed to be radially symmetric, otherwise the modes will simply be labeled sequentially (Mode 1, 2, 3 etc.).
 To use the mode solver, find the modes supported by the waveguide (after you set all the other parameters of P, especially P.n) by using
-`P = findModes(P,nModes,sortByLoss,plotModes);` with
+`P = findModes(P,nModes);` with
 
 - `nModes`  
-number of modes to find
-- `plotModes`  
-set to `true` if the solver should plot the found modes at the end of findModes
-- `sortByLoss`
-Set to `true` to sort the list of found modes in order of ascending loss. If `false`, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
-- `singleCoreModes`
-If `true`, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
+number of modes to try to find
 
-This will set `P.modes`, a struct array with each elemnt correspondng to one mode. You may then set `P.calcModeOverlaps` to `true` to calculate mode overlap integrals of propagating field with respect to the different modes that were set in the `P.modes` struct array.
+After nModes, three different Name,Value pairs can be added to the list of arguments. They can be any of the following:
+- `plotModes`
+(default: `true`) Set to `false` to tell the solver to not plot the found modes at the end of findModes.
+- `sortByLoss`
+(default: `false`) Set to `true` to sort the list of found modes in order of ascending loss. If `false`, sorts in order of ascending real part of the effective refractive index.
+- `singleCoreModes`
+(default: `false`) If `true`, finds modes for each core individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
+
+findModes will upon completion set `P.modes`, a struct array with each elemnt correspondng to one mode. You may then set `P.calcModeOverlaps` to `true` to, when propagating the beam, calculate mode overlap integrals of propagating field with respect to the different modes that were set in the `P.modes` struct array.
 
 A function is provided to make it easy to inject a field that is a superposition of modes. After running `findModes`, you can run `P.E = modeSuperposition(P,modeIdxs,coefficients)` with the arguments
 - `modeIdxs`

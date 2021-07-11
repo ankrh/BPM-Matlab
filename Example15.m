@@ -40,11 +40,7 @@ P.n_0 = 1.443; % [] reference refractive index
 P.n.func = @calcRI;
 
 %% Mode finder
-nModes = 15; % For mode finding
-plotModes = true; % If true, will plot the found modes
-sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
-singleCoreModes = false; % If true, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
-P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
+P = findModes(P,15);
 
 %% USER DEFINED RI FUNCTIONS
 function n = calcRI(X,Y,n_background,nParameters)

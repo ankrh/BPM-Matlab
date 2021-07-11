@@ -29,11 +29,9 @@ P.Lz = 2e-3; % [m] z propagation distances for this segment
 
 P.n.func = @calcRI;
 
-nModes = 10; % For mode finding
-plotModes = true; % If true, will plot the found modes
-sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
-singleCoreModes = false; % If true, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
-P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
+% We search for the 10 modes with effective refractive index closest to
+% n_0:
+P = findModes(P,10);
 
 P.E = P.modes(9); % The 9th mode is an LP31o-like mode
 

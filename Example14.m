@@ -53,11 +53,7 @@ P.n.Nz = 1500;
 
 P.nParameters = {0}; % No grating for initial mode finding
 
-nModes = 20; % For mode finding
-plotModes = true; % If true, will plot the found modes
-sortByLoss = false; % If true, sorts the list of found modes in order of ascending loss. If false, sorts in order of ascending imaginary part of eigenvalue (descending propagation constant)
-singleCoreModes = false; % If true, finds modes for each core/shape individually. Note that the resulting "modes" will only be true modes of the entire structure if the core-to-core coupling is negligible.
-P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes);
+P = findModes(P,20);
 
 P.calcModeOverlaps = true;
 

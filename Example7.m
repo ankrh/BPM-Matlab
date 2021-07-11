@@ -38,11 +38,6 @@ P.Lz = 0.3e-3; % [m] z propagation distances for this segment
 P.bendDirection = 0; % [degrees] direction of the bending, in a polar coordinate system with 0° to the right (towards positive x) and increasing angles in counterclockwise direction
 P.bendingRoC = 1e-2; % [m] radius of curvature of the bend
 
-nCores = 30;  %[] Number of cores in the multicore fibre
-pitch = 15e-6; % [m] Intercore spacing
-R = 2e-6; % [m] Core radius
-n_core = 1.46; % Cores' refractive index 
-
 P.n.func = @calcRI;
 
 load('exampleInputField.mat','E');

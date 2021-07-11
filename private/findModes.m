@@ -1,4 +1,20 @@
-function P = findModes(P,nModes,singleCoreModes,sortByLoss,plotModes)
+function P = findModes(P,nModes,varargin)
+singleCoreModes = false;
+sortByLoss = false;
+plotModes = true;
+for i=1:2:numel(varargin)
+  switch varargin{i}
+    case 'singleCoreModes'
+      singleCoreModes = varargin{i+1};
+    case 'sortByLoss'
+      sortByLoss = varargin{i+1};
+    case 'plotModes'
+      plotModes = varargin{i+1};
+    otherwise
+      error('Argument #%d for findModes not recognized. The syntax for findModes has recently changed. See the examples and the readme.',i+2);
+  end
+end
+
 if isfield(P,'n_cladding')
   error('Error: n_cladding has been renamed n_background');
 end
@@ -212,8 +228,7 @@ for iMode = 1:numel(P.modes)
     axis equal; axis tight; axis xy;
     setColormap(gca,P.Intensity_colormap);
     subplot(1,2,2);
-    maxE0 = max(E(:));
-    imagesc(x,y,angle(E.'/maxE0),'AlphaData',max(0,(1+log10(abs(E.'/maxE0).^2)/3)));
+    imagesc(x,y,angle(E.'),'AlphaData',max(0,(1+log10(abs(E.'/max(E(:))).^2)/3)));
     set(gca,'Color',0.7*[1 1 1]);  % To set the color corresponding to phase outside the cores where there is no field at all
     caxis([-pi pi]);
     axis equal; axis tight; axis xy;
