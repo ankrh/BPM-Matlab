@@ -4,6 +4,9 @@ function [Estruct, P] = FFT_BPM(P)
 % Date: 12 July 2019
 % ***************************************************************************************************
 
+if ~isfield(P,'displayScaling')
+  P.displayScaling = 1;
+end
 if ~isfield(P,'figNum')
   P.figNum = 1;
 end

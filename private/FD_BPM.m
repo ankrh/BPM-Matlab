@@ -39,9 +39,6 @@ end
 if ~isfield(P.n,'func') && ~(isfield(P.n,'Lx') && isfield(P.n,'Ly'))
   error('You must specify the side lengths Lx and Ly if you provide an array (2D or 3D) for the refractive index');
 end
-if isfield(P.n,'func') && (isfield(P.n,'Lx') || isfield(P.n,'Ly'))
-  warning('The P.n.Lx and P.n.Ly fields are no longer necessary when using RI functions. RI functions are now simply evaluated within the whole simulation window.');
-end
 if isfield(P.n,'Nx') || isfield(P.n,'Ny')
   warning('The P.n.Nx and P.n.Ny fields are no longer necessary. 3D RI functions are now simply evaluated with the same xy resolution as the simulation grid.');
 end
