@@ -74,6 +74,10 @@ Ny = round(targetLy/dy);
 if rem(Ny,2) ~= rem(P.Ny_main,2)
   Ny = Ny + 1; % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
 end
+N = Nx*Ny;                                                            %N*N - size of sparse matrices
+if nModes >= N - 1
+  error('Error: The number of modes requested must be less than the pixels in the full simulation window minus one (roughly Nx_main*padfactor*Ny_main*padfactor - 1)');
+end
 Lx = Nx*dx;
 Ly = Ny*dy;
 
@@ -139,7 +143,6 @@ for iCore = 1:nCores
   ay = dz/(dy^2*2i*k_0*P.n_0);
 
 
-  N = Nx*Ny;                                                            %N*N - size of sparse matrices
   M_rhs = sparse(1:N,1:N,absorber(1:N) + delta_n_2(1:N)*dz*k_0/(2i*P.n_0),N,N) + ...
     sparse(1:N-1,2:N,[repmat([repmat(ax,1,Nx-1) 0],1,Ny-1) repmat(ax,1,Nx-1)],N,N) + ...
     sparse(2:N,1:N-1,[repmat([repmat(ax,1,Nx-1) 0],1,Ny-1) repmat(ax,1,Nx-1)],N,N) + ...
@@ -150,7 +153,7 @@ for iCore = 1:nCores
   absorberdiag = sparse(1:N,1:N,absorber(1:N),N,N);
   M_rhs = M_rhs*absorberdiag;
 
-  [V,D] = eigs(M_rhs,ceil(nModes/nCores),1,'Display',false,'SubspaceDimension',ceil(nModes/nCores)*10);
+  [V,D] = eigs(M_rhs,ceil(nModes/nCores),1,'Display',false,'SubspaceDimension',min(N,ceil(nModes/nCores)*10));
   D = diag(D);
   
   kappa = (1-real(D))/dz*P.lambda/(4*pi);
