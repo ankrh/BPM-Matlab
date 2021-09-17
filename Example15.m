@@ -1,7 +1,7 @@
 clear P % Parameters struct
 
 % This example shows that the mode finder can correctly find the LPlm
-% labels even of modes of nonstandard radially symmetric reractive index
+% labels even of modes of nonstandard radially symmetric refractive index
 % distributions.
 % 
 % The refractive index is chosen to approximate that of Figure 3 of

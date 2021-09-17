@@ -12,10 +12,6 @@ function P = FD_BPM(P)
 % (https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm)
 % ***********************************************************************
 
-if ~(ispc || ismac)
-  error('Error: BPM-Matlab doesn''t support Linux systems yet');
-end
-
 format long
 format compact
 
@@ -138,6 +134,9 @@ end
 
 %% Check for GPU compatibility if needed
 if P.useGPU
+  if ~ispc
+    error('GPU computing is only supported on Windows');
+  end
   v = ver;
   if ~any(strcmp({v.Name},'Parallel Computing Toolbox'))
     error('You must have the Parallel Computing Toolbox installed to use GPU acceleration');
