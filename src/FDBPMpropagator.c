@@ -26,7 +26,7 @@
  * 2. Type "mex -setup" in the MATLAB command window
  *
  ** Compiling on Linux
- * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' -outdir private ./src/FDBPMpropagator.c "./src/libut.so" -lgomp -R2018a"
+ * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' -outdir private ./src/FDBPMpropagator.c ./src/libut.so -R2018a"
  *
  * To get the MATLAB C compiler to work, try this:
  * 1. Use a package manager like apt to install GCC (on Ubuntu, part of the build-essential package)

@@ -296,8 +296,10 @@ d = -dz*k_0;
 multiplier = single(exp(-dz*max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha)); % Is real
 
 %% Figure initialization
-h_f = figure(P.figNum);clf;
-h_f.WindowState = 'maximized';
+h_f = figure(P.figNum);clf reset;
+if strcmp(h_f.WindowStyle,'normal') 
+  h_f.WindowState = 'maximized';
+end
 
 h_axis1 = subplot(2,2,1);
 if P.downsampleImages
