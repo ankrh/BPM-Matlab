@@ -40,7 +40,7 @@ P.bendingRoC = 1e-2; % [m] radius of curvature of the bend
 
 P.n.func = @calcRI;
 
-load('exampleInputField.mat','E');
+load('./ExampleData/exampleInputField.mat','E');
 P.E = E; % See the readme file for details
 
 % Run solver

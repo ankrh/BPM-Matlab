@@ -53,7 +53,7 @@ P = FD_BPM(P);
 E = P.E; % Store this for use in the FFTBPM
 
 %% Part 2 run with FDBPM
-P.figNum = 2;
+P.figNum = 101;
 P.figTitle = 'FD BPM';
 
 P.n_0 = 1.45;
@@ -72,7 +72,7 @@ P = FD_BPM(P);
 
 %% Part 2 run with FFTBPM for comparison
 P.E = E; % Use E field output from part 1
-P.figNum = 3;
+P.figNum = 201;
 P.figTitle = 'FFT BPM';
 
 % Run solver
