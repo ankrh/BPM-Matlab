@@ -337,7 +337,7 @@ if P.storeE3D
   P.E3D(:,:,1) = E;
 end
 
-subplot(2,2,2);
+h_ax2 = subplot(2,2,2);
 h_plot2 = plot(P.z,P.powers,'linewidth',2);
 xlim([0 P.z(end)]);
 ylim([0 1.1]);
@@ -472,6 +472,7 @@ for updidx = 1:length(zUpdateIdxs)
   mexParameters.inputPrecisePower = precisePower;
   P.powers(end-length(zUpdateIdxs)+updidx) = precisePower;
   h_plot2.YData = P.powers;
+  h_ax2.YLim = [0 1.1*max(P.powers)];
 
   P.xzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(:,round((Nx-1)/2+1));
   P.yzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(round((Ny-1)/2+1),:);
@@ -533,8 +534,6 @@ sgtitle('Far field in air, in paraxial approximation');
 title({'Intensity','Divergence 4\sigma full-angles:',['\Theta_x = ' num2str(Theta_x,3) '°, \Theta_y = ' num2str(Theta_y,3) '°']});
 xlabel('\theta_x [°]');
 ylabel('\theta_y [°]');
-line(10*cosd(0:360),10*sind(0:360),'color','w','linestyle','--');
-line(20*cosd(0:360),20*sind(0:360),'color','w','linestyle','--');
 colorbar;
 setColormap(gca,P.Intensity_colormap);
 
@@ -545,8 +544,6 @@ axis xy equal tight;
 title('Phase');
 xlabel('\theta_x [°]');
 ylabel('\theta_y [°]');
-line(10*cosd(0:360),10*sind(0:360),'color','w','linestyle','--');
-line(20*cosd(0:360),20*sind(0:360),'color','w','linestyle','--');
 colorbar;
 setColormap(gca,P.Phase_colormap);
 

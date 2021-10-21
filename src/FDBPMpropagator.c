@@ -451,7 +451,7 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
     floatcomplex a = P->multiplier[i]*CEXPF(P->d*(CIMAGF(n) + (sqrf(n_bend) - sqrf(P->n_0))*I/(2*P->n_0))); // Multiplier includes only the edge absorber
     P->E2[i] *= fieldCorrection*a;
     float anormsqr = sqrf(CREALF(a)) + sqrf(CIMAGF(a));
-    if(anormsqr > 1 - 10*FLT_EPSILON) anormsqr = 1; // To avoid accumulating power discrepancies due to rounding errors
+    if(anormsqr > 1 - 10*FLT_EPSILON && anormsqr < 1 + 10*FLT_EPSILON) anormsqr = 1; // To avoid accumulating power discrepancies due to rounding errors
     precisePowerDiffThread += (sqrf(CREALF(P->E2[i])) + sqrf(CIMAGF(P->E2[i])))*(1 - 1/anormsqr);
   }
 
