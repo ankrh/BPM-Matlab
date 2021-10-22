@@ -521,7 +521,7 @@ end
 
 %% Calculate and plot the far field of the final E
 figure(P.figNum+2);clf reset;
-N_FFhalf = 1000; % Points to have at negative theta_x and theta_y in the far field
+N_FFhalf = 500; % Points to have at negative theta_x and theta_y in the far field
 N_FF = 2*N_FFhalf + 1; % Total number of points in theta_x and theta_y
 theta_max = 30; % [deg] max angle
 
@@ -545,9 +545,9 @@ axis xy equal tight;
 Theta_x = 4*std(theta_x,sum(abs(E_FF).^2,2));
 Theta_y = 4*std(theta_y,sum(abs(E_FF).^2,1));
 sgtitle('Far field in air, in paraxial approximation');
-title({'Intensity','Divergence 4\sigma full-angles:',['\Theta_x = ' num2str(Theta_x,3) 'Â°, \Theta_y = ' num2str(Theta_y,3) 'Â°']});
-xlabel('\theta_x [Â°]');
-ylabel('\theta_y [Â°]');
+title({'Intensity','Divergence 4\sigma full-angles:',['\Theta_x = ' num2str(Theta_x,3) '°, \Theta_y = ' num2str(Theta_y,3) '°']});
+xlabel('\theta_x [°]');
+ylabel('\theta_y [°]');
 colorbar;
 setColormap(gca,P.Intensity_colormap);
 
@@ -556,8 +556,8 @@ imagesc(theta_x,theta_y,angle(E_FF.'),'AlphaData',max(0,(1+log10(abs(E_FF.'/max(
 set(gca,'Color',0.7*[1 1 1]);
 axis xy equal tight;
 title('Phase');
-xlabel('\theta_x [Â°]');
-ylabel('\theta_y [Â°]');
+xlabel('\theta_x [°]');
+ylabel('\theta_y [°]');
 colorbar;
 setColormap(gca,P.Phase_colormap);
 
