@@ -74,6 +74,9 @@ end
 if ~isfield(P,'disableStepsizeWarning')
   P.disableStepsizeWarning = false;
 end
+if ~isfield(P,'disablePlotTimeWarning')
+  P.disablePlotTimeWarning = false;
+end
 if ~isfield(P,'Eparameters')
   P.Eparameters = {};
 end
@@ -425,7 +428,6 @@ if P.calcModeOverlaps % Mode overlap figure
   h_ax.LineStyleOrder = {'-','--',':','-.'};
 end
 
-% tic;
 %% Load variables into a parameters struct and start looping, one iteration per update
 mexParameters = struct('dx',single(dx),'dy',single(dy),'dz',single(dz),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
   'multiplier',single(multiplier),'n_mat',complex(single(n)),'dz_n',single(dz_n),'d',single(d),'n_0',single(P.n_0),...
@@ -435,17 +437,21 @@ mexParameters = struct('dx',single(dx),'dy',single(dy),'dz',single(dz),'taperPer
 % fprintf("dz = %.2e, ax = %.2f i, ay = %.2f i, d = %.2f\n",dz,ax/1i,ay/1i,d);
 mexParameters.iz_start = int32(0); % z index of the first z position to step from for the first call to FDBPMpropagator, in C indexing (starting from 0)
 mexParameters.iz_end = int32(zUpdateIdxs(1)); % last z index to step into for the first call to FDBPMpropagator, in C indexing (starting from 0)
+timeInMex = 0;
+tic;
 for updidx = 1:length(zUpdateIdxs)
   if updidx > 1
     mexParameters.iz_start = int32(zUpdateIdxs(updidx-1));
     mexParameters.iz_end   = int32(zUpdateIdxs(updidx));
   end
   checkMexInputs(E,mexParameters,typename);
+  beforeMex = toc;
   if P.useGPU
     [E,n_slice,precisePower] = FDBPMpropagator_CUDA(E,mexParameters);
   else
     [E,n_slice,precisePower] = FDBPMpropagator(E,mexParameters);
   end
+  timeInMex = timeInMex + toc - beforeMex;
   if P.storeE3D
     P.E3D(:,:,updidx + 1) = E;
   end
@@ -490,7 +496,15 @@ for updidx = 1:length(zUpdateIdxs)
     writeVideo(video,frame); 
   end
 end
-% toc
+totalTime = toc;
+fprintf('Segment done. Elapsed time is %.1f s. %.0f%% of the time was spent updating plots.\n',totalTime,100*(totalTime - timeInMex)/totalTime);
+if ~P.disablePlotTimeWarning && timeInMex < 0.5*totalTime
+  if P.saveVideo
+    warning('More than half of the execution time is spent doing plot updates. You can speed up this simulation by decreasing the number of updates or setting P.saveVideo = false. You can disable this warning by setting P.disablePlotTimeWarning = true.');
+  else
+    warning('More than half of the execution time is spent doing plot updates. You can speed up this simulation by decreasing the number of updates. You can disable this warning by setting P.disablePlotTimeWarning = true.');
+  end
+end
 
 if P.saveVideo
   if P.finalizeVideo
