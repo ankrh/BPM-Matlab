@@ -601,6 +601,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   
   bool ctrlc_caught = false;      // Has a ctrl+c been passed from MATLAB?
   P->EfieldPower = 0;
+  P->precisePowerDiff = 0;
   #ifdef __NVCC__
   int temp, nBlocks; gpuErrchk(cudaOccupancyMaxPotentialBlockSize(&nBlocks,&temp,&substep1a,0,0));
   dim3 blockDims(TILE_DIM,TILE_DIM,1);
