@@ -65,14 +65,14 @@ end
 if ~isfield(P,'useAllCPUs')
   P.useAllCPUs = false;
 end
-if ~isfield(P,'downsampleImages')
-  P.downsampleImages = false;
-end
 if ~isfield(P,'displayScaling')
   P.displayScaling = 1;
 end
 if ~isfield(P,'disableStepsizeWarning')
   P.disableStepsizeWarning = false;
+end
+if ~isfield(P,'disableDownsamplingWarning')
+  P.disableDownsamplingWarning = false;
 end
 if ~isfield(P,'disablePlotTimeWarning')
   P.disablePlotTimeWarning = false;
@@ -180,21 +180,26 @@ x = dx*(-(Nx-1)/2:(Nx-1)/2);
 y = dy*(-(Ny-1)/2:(Ny-1)/2);
 [X,Y] = ndgrid(x,y);
 
-if P.downsampleImages
-  if Nx>500
-    ix_plot = round(linspace(1,Nx,500));
-  else
-    ix_plot = 1:Nx;
-  end
-  x_plot = x(ix_plot);
-
-  if Ny>500
-    iy_plot = round(linspace(1,Ny,500));
-  else
-    iy_plot = 1:Ny;
-  end
-  y_plot = y(iy_plot);
+% Check if the MATLAB version is one that has the mex/imagesc bug and, if
+% so, get ready to do downsampling
+hasMexImagescBug = verLessThan('matlab','9.8') && ~verLessThan('matlab','9.5');
+if hasMexImagescBug && (Nx > 500 || Ny > 500) && ~P.disableDownsamplingWarning
+  warning('MATLAB releases 2018b, 2019a and 2019b have a low-level bug that causes hard crashes when using mex functions and imagesc() with high resolutions (greater than roughly 500x500). For this reason, the plots will here be downsampled to <= 500x500. Avoid this by updating MATLAB to a version in which Mathworks have fixed the bug (R2020a or newer). You can disable this warning by setting P.disableDownsamplingWarning = true.');
 end
+
+if hasMexImagescBug && Nx > 500
+  ix_plot = round(linspace(1,Nx,500));
+else
+  ix_plot = 1:Nx;
+end
+x_plot = x(ix_plot);
+
+if hasMexImagescBug && Ny > 500
+  iy_plot = round(linspace(1,Ny,500));
+else
+  iy_plot = 1:Ny;
+end
+y_plot = y(iy_plot);
 
 %% Store inputs, if first segment
 priorData = isfield(P,'originalEinput');
@@ -279,7 +284,7 @@ if ~P.disableStepsizeWarning
   dz_max2 = max_a*4*dy^2*k_0*P.n_0;
   dz_max3 = max_d*2*P.n_0/k_0;
   if dz > min([dz_max1 dz_max2 dz_max3])
-    warning('z step size is high (> %.1e m), which may introduce numerical artifacts. You can disable this warning by setting P.disableStepsizeWarning = true.',min([dz_max1 dz_max2 dz_max3]));
+    warning('z step size is high (> %.1e m), which may introduce numerical artifacts. Alleviate this by decreasing dz_target, decreasing Nx_main and/or Ny_main, or increasing Lx_main and/or Ly_main. You can disable this warning by setting P.disableStepsizeWarning = true.',min([dz_max1 dz_max2 dz_max3]));
   end
 end
 
@@ -305,11 +310,7 @@ if strcmp(h_f.WindowStyle,'normal')
 end
 
 h_axis1 = subplot(2,2,1);
-if P.downsampleImages
-  h_im1 = imagesc(x_plot,y_plot,real(n_slice(ix_plot,iy_plot)).');
-else
-  h_im1 = imagesc(x,y,real(n_slice).');
-end
+h_im1 = imagesc(x_plot,y_plot,real(n_slice(ix_plot,iy_plot)).');
 axis xy
 axis equal
 xlim([-1 1]*Lx/(2*P.displayScaling));
@@ -351,11 +352,7 @@ grid on; grid minor;
 h_axis3a = subplot(2,2,3);
 hold on;
 box on;
-if P.downsampleImages
-  h_im3a = imagesc(x_plot,y_plot,abs(E(ix_plot,iy_plot).').^2);
-else
-  h_im3a = imagesc(x,y,abs(E.').^2);
-end
+h_im3a = imagesc(x_plot,y_plot,abs(E(ix_plot,iy_plot).').^2);
 axis xy;
 axis equal;
 xlim([-1 1]*Lx/(2*P.displayScaling));
@@ -377,13 +374,8 @@ h_axis3b = subplot(2,2,4);
 hold on;
 box on;
 maxE0 = abs(max(E(:)));
-if P.downsampleImages
-  h_im3b = imagesc(x_plot,y_plot,angle(E(ix_plot,iy_plot).'));
-  h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/maxE0).^2)/3));  %Logarithmic transparency in displaying phase outside cores
-else
-  h_im3b = imagesc(x,y,angle(E.'));
-  h_im3b.AlphaData = max(0,(1+log10(abs(E.'/maxE0).^2)/3));  %Logarithmic transparency in displaying phase outside cores
-end
+h_im3b = imagesc(x_plot,y_plot,angle(E(ix_plot,iy_plot).'));
+h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/maxE0).^2)/3));  %Logarithmic transparency in displaying phase outside cores
 h_axis3b.Color = 0.7*[1 1 1];  % To set the color corresponding to phase outside the cores where there is no field at all
 axis xy;
 axis equal;
@@ -457,17 +449,10 @@ for updidx = 1:length(zUpdateIdxs)
   end
   
   %% Update figure contents
-  if P.downsampleImages
-    h_im1.CData = real(n_slice(ix_plot,iy_plot)).'; % Refractive index at this update
-    h_im3a.CData = abs(E(ix_plot,iy_plot).').^2; % Intensity at this update
-    h_im3b.CData = angle(E(ix_plot,iy_plot).'); % Phase at this update
-    h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
-  else
-    h_im1.CData = real(n_slice).'; % Refractive index at this update
-    h_im3a.CData = abs(E.').^2; % Intensity at this update
-    h_im3b.CData = angle(E.'); % Phase at this update
-    h_im3b.AlphaData = max(0,(1+log10(abs(E.'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
-  end
+  h_im1.CData = real(n_slice(ix_plot,iy_plot)).'; % Refractive index at this update
+  h_im3a.CData = abs(E(ix_plot,iy_plot).').^2; % Intensity at this update
+  h_im3b.CData = angle(E(ix_plot,iy_plot).'); % Phase at this update
+  h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/max(abs(E(:)))).^2)/3));  %Logarithmic transparency in displaying phase outside cores
   if updidx == 1
     caxis(h_axis1,'auto'); % To refresh the numbers on the color bar
   end
@@ -521,7 +506,11 @@ end
 
 %% Calculate and plot the far field of the final E
 figure(P.figNum+2);clf reset;
-N_FFhalf = 500; % Points to have at negative theta_x and theta_y in the far field
+if hasMexImagescBug
+  N_FFhalf = 250; % Points to have at negative theta_x and theta_y in the far field
+else
+  N_FFhalf = 1000; % Points to have at negative theta_x and theta_y in the far field
+end
 N_FF = 2*N_FFhalf + 1; % Total number of points in theta_x and theta_y
 theta_max = 30; % [deg] max angle
 
@@ -545,9 +534,9 @@ axis xy equal tight;
 Theta_x = 4*std(theta_x,sum(abs(E_FF).^2,2));
 Theta_y = 4*std(theta_y,sum(abs(E_FF).^2,1));
 sgtitle('Far field in air, in paraxial approximation');
-title({'Intensity','Divergence 4\sigma full-angles:',['\Theta_x = ' num2str(Theta_x,3) '°, \Theta_y = ' num2str(Theta_y,3) '°']});
-xlabel('\theta_x [°]');
-ylabel('\theta_y [°]');
+title({'Intensity','Divergence 4\sigma full-angles:',['\Theta_x = ' num2str(Theta_x,3) ' deg, \Theta_y = ' num2str(Theta_y,3) ' deg']});
+xlabel('\theta_x [deg]');
+ylabel('\theta_y [deg]');
 colorbar;
 setColormap(gca,P.Intensity_colormap);
 
@@ -556,8 +545,8 @@ imagesc(theta_x,theta_y,angle(E_FF.'),'AlphaData',max(0,(1+log10(abs(E_FF.'/max(
 set(gca,'Color',0.7*[1 1 1]);
 axis xy equal tight;
 title('Phase');
-xlabel('\theta_x [°]');
-ylabel('\theta_y [°]');
+xlabel('\theta_x [deg]');
+ylabel('\theta_y [deg]');
 colorbar;
 setColormap(gca,P.Phase_colormap);
 

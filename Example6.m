@@ -23,7 +23,6 @@ P.videoName = 'Example6.avi';
 P.saveVideo = true; % To save the field intensity and phase profiles at different transverse planes
 P.finalizeVideo = false; % finalizeVideo should only be set to true in the last segment to be simulated.
 P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
-P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 P.displayScaling = 1;  % Zooms in on figures. Set to 1 for no zooming.  
 
 %% Resolution-related parameters (check for convergence)

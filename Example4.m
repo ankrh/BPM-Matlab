@@ -15,7 +15,6 @@ P.useGPU = false; % (Default: false) Use CUDA acceleration for NVIDIA GPUs
 P.figNum = 1;
 P.figTitle = 'In GRIN Lens';
 P.updates = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
-P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 P.displayScaling = 1;  % Zooms in on figures. Set to 1 for no zooming.  
 
 %The colormap options for the different subplots are 

@@ -119,7 +119,8 @@ struct parameters {
   float sinBendDirection;
   float cosBendDirection;
   double precisePower;
-  double EfieldPower;
+  float precisePowerDiff;
+  float EfieldPower;
 };
 
 #ifdef __NVCC__ // If compiling for CUDA
@@ -127,18 +128,18 @@ __host__ __device__
 #endif
 float sqrf(float x) {return x*x;}
 
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 600
-__device__ double atomicAdd(double* address, double val) {
-  unsigned long long int* address_as_ull = (unsigned long long int*)address;
-  unsigned long long int old = *address_as_ull, assumed;
-
-  do {
-    assumed = old;
-    old = atomicCAS(address_as_ull, assumed,__double_as_longlong(val + __longlong_as_double(assumed)));
-  } while (assumed != old);
-  return __longlong_as_double(old);
-}
-#endif
+// #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 600
+// __device__ double atomicAdd(double* address, double val) {
+//   unsigned long long int* address_as_ull = (unsigned long long int*)address;
+//   unsigned long long int old = *address_as_ull, assumed;
+// 
+//   do {
+//     assumed = old;
+//     old = atomicCAS(address_as_ull, assumed,__double_as_longlong(val + __longlong_as_double(assumed)));
+//   } while (assumed != old);
+//   return __longlong_as_double(old);
+// }
+// #endif
 
 #ifdef __NVCC__ // If compiling for CUDA
 __global__
@@ -320,7 +321,7 @@ __global__
 void substep2b(struct parameters *P_global) {
   // Implicit part of substep 2 out of 2
   #ifdef __NVCC__
-  double EfieldPowerThread = 0;
+  float EfieldPowerThread = 0.0f;
   long threadNum = threadIdx.x + threadIdx.y*blockDim.x + blockIdx.x*blockDim.x*blockDim.y;
   __shared__ char Pdummy[sizeof(struct parameters)];
   struct parameters *P = (struct parameters *)Pdummy;
@@ -349,7 +350,7 @@ void substep2b(struct parameters *P_global) {
   atomicAdd(&P_global->EfieldPower,EfieldPowerThread);
 
   #else
-  double EfieldPowerThread = 0;
+  float EfieldPowerThread = 0.0f;
   struct parameters *P = P_global;
   long i,ix,iy;
   #ifdef _OPENMP
@@ -393,21 +394,21 @@ void substep2b(struct parameters *P_global) {
 __global__
 #endif // 1
 void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
-  double precisePowerDiffThread = 0;
+  float precisePowerDiffThread = 0.0f;
   #ifdef __NVCC__ // 1
   long threadNum = threadIdx.x + threadIdx.y*blockDim.x + blockIdx.x*blockDim.x*blockDim.y;
   __shared__ char Pdummy[sizeof(struct parameters)];
   struct parameters *P = (struct parameters *)Pdummy;
   if(!threadIdx.x && !threadIdx.y) *P = *P_global; // Only let one thread per block do the copying
   __syncthreads(); // All threads in the block wait for the copy to have finished
-  float fieldCorrection = sqrtf((float)(P->precisePower/P->EfieldPower));
+  float fieldCorrection = sqrtf((float)P->precisePower/P->EfieldPower);
   float cosvalue = cosf(-P->twistPerStep*iz); // Minus is because we go from the rotated frame to the source frame
   float sinvalue = sinf(-P->twistPerStep*iz);
   float scaling = 1/(1 - P->taperPerStep*iz); // Take reciprocal because we go from scaled frame to unscaled frame
   for(long i=threadNum;i<P->Nx*P->Ny;i+=gridDim.x*blockDim.x*blockDim.y) {
   #else // 1
   struct parameters *P = P_global;
-  float fieldCorrection = sqrtf((float)(P->precisePower/P->EfieldPower));
+  float fieldCorrection = sqrtf((float)P->precisePower/P->EfieldPower);
   float cosvalue = cosf(-P->twistPerStep*iz); // Minus is because we go from the rotated frame to the source frame
   float sinvalue = sinf(-P->twistPerStep*iz);
   float scaling = 1/(1 - P->taperPerStep*iz); // Take reciprocal because we go from scaled frame to unscaled frame
@@ -456,12 +457,12 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
   }
 
   #ifdef __NVCC__ // 1
-  atomicAdd(&P_global->precisePower,precisePowerDiffThread);
+  atomicAdd(&P_global->precisePowerDiff,precisePowerDiffThread);
   #else // 1
   #ifdef _OPENMP // 2
   #pragma omp atomic
   #endif // 2
-  P->precisePower += precisePowerDiffThread;
+  P->precisePowerDiff += precisePowerDiffThread;
   #ifdef _OPENMP // 2
   #pragma omp barrier
   #endif // 2
@@ -471,9 +472,17 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
 #ifdef __NVCC__ // If compiling for CUDA
 __global__
 #endif
+void updatePrecisePower(struct parameters *P) {
+P->precisePower += P->precisePowerDiff;
+P->precisePowerDiff = 0;
+}
+
+#ifdef __NVCC__ // If compiling for CUDA
+__global__
+#endif
 void swapEPointers(struct parameters *P, long iz) {
-  #ifdef __NVCC__
   P->EfieldPower = 0;
+  #ifdef __NVCC__
   floatcomplex *temp = P->E1;
   P->E1 = P->E2;
   P->E2 = temp;
@@ -582,7 +591,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   dimPtr = mxGetDimensions(prhs[0]);
   P->Efinal = (floatcomplex *)mxGetData(plhs[0] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxCOMPLEX)); // Output E field
   P->n_out = (floatcomplex *)mxGetData(plhs[1] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxCOMPLEX)); // Output refractive index
-  P->precisePower = *(double *)mxGetData(mxGetField(prhs[1],0,"inputPrecisePower"));
+  P->precisePower = (float)mxGetScalar(mxGetField(prhs[1],0,"inputPrecisePower"));
   #ifndef __NVCC__
   P->E2 = (floatcomplex *)((P->iz_end - P->iz_start)%2? P->Efinal: malloc(P->Nx*P->Ny*sizeof(floatcomplex)));
   #endif
@@ -623,7 +632,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
       substep2a<<<nBlocks, blockDims>>>(P_dev); // yx -> xy
       substep2b<<<nBlocks, blockDims>>>(P_dev); // xy -> xy
       applyMultiplier<<<nBlocks, blockDims>>>(P_dev,iz,D_dev); // xy -> xy
-      gpuErrchk(cudaDeviceSynchronize()); // Wait until all kernels have finished
       #else
       substep1a(P);
       substep1b(P);
@@ -636,7 +644,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
       #pragma omp master
       #endif
       {
-        P->EfieldPower = 0;
+        #ifdef __NVCC__
+        if(iz+1 < P->iz_end) swapEPointers<<<1,1>>>(P_dev,iz);
+        updatePrecisePower<<<1,1>>>(P_dev);
+        gpuErrchk(cudaDeviceSynchronize()); // Wait until all kernels have finished
+        #else
+        if(iz+1 < P->iz_end) swapEPointers(P,iz);
+        updatePrecisePower(P);
+        #endif
         
         #ifndef __clang__
         if(utIsInterruptPending()) {
@@ -644,14 +659,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
           printf("\nCtrl+C detected, stopping.\n");
         }
         #endif
-
-        if(iz+1 < P->iz_end) {
-          #ifdef __NVCC__
-          swapEPointers<<<1,1>>>(P_dev,iz);
-          #else
-          swapEPointers(P,iz);
-          #endif
-        }
       }
       #ifdef _OPENMP
       #pragma omp barrier

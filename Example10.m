@@ -6,15 +6,15 @@ clear P % Parameters struct
 % starts with a fiber with core radius 5 µm. Based on the results from
 % findModes, we can see that it supports 8 modes:
 % {'LP01';'LP11o';'LP11e';'LP21o';'LP21e';'LP02';'LP31o';'LP31e'}. The
-% fiber tapers down to a final width of 1.5 µm, where only the LP01 mode is
+% fiber tapers down to a final width of 1.5 mum, where only the LP01 mode is
 % guided. Initially, we excite the fiber with a superposition of all 8
 % guided modes.
 % 
 % From theory, we expect that
-% At r = 4.80 µm, the LP31 modes are no longer guided (z = 0.57e-3 m)
-% At r = 3.64 µm, the LP02 mode is no longer guided (z = 3.9e-3 m)
-% At r = 3.58 µm, the LP21 modes are no longer guided (z = 4.1e-3 m)
-% At r = 2.25 µm, the LP11 modes are no longer guided (z = 7.9e-3 m)
+% At r = 4.80 mum, the LP31 modes are no longer guided (z = 0.57e-3 m)
+% At r = 3.64 mum, the LP02 mode is no longer guided (z = 3.9e-3 m)
+% At r = 3.58 mum, the LP21 modes are no longer guided (z = 4.1e-3 m)
+% At r = 2.25 mum, the LP11 modes are no longer guided (z = 7.9e-3 m)
 % 
 % However, the light is not immediately lost when the fiber radius passes
 % the above thresholds, it takes some distance before the light exits the
@@ -37,7 +37,6 @@ P.useGPU = false;
 %% Visualization parameters
 updateFrequency = 5e4; % [1/m]
 P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
-P.downsampleImages = false; % Due to a weird MATLAB bug, MATLAB may crash when having created imagesc (or image) plots with dimensions larger than roughly 2500x2500 and then calling mex functions repeatedly. This flag will enable downsampling to 500x500 of all data before plotting, hopefully avoiding the issue.
 P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
 P.plotEmax = 1; % Max of color scale in the intensity plot, relative to the peak of initial intensity
 
