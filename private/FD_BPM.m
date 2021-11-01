@@ -389,7 +389,9 @@ ylabel('y [m]');
 title('Phase [rad]');
 setColormap(gca,P.Phase_colormap);
 
-sgtitle(P.figTitle,'FontSize',15,'FontWeight','bold');
+if ~verLessThan('matlab','9.5')
+  sgtitle(P.figTitle,'FontSize',15,'FontWeight','bold');
+end
 drawnow;
 
 if P.saveVideo
@@ -533,7 +535,9 @@ imagesc(theta_x,theta_y,abs(E_FF.').^2);
 axis xy equal tight;
 Theta_x = 4*std(theta_x,sum(abs(E_FF).^2,2));
 Theta_y = 4*std(theta_y,sum(abs(E_FF).^2,1));
-sgtitle('Far field in air, in paraxial approximation');
+if ~verLessThan('matlab','9.5')
+  sgtitle('Far field in air, in paraxial approximation');
+end
 title({'Intensity','Divergence 4\sigma full-angles:',['\Theta_x = ' num2str(Theta_x,3) ' deg, \Theta_y = ' num2str(Theta_y,3) ' deg']});
 xlabel('\theta_x [deg]');
 ylabel('\theta_y [deg]');

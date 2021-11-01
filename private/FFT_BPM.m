@@ -133,7 +133,9 @@ if P.saveVideo
   writeVideo(video,frame);                                  %Stitch the frames to form a video and save
 end
 
-sgtitle(P.figTitle,'FontSize',20,'FontWeight','bold');
+if ~verLessThan('matlab','9.5')
+  sgtitle(P.figTitle,'FontSize',20,'FontWeight','bold');
+end
 
 updatesliceindices = unique(round(linspace(1,Nz,min(Nz,P.updates))));
 nextupdatesliceindicesindex = 1;
