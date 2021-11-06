@@ -269,7 +269,7 @@ if Nz_n > 1
   x_n = dx*(-(Nx_n-1)/2:(Nx_n-1)/2);
   y_n = dy*(-(Ny_n-1)/2:(Ny_n-1)/2);
   z_n = dz_n*(0:Nz_n-1);
-  plotVolumetric(201,x_n,y_n,z_n,real(n),'BPM-Matlab_RI');
+  plotVolumetric(101,x_n,y_n,z_n,real(n),'BPM-Matlab_RI');
   title('Real part of refractive index');xlabel('x [m]');ylabel('y [m]');zlabel('z [m]');
 end
 
@@ -337,8 +337,12 @@ else
   P.yzSlice{1}(:,1) = E(round((Ny-1)/2+1),:);
 end
 if P.storeE3D
-  P.E3D = complex(NaN(Nx,Ny,P.updates+1,'single'));
-  P.E3D(:,:,1) = E;
+  if priorData
+    P.E3D{end+1} = complex(NaN(Nx,Ny,P.updates,'single'));
+  else
+    P.E3D{1} = complex(NaN(Nx,Ny,P.updates+1,'single'));
+    P.E3D{1}(:,:,1) = E;
+  end
 end
 
 h_ax2 = subplot(2,2,2);
@@ -447,7 +451,7 @@ for updidx = 1:length(zUpdateIdxs)
   end
   timeInMex = timeInMex + toc - beforeMex;
   if P.storeE3D
-    P.E3D(:,:,updidx + 1) = E;
+    P.E3D{end}(:,:,end-length(zUpdateIdxs)+updidx) = E;
   end
   
   %% Update figure contents
@@ -503,7 +507,14 @@ end
 
 %% If storing the 3D E data, plot it volumetrically
 if P.storeE3D
-  plotVolumetric(202,x,y,P.z,abs(P.E3D).^2,'BPM-Matlab_I');
+  if numel(P.E3D) == 1
+    z = P.z;
+  else
+    z = P.z(end-P.updates+1:end);
+  end
+  if numel(z) > 1
+    plotVolumetric(200 + numel(P.E3D),x,y,z,abs(P.E3D{end}).^2,'BPM-Matlab_I');
+  end
 end
 
 %% Calculate and plot the far field of the final E
