@@ -41,6 +41,12 @@ end
 if isfield(P.n,'func') && nargin(P.n.func) == 5 && ~isfield(P.n,'Nz')
   error('You must specify the refractive index array z resolution P.n.Nz if you provide a 3D refractive index function');
 end
+if ~isfield(P,'xSymmetric')
+  P.xSymmetric = false;
+end
+if ~isfield(P,'ySymmetric')
+  P.ySymmetric = false;
+end
 if ~isfield(P,'storeE3D')
   P.storeE3D = false;
 end
@@ -158,15 +164,23 @@ end
 dx = P.Lx_main/P.Nx_main;
 dy = P.Ly_main/P.Ny_main;
 
-targetLx = P.padfactor*P.Lx_main;
-targetLy = P.padfactor*P.Ly_main;
+if xSymmetric
+  targetLx = P.padfactor*P.Lx_main;
+else
+  targetLx = P.padfactor/2*P.Lx_main;
+end
+if ySymmetric
+  targetLy = P.padfactor*P.Ly_main;
+else
+  targetLy = P.padfactor/2*P.Ly_main;
+end
 
 Nx = round(targetLx/dx);
-if rem(Nx,2) ~= rem(P.Nx_main,2)
+if ~xSymmetric && rem(Nx,2) ~= rem(P.Nx_main,2)
   Nx = Nx + 1; % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
 end
 Ny = round(targetLy/dy);
-if rem(Ny,2) ~= rem(P.Ny_main,2)
+if ~ySymmetric && rem(Ny,2) ~= rem(P.Ny_main,2)
   Ny = Ny + 1; % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
 end
 Lx = Nx*dx;
@@ -176,8 +190,16 @@ if P.calcModeOverlaps && (P.modes(1).Lx ~= Lx || P.modes(1).Ly ~= Ly || size(P.m
   error('The pre-calculated mode fields do not match the simulation Lx, Ly, Nx or Ny');
 end
 
-x = dx*(-(Nx-1)/2:(Nx-1)/2);
-y = dy*(-(Ny-1)/2:(Ny-1)/2);
+if xSymmetric
+  x = dx*(1/2:Nx-1/2);
+else
+  x = dx*(-(Nx-1)/2:(Nx-1)/2);
+end
+if ySymmetric
+  y = dy*(1/2:Ny-1/2);
+else
+  y = dy*(-(Ny-1)/2:(Ny-1)/2);
+end
 [X,Y] = ndgrid(x,y);
 
 % Check if the MATLAB version is one that has the mex/imagesc bug and, if
@@ -218,8 +240,16 @@ else % Interpolate source E field to new grid
   [Nx_source,Ny_source] = size(P.E.field);
   dx_source = P.E.Lx/Nx_source;
   dy_source = P.E.Ly/Ny_source;
-  x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
-  y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
+  if xSymmetric
+    x_source = dx_source*(1/2:Nx_source-1/2);
+  else
+    x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
+  end
+  if ySymmetric
+    y_source = dy_source*(1/2:Ny_source-1/2);
+  else
+    y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
+  end
   E = interpn(x_source,y_source,P.E.field,x,y.','linear',0);
   E = E*sqrt(sum(abs(P.E.field(:)).^2)/sum(abs(E(:)).^2));
 end
@@ -249,8 +279,16 @@ else % Otherwise a P.n.n array must have been specified, so we will interpolate 
   [Nx_source,Ny_source,Nz_source] = size(P.n.n);
   dx_source = P.n.Lx/Nx_source;
   dy_source = P.n.Ly/Ny_source;
-  x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
-  y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
+  if xSymmetric
+    x_source = dx_source*(1/2:Nx_source-1/2);
+  else
+    x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
+  end
+  if ySymmetric
+    y_source = dy_source*(1/2:Ny_source-1/2);
+  else
+    y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
+  end
   if Nz_source == 1 % If P.n.n is 2D, 
     n = interpn(x_source,y_source,P.n.n,x,y.','linear',P.n_background);
     n_slice = n;
@@ -266,8 +304,16 @@ end
 % If RI is 3D, plot it volumetrically
 [Nx_n,Ny_n,Nz_n] = size(n);
 if Nz_n > 1
-  x_n = dx*(-(Nx_n-1)/2:(Nx_n-1)/2);
-  y_n = dy*(-(Ny_n-1)/2:(Ny_n-1)/2);
+  if xSymmetric
+    x_n = dx*(1/2:Nx_n-1/2);
+  else
+    x_n = dx*(-(Nx_n-1)/2:(Nx_n-1)/2);
+  end
+  if ySymmetric
+    y_n = dy*(1/2:Ny_n-1/2);
+  else
+    y_n = dy*(-(Ny_n-1)/2:(Ny_n-1)/2);
+  end
   z_n = dz_n*(0:Nz_n-1);
   plotVolumetric(101,x_n,y_n,z_n,real(n),'BPM-Matlab_RI');
   title('Real part of refractive index');xlabel('x [m]');ylabel('y [m]');zlabel('z [m]');
@@ -301,7 +347,9 @@ ay = dz/(4i*dy^2*k_0*P.n_0);
 d = -dz*k_0;
 
 %% Calculate the edge absorber multiplier
-multiplier = single(exp(-dz*max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha)); % Is real
+xEdge = P.Lx_main*(1 + ySymmetric)/2;
+yEdge = P.Ly_main*(1 + xSymmetric)/2;
+multiplier = single(exp(-dz*max(0,max(abs(Y) - yEdge,abs(X) - xEdge)).^2*P.alpha)); % Is real
 
 %% Figure initialization
 h_f = figure(P.figNum);clf reset;
@@ -309,12 +357,26 @@ if strcmp(h_f.WindowStyle,'normal')
   h_f.WindowState = 'maximized';
 end
 
+xlims = ([-1 1] + ySymmetric)*Lx/(2*P.displayScaling);
+ylims = ([-1 1] + xSymmetric)*Ly/(2*P.displayScaling);
+
+if xSymmetric && ySymmetric
+  redline = [[0 P.Lx_main P.Lx_main].';[P.Ly_main P.Ly_main 0].'];
+  line([0 P.Lx_main P.Lx_main],[P.Ly_main P.Ly_main 0],'color','r','linestyle','--');
+elseif xSymmetric
+  line([-P.Lx_main -P.Lx_main P.Lx_main P.Lx_main]/2,[0 P.Ly_main P.Ly_main 0],'color','r','linestyle','--');
+elseif ySymmetric
+  line([0 P.Lx_main P.Lx_main 0],[-P.Ly_main -P.Ly_main P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+else
+  line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+end
+
 h_axis1 = subplot(2,2,1);
 h_im1 = imagesc(x_plot,y_plot,real(n_slice(ix_plot,iy_plot)).');
 axis xy
 axis equal
-xlim([-1 1]*Lx/(2*P.displayScaling));
-ylim([-1 1]*Ly/(2*P.displayScaling));
+xlim(xlims);
+ylim(ylims);
 colorbar;
 setColormap(gca,P.n_colormap);
 if isfield(P,'n_colorlimits')
@@ -359,13 +421,21 @@ box on;
 h_im3a = imagesc(x_plot,y_plot,abs(E(ix_plot,iy_plot).').^2);
 axis xy;
 axis equal;
-xlim([-1 1]*Lx/(2*P.displayScaling));
-ylim([-1 1]*Ly/(2*P.displayScaling));
+xlim(xlims);
+ylim(ylims);
 colorbar;
 xlabel('x [m]');
 ylabel('y [m]');
 title('Intensity [W/m^2]');
-line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+if xSymmetric && ySymmetric
+  line([0 P.Lx_main P.Lx_main],[P.Ly_main P.Ly_main 0],'color','r','linestyle','--');
+elseif xSymmetric
+  line([-P.Lx_main -P.Lx_main P.Lx_main P.Lx_main]/2,[0 P.Ly_main P.Ly_main 0],'color','r','linestyle','--');
+elseif ySymmetric
+  line([0 P.Lx_main P.Lx_main 0],[-P.Ly_main -P.Ly_main P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+else
+  line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+end
 setColormap(gca,P.Intensity_colormap);
 if isfield(P,'plotEmax')
   caxis('manual');
@@ -383,11 +453,19 @@ h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/maxE0).^2)/3));  %Log
 h_axis3b.Color = 0.7*[1 1 1];  % To set the color corresponding to phase outside the cores where there is no field at all
 axis xy;
 axis equal;
-xlim([-1 1]*Lx/(2*P.displayScaling));
-ylim([-1 1]*Ly/(2*P.displayScaling));
+xlim(xlims);
+ylim(ylims);
 colorbar;
 caxis([-pi pi]);
-line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+if xSymmetric && ySymmetric
+  line([0 P.Lx_main P.Lx_main],[P.Ly_main P.Ly_main 0],'color','r','linestyle','--');
+elseif xSymmetric
+  line([-P.Lx_main -P.Lx_main P.Lx_main P.Lx_main]/2,[0 P.Ly_main P.Ly_main 0],'color','r','linestyle','--');
+elseif ySymmetric
+  line([0 P.Lx_main P.Lx_main 0],[-P.Ly_main -P.Ly_main P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+else
+  line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+end
 xlabel('x [m]');
 ylabel('y [m]');
 title('Phase [rad]');
