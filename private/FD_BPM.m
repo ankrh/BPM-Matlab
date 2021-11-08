@@ -318,7 +318,7 @@ ylim([-1 1]*Ly/(2*P.displayScaling));
 colorbar;
 setColormap(gca,P.n_colormap);
 if isfield(P,'n_colorlimits')
-  caxis(P.n_colorlimits);
+  h_axis1.CLim = P.n_colorlimits;
 end
 xlabel('x [m]');
 ylabel('y [m]');
@@ -465,7 +465,10 @@ for updidx = 1:length(zUpdateIdxs)
   if ~isfield(P,'plotEmax')
     caxis(h_axis3a,'auto');
   end
-  
+  if isfield(P,'n_colorlimits')
+    h_axis1.CLim = P.n_colorlimits;
+  end
+
   mexParameters.inputPrecisePower = precisePower;
   P.powers(end-length(zUpdateIdxs)+updidx) = precisePower;
   h_plot2.YData = P.powers;
