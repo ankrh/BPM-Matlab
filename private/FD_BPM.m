@@ -125,6 +125,11 @@ if ~isfield(P,'n_colormap')
   P.n_colormap = 3;
 end
 
+if P.xSymmetric && ~isinf(P.bendingRoC) && sind(P.bendDirection) || ...
+   P.ySymmetric && ~isinf(P.bendingRoC) && cosd(P.bendDirection)
+  error('The specified bending direction is inconsistent with the symmetry assumption');
+end
+
 if P.saveVideo
   if isfield(P,'videoHandle')
     video = P.videoHandle;
@@ -164,23 +169,15 @@ end
 dx = P.Lx_main/P.Nx_main;
 dy = P.Ly_main/P.Ny_main;
 
-if xSymmetric
-  targetLx = P.padfactor*P.Lx_main;
-else
-  targetLx = P.padfactor/2*P.Lx_main;
-end
-if ySymmetric
-  targetLy = P.padfactor*P.Ly_main;
-else
-  targetLy = P.padfactor/2*P.Ly_main;
-end
+targetLx = P.padfactor*P.Lx_main;
+targetLy = P.padfactor*P.Ly_main;
 
 Nx = round(targetLx/dx);
-if ~xSymmetric && rem(Nx,2) ~= rem(P.Nx_main,2)
+if ~P.ySymmetric && rem(Nx,2) ~= rem(P.Nx_main,2)
   Nx = Nx + 1; % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
 end
 Ny = round(targetLy/dy);
-if ~ySymmetric && rem(Ny,2) ~= rem(P.Ny_main,2)
+if ~P.xSymmetric && rem(Ny,2) ~= rem(P.Ny_main,2)
   Ny = Ny + 1; % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
 end
 Lx = Nx*dx;
@@ -190,16 +187,8 @@ if P.calcModeOverlaps && (P.modes(1).Lx ~= Lx || P.modes(1).Ly ~= Ly || size(P.m
   error('The pre-calculated mode fields do not match the simulation Lx, Ly, Nx or Ny');
 end
 
-if xSymmetric
-  x = dx*(1/2:Nx-1/2);
-else
-  x = dx*(-(Nx-1)/2:(Nx-1)/2);
-end
-if ySymmetric
-  y = dy*(1/2:Ny-1/2);
-else
-  y = dy*(-(Ny-1)/2:(Ny-1)/2);
-end
+x = dx*((-Nx/2+1/2:Nx/2-1/2) + P.ySymmetric*Nx/2);
+y = dy*((-Ny/2+1/2:Ny/2-1/2) + P.xSymmetric*Ny/2);
 [X,Y] = ndgrid(x,y);
 
 % Check if the MATLAB version is one that has the mex/imagesc bug and, if
@@ -240,16 +229,8 @@ else % Interpolate source E field to new grid
   [Nx_source,Ny_source] = size(P.E.field);
   dx_source = P.E.Lx/Nx_source;
   dy_source = P.E.Ly/Ny_source;
-  if xSymmetric
-    x_source = dx_source*(1/2:Nx_source-1/2);
-  else
-    x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
-  end
-  if ySymmetric
-    y_source = dy_source*(1/2:Ny_source-1/2);
-  else
-    y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
-  end
+  x_source = dx_source*((-Nx_source/2+1/2:Nx_source/2-1/2) + P.ySymmetric*Nx_source/2);
+  y_source = dy_source*((-Ny_source/2+1/2:Ny_source/2-1/2) + P.xSymmetric*Ny_source/2);
   E = interpn(x_source,y_source,P.E.field,x,y.','linear',0);
   E = E*sqrt(sum(abs(P.E.field(:)).^2)/sum(abs(E(:)).^2));
 end
@@ -279,16 +260,8 @@ else % Otherwise a P.n.n array must have been specified, so we will interpolate 
   [Nx_source,Ny_source,Nz_source] = size(P.n.n);
   dx_source = P.n.Lx/Nx_source;
   dy_source = P.n.Ly/Ny_source;
-  if xSymmetric
-    x_source = dx_source*(1/2:Nx_source-1/2);
-  else
-    x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
-  end
-  if ySymmetric
-    y_source = dy_source*(1/2:Ny_source-1/2);
-  else
-    y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
-  end
+  x_source = dx_source*((-Nx_source/2+1/2:Nx_source/2-1/2) + P.ySymmetric*Nx_source/2);
+  y_source = dy_source*((-Ny_source/2+1/2:Ny_source/2-1/2) + P.xSymmetric*Ny_source/2);
   if Nz_source == 1 % If P.n.n is 2D, 
     n = interpn(x_source,y_source,P.n.n,x,y.','linear',P.n_background);
     n_slice = n;
@@ -304,18 +277,10 @@ end
 % If RI is 3D, plot it volumetrically
 [Nx_n,Ny_n,Nz_n] = size(n);
 if Nz_n > 1
-  if xSymmetric
-    x_n = dx*(1/2:Nx_n-1/2);
-  else
-    x_n = dx*(-(Nx_n-1)/2:(Nx_n-1)/2);
-  end
-  if ySymmetric
-    y_n = dy*(1/2:Ny_n-1/2);
-  else
-    y_n = dy*(-(Ny_n-1)/2:(Ny_n-1)/2);
-  end
+  x_n = dx*((-Nx_n/2+1/2:Nx_n/2-1/2) + P.ySymmetric*Nx_n/2);
+  y_n = dy*((-Ny_n/2+1/2:Ny_n/2-1/2) + P.xSymmetric*Ny_n/2);
   z_n = dz_n*(0:Nz_n-1);
-  plotVolumetric(101,x_n,y_n,z_n,real(n),'BPM-Matlab_RI');
+  plotVolumetric(201,x_n,y_n,z_n,real(n),'BPM-Matlab_RI');
   title('Real part of refractive index');xlabel('x [m]');ylabel('y [m]');zlabel('z [m]');
 end
 
@@ -347,8 +312,8 @@ ay = dz/(4i*dy^2*k_0*P.n_0);
 d = -dz*k_0;
 
 %% Calculate the edge absorber multiplier
-xEdge = P.Lx_main*(1 + ySymmetric)/2;
-yEdge = P.Ly_main*(1 + xSymmetric)/2;
+xEdge = P.Lx_main*(1 + P.ySymmetric)/2;
+yEdge = P.Ly_main*(1 + P.xSymmetric)/2;
 multiplier = single(exp(-dz*max(0,max(abs(Y) - yEdge,abs(X) - xEdge)).^2*P.alpha)); % Is real
 
 %% Figure initialization
@@ -357,18 +322,21 @@ if strcmp(h_f.WindowStyle,'normal')
   h_f.WindowState = 'maximized';
 end
 
-xlims = ([-1 1] + ySymmetric)*Lx/(2*P.displayScaling);
-ylims = ([-1 1] + xSymmetric)*Ly/(2*P.displayScaling);
+xlims = ([-1 1] + P.ySymmetric)*Lx/(2*P.displayScaling);
+ylims = ([-1 1] + P.xSymmetric)*Ly/(2*P.displayScaling);
 
-if xSymmetric && ySymmetric
-  redline = [[0 P.Lx_main P.Lx_main].';[P.Ly_main P.Ly_main 0].'];
-  line([0 P.Lx_main P.Lx_main],[P.Ly_main P.Ly_main 0],'color','r','linestyle','--');
-elseif xSymmetric
-  line([-P.Lx_main -P.Lx_main P.Lx_main P.Lx_main]/2,[0 P.Ly_main P.Ly_main 0],'color','r','linestyle','--');
-elseif ySymmetric
-  line([0 P.Lx_main P.Lx_main 0],[-P.Ly_main -P.Ly_main P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+if P.xSymmetric && P.ySymmetric
+  redline_x = [0 P.Lx_main P.Lx_main];
+  redline_y = [P.Ly_main P.Ly_main 0];
+elseif P.xSymmetric
+  redline_x = [-P.Lx_main -P.Lx_main P.Lx_main P.Lx_main]/2;
+  redline_y = [0 P.Ly_main P.Ly_main 0];
+elseif P.ySymmetric
+  redline_x = [0 P.Lx_main P.Lx_main 0];
+  redline_y = [-P.Ly_main -P.Ly_main P.Ly_main P.Ly_main]/2;
 else
-  line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+  redline_x = [-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2;
+  redline_y = [P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2;
 end
 
 h_axis1 = subplot(2,2,1);
@@ -395,8 +363,18 @@ else
   P.powers(1) = 1;
   P.xzSlice = {NaN(Nx,P.updates+1)};
   P.yzSlice = {NaN(Ny,P.updates+1)};
-  P.xzSlice{1}(:,1) = E(:,round((Nx-1)/2+1));
-  P.yzSlice{1}(:,1) = E(round((Ny-1)/2+1),:);
+  if P.xSymmetric
+    y0idx = 1;
+  else
+    y0idx = round((Ny-1)/2+1);
+  end
+  if P.ySymmetric
+    x0idx = 1;
+  else
+    x0idx = round((Nx-1)/2+1);
+  end
+  P.xzSlice{1}(:,1) = E(:,y0idx);
+  P.yzSlice{1}(:,1) = E(x0idx,:);
 end
 if P.storeE3D
   if priorData
@@ -427,15 +405,7 @@ colorbar;
 xlabel('x [m]');
 ylabel('y [m]');
 title('Intensity [W/m^2]');
-if xSymmetric && ySymmetric
-  line([0 P.Lx_main P.Lx_main],[P.Ly_main P.Ly_main 0],'color','r','linestyle','--');
-elseif xSymmetric
-  line([-P.Lx_main -P.Lx_main P.Lx_main P.Lx_main]/2,[0 P.Ly_main P.Ly_main 0],'color','r','linestyle','--');
-elseif ySymmetric
-  line([0 P.Lx_main P.Lx_main 0],[-P.Ly_main -P.Ly_main P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
-else
-  line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
-end
+line(redline_x,redline_y,'color','r','linestyle','--');
 setColormap(gca,P.Intensity_colormap);
 if isfield(P,'plotEmax')
   caxis('manual');
@@ -457,15 +427,7 @@ xlim(xlims);
 ylim(ylims);
 colorbar;
 caxis([-pi pi]);
-if xSymmetric && ySymmetric
-  line([0 P.Lx_main P.Lx_main],[P.Ly_main P.Ly_main 0],'color','r','linestyle','--');
-elseif xSymmetric
-  line([-P.Lx_main -P.Lx_main P.Lx_main P.Lx_main]/2,[0 P.Ly_main P.Ly_main 0],'color','r','linestyle','--');
-elseif ySymmetric
-  line([0 P.Lx_main P.Lx_main 0],[-P.Ly_main -P.Ly_main P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
-else
-  line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
-end
+line(redline_x,redline_y,'color','r','linestyle','--');
 xlabel('x [m]');
 ylabel('y [m]');
 title('Phase [rad]');
@@ -549,8 +511,8 @@ for updidx = 1:length(zUpdateIdxs)
   h_plot2.YData = P.powers;
   h_ax2.YLim = [0 1.1*max(P.powers)];
 
-  P.xzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(:,round((Nx-1)/2+1));
-  P.yzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(round((Ny-1)/2+1),:);
+  P.xzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(:,y0idx);
+  P.yzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(x0idx,:);
 
   if P.calcModeOverlaps
     for iMode = 1:nModes
@@ -591,7 +553,7 @@ if P.storeE3D
     z = P.z(end-P.updates+1:end);
   end
   if numel(z) > 1
-    plotVolumetric(200 + numel(P.E3D),x,y,z,abs(P.E3D{end}).^2,'BPM-Matlab_I');
+    plotVolumetric(201 + numel(P.E3D),x,y,z,abs(P.E3D{end}).^2,'BPM-Matlab_I');
   end
 end
 
@@ -615,7 +577,9 @@ ky = 2*pi/P.lambda*theta_y/180*pi;
 dy_FF = 2*pi/(ky(2)-ky(1))/N_FF;
 y_FF = (-(N_FF-1)/2:(N_FF-1)/2)*dy_FF;
 
-E_interp = interpn(x,y.',E,x_FF,y_FF.','linear',0);
+[x_full,y_full,E_full] = calcFullField(x,y,E);
+
+E_interp = interpn(x_full,y_full.',E_full,x_FF,y_FF.','linear',0);
 
 E_FF = fftshift(fft2(ifftshift(conj(E_interp))));
 

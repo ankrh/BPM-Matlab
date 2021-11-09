@@ -1,8 +1,16 @@
-function [radiallySymmetric,xC,yC] = testRadialSymmetry(X,Y,n,n_background)
+function [radiallySymmetric,xC,yC] = testRadialSymmetry(X,Y,n,n_background,xSymmetric,ySymmetric)
 n = double(n) - double(n_background);
 
-xC = sum(X(:).*abs(n(:)).^2)/sum(abs(n(:)).^2); % x centroid
-yC = sum(Y(:).*abs(n(:)).^2)/sum(abs(n(:)).^2); % y centroid
+if ySymmetric
+  xC = 0;
+else
+  xC = sum(X(:).*abs(n(:)).^2)/sum(abs(n(:)).^2); % x centroid
+end
+if xSymmetric
+  yC = 0;
+else
+  yC = sum(Y(:).*abs(n(:)).^2)/sum(abs(n(:)).^2); % y centroid
+end
 
 R = sqrt((X-xC).^2 + (Y-yC).^2); % Distances of all pixels from the centroid
 [~,sortIdxs] = sort(R(:));
