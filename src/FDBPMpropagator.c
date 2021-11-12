@@ -191,9 +191,9 @@ void substep1a(struct parameters *P_global) {
 
       P->E2[i] = P->E1[i];
       if(ix != 0      ) P->E2[i] += (P->E1[i-1]     - P->E1[i])*P->ax;
-      if(ix != P->Nx-1) P->E2[i] += (P->E1[i+1]     - P->E1[i])*P->ax;
+      if(ix != P->Nx-1 && (!yantisymmetric || ix != 0)) P->E2[i] += (P->E1[i+1]     - P->E1[i])*P->ax;
       if(iy != 0      ) P->E2[i] += (P->E1[i-P->Nx] - P->E1[i])*P->ay*2.0f;
-      if(iy != P->Ny-1) P->E2[i] += (P->E1[i+P->Nx] - P->E1[i])*P->ay*2.0f;
+      if(iy != P->Ny-1 && (!xantisymmetric || iy != 0)) P->E2[i] += (P->E1[i+P->Nx] - P->E1[i])*P->ay*2.0f;
     }
   }
   #endif
@@ -253,7 +253,7 @@ void substep1b(struct parameters *P_global) {
       }
     }
 
-    for(ix=P->Nx-1; ix>=0; ix--) {
+    for(ix=P->Nx-1; ix>=0 + antisymmetric; ix--) {
       long ib = ix + threadNum*P->Nx;
       i = ix + iy*P->Nx;
       P->E2[i] = (P->E2[i] + (ix == P->Nx-1? 0: P->ax*P->E2[i+1]))/P->b[ib];

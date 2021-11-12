@@ -41,11 +41,11 @@ end
 if isfield(P.n,'func') && nargin(P.n.func) == 5 && ~isfield(P.n,'Nz')
   error('You must specify the refractive index array z resolution P.n.Nz if you provide a 3D refractive index function');
 end
-if ~isfield(P,'xSymmetric')
-  P.xSymmetric = false;
+if ~isfield(P,'xSymmetry')
+  P.xSymmetry = 0;
 end
-if ~isfield(P,'ySymmetric')
-  P.ySymmetric = false;
+if ~isfield(P,'ySymmetry')
+  P.ySymmetry = 0;
 end
 if ~isfield(P,'storeE3D')
   P.storeE3D = false;
@@ -125,8 +125,8 @@ if ~isfield(P,'n_colormap')
   P.n_colormap = 3;
 end
 
-if P.xSymmetric && ~isinf(P.bendingRoC) && sind(P.bendDirection) || ...
-   P.ySymmetric && ~isinf(P.bendingRoC) && cosd(P.bendDirection)
+if P.xSymmetry ~= 0 && ~isinf(P.bendingRoC) && sind(P.bendDirection) || ...
+   P.ySymmetry ~= 0 && ~isinf(P.bendingRoC) && cosd(P.bendDirection)
   error('The specified bending direction is inconsistent with the symmetry assumption');
 end
 
@@ -173,12 +173,22 @@ targetLx = P.padfactor*P.Lx_main;
 targetLy = P.padfactor*P.Ly_main;
 
 Nx = round(targetLx/dx);
-if ~P.ySymmetric && rem(Nx,2) ~= rem(P.Nx_main,2)
-  Nx = Nx + 1; % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
+switch P.ySymmetry
+  case 0
+    Nx = Nx + (rem(Nx,2) ~= rem(P.Nx_main,2)); % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
+  case 1
+    Nx = Nx + rem(Nx,2); % Ensure that if we have ordinary symmetry, Nx is even
+  case 2
+    Nx = Nx + ~rem(Nx,2); % Ensure that if we have anti-symmetry, Nx is odd
 end
 Ny = round(targetLy/dy);
-if ~P.xSymmetric && rem(Ny,2) ~= rem(P.Ny_main,2)
-  Ny = Ny + 1; % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
+switch P.xSymmetry
+  case 0
+    Ny = Ny + (rem(Ny,2) ~= rem(P.Ny_main,2)); % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
+  case 1
+    Ny = Ny + rem(Ny,2); % Ensure that if we have ordinary symmetry, Ny is even
+  case 2
+    Ny = Ny + ~rem(Ny,2); % Ensure that if we have anti-symmetry, Ny is odd
 end
 Lx = Nx*dx;
 Ly = Ny*dy;
@@ -187,8 +197,8 @@ if P.calcModeOverlaps && (P.modes(1).Lx ~= Lx || P.modes(1).Ly ~= Ly || size(P.m
   error('The pre-calculated mode fields do not match the simulation Lx, Ly, Nx or Ny');
 end
 
-x = dx*((-Nx/2+1/2:Nx/2-1/2) + P.ySymmetric*Nx/2);
-y = dy*((-Ny/2+1/2:Ny/2-1/2) + P.xSymmetric*Ny/2);
+x = getGridArray(Nx,dx,P.ySymmetry);
+y = getGridArray(Ny,dy,P.xSymmetry);
 [X,Y] = ndgrid(x,y);
 
 % Check if the MATLAB version is one that has the mex/imagesc bug and, if
@@ -229,10 +239,17 @@ else % Interpolate source E field to new grid
   [Nx_source,Ny_source] = size(P.E.field);
   dx_source = P.E.Lx/Nx_source;
   dy_source = P.E.Ly/Ny_source;
-  x_source = dx_source*((-Nx_source/2+1/2:Nx_source/2-1/2) + P.ySymmetric*Nx_source/2);
-  y_source = dy_source*((-Ny_source/2+1/2:Ny_source/2-1/2) + P.xSymmetric*Ny_source/2);
+  x_source = getGridArray(Nx_source,dx_source,P.ySymmetry);
+  y_source = getGridArray(Ny_source,dy_source,P.xSymmetry);
   E = interpn(x_source,y_source,P.E.field,x,y.','linear',0);
   E = E*sqrt(sum(abs(P.E.field(:)).^2)/sum(abs(E(:)).^2));
+end
+
+if P.ySymmetry
+  E(X == 0) = 0;
+end
+if P.xSymmetry
+  E(Y == 0) = 0;
 end
 
 E = complex(single(E)); % Force to be complex single
@@ -260,8 +277,8 @@ else % Otherwise a P.n.n array must have been specified, so we will interpolate 
   [Nx_source,Ny_source,Nz_source] = size(P.n.n);
   dx_source = P.n.Lx/Nx_source;
   dy_source = P.n.Ly/Ny_source;
-  x_source = dx_source*((-Nx_source/2+1/2:Nx_source/2-1/2) + P.ySymmetric*Nx_source/2);
-  y_source = dy_source*((-Ny_source/2+1/2:Ny_source/2-1/2) + P.xSymmetric*Ny_source/2);
+  x_source = getGridArray(Nx_source,dx_source,P.ySymmetry);
+  y_source = getGridArray(Ny_source,dy_source,P.xSymmetry);
   if Nz_source == 1 % If P.n.n is 2D, 
     n = interpn(x_source,y_source,P.n.n,x,y.','linear',P.n_background);
     n_slice = n;
@@ -277,8 +294,8 @@ end
 % If RI is 3D, plot it volumetrically
 [Nx_n,Ny_n,Nz_n] = size(n);
 if Nz_n > 1
-  x_n = dx*((-Nx_n/2+1/2:Nx_n/2-1/2) + P.ySymmetric*Nx_n/2);
-  y_n = dy*((-Ny_n/2+1/2:Ny_n/2-1/2) + P.xSymmetric*Ny_n/2);
+  x_n = getGridArray(Nx_n,dx,P.ySymmetry);
+  y_n = getGridArray(Ny_n,dy,P.xSymmetry);
   z_n = dz_n*(0:Nz_n-1);
   plotVolumetric(201,x_n,y_n,z_n,real(n),'BPM-Matlab_RI');
   title('Real part of refractive index');xlabel('x [m]');ylabel('y [m]');zlabel('z [m]');
@@ -312,8 +329,8 @@ ay = dz/(4i*dy^2*k_0*P.n_0);
 d = -dz*k_0;
 
 %% Calculate the edge absorber multiplier
-xEdge = P.Lx_main*(1 + P.ySymmetric)/2;
-yEdge = P.Ly_main*(1 + P.xSymmetric)/2;
+xEdge = P.Lx_main*(1 + (P.ySymmetry ~= 0))/2;
+yEdge = P.Ly_main*(1 + (P.xSymmetry ~= 0))/2;
 multiplier = single(exp(-dz*max(0,max(abs(Y) - yEdge,abs(X) - xEdge)).^2*P.alpha)); % Is real
 
 %% Figure initialization
@@ -322,16 +339,16 @@ if strcmp(h_f.WindowStyle,'normal')
   h_f.WindowState = 'maximized';
 end
 
-xlims = ([-1 1] + P.ySymmetric)*Lx/(2*P.displayScaling);
-ylims = ([-1 1] + P.xSymmetric)*Ly/(2*P.displayScaling);
+xlims = ([-1 1] + (P.ySymmetry ~= 0))*Lx/(2*P.displayScaling);
+ylims = ([-1 1] + (P.xSymmetry ~= 0))*Ly/(2*P.displayScaling);
 
-if P.xSymmetric && P.ySymmetric
+if P.xSymmetry ~= 0 && P.ySymmetry ~= 0
   redline_x = [0 P.Lx_main P.Lx_main];
   redline_y = [P.Ly_main P.Ly_main 0];
-elseif P.xSymmetric
+elseif P.xSymmetry ~= 0
   redline_x = [-P.Lx_main -P.Lx_main P.Lx_main P.Lx_main]/2;
   redline_y = [0 P.Ly_main P.Ly_main 0];
-elseif P.ySymmetric
+elseif P.ySymmetry ~= 0
   redline_x = [0 P.Lx_main P.Lx_main 0];
   redline_y = [-P.Ly_main -P.Ly_main P.Ly_main P.Ly_main]/2;
 else
@@ -363,12 +380,12 @@ else
   P.powers(1) = 1;
   P.xzSlice = {NaN(Nx,P.updates+1)};
   P.yzSlice = {NaN(Ny,P.updates+1)};
-  if P.xSymmetric
+  if P.xSymmetry ~= 0
     y0idx = 1;
   else
     y0idx = round((Ny-1)/2+1);
   end
-  if P.ySymmetric
+  if P.ySymmetry ~= 0
     x0idx = 1;
   else
     x0idx = round((Nx-1)/2+1);

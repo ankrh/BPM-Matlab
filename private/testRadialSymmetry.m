@@ -1,12 +1,12 @@
-function [radiallySymmetric,xC,yC] = testRadialSymmetry(X,Y,n,n_background,xSymmetric,ySymmetric)
+function [radiallySymmetric,xC,yC] = testRadialSymmetry(X,Y,n,n_background,xSymmetry,ySymmetry)
 n = double(n) - double(n_background);
 
-if ySymmetric
+if ySymmetry
   xC = 0;
 else
   xC = sum(X(:).*abs(n(:)).^2)/sum(abs(n(:)).^2); % x centroid
 end
-if xSymmetric
+if xSymmetry
   yC = 0;
 else
   yC = sum(Y(:).*abs(n(:)).^2)/sum(abs(n(:)).^2); % y centroid

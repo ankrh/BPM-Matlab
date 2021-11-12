@@ -36,11 +36,11 @@ end
 if isfield(P.n,'func') && nargin(P.n.func) == 5 && ~isfield(P.n,'Nz')
   error('You must specify the refractive index array z resolution P.n.Nz if you provide a 3D refractive index function');
 end
-if ~isfield(P,'xSymmetric')
-  P.xSymmetric = false;
+if ~isfield(P,'xSymmetry')
+  P.xSymmetry = 0;
 end
-if ~isfield(P,'ySymmetric')
-  P.ySymmetric = false;
+if ~isfield(P,'ySymmetry')
+  P.ySymmetry = 0;
 end
 if ~isfield(P,'nParameters')
   P.nParameters = {};
@@ -61,8 +61,8 @@ if ~isfield(P,'Phase_colormap')
   P.Phase_colormap = 2;
 end
 
-if P.xSymmetric && ~isinf(P.bendingRoC) && sind(P.bendDirection) || ...
-   P.ySymmetric && ~isinf(P.bendingRoC) && cosd(P.bendDirection)
+if P.xSymmetry ~= 0 && ~isinf(P.bendingRoC) && sind(P.bendDirection) || ...
+   P.ySymmetry ~= 0 && ~isinf(P.bendingRoC) && cosd(P.bendDirection)
   error('The specified bending direction is inconsistent with the symmetry assumption');
 end
 
@@ -78,12 +78,22 @@ targetLx = P.padfactor*P.Lx_main;
 targetLy = P.padfactor*P.Ly_main;
 
 Nx = round(targetLx/dx);
-if ~P.ySymmetric && rem(Nx,2) ~= rem(P.Nx_main,2)
-  Nx = Nx + 1; % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
+switch P.ySymmetry
+  case 0
+    Nx = Nx + (rem(Nx,2) ~= rem(P.Nx_main,2)); % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
+  case 1
+    Nx = Nx + rem(Nx,2); % Ensure that if we have ordinary symmetry, Nx is even
+  case 2
+    Nx = Nx + ~rem(Nx,2); % Ensure that if we have anti-symmetry, Nx is odd
 end
 Ny = round(targetLy/dy);
-if ~P.xSymmetric && rem(Ny,2) ~= rem(P.Ny_main,2)
-  Ny = Ny + 1; % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
+switch P.xSymmetry
+  case 0
+    Ny = Ny + (rem(Ny,2) ~= rem(P.Ny_main,2)); % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
+  case 1
+    Ny = Ny + rem(Ny,2); % Ensure that if we have ordinary symmetry, Ny is even
+  case 2
+    Ny = Ny + ~rem(Ny,2); % Ensure that if we have anti-symmetry, Ny is odd
 end
 N = Nx*Ny;                                                            %N*N - size of sparse matrices
 if nModes >= N - 1
@@ -92,8 +102,8 @@ end
 Lx = Nx*dx;
 Ly = Ny*dy;
 
-x = dx*((-Nx/2+1/2:Nx/2-1/2) + P.ySymmetric*Nx/2);
-y = dy*((-Ny/2+1/2:Ny/2-1/2) + P.xSymmetric*Ny/2);
+x = getGridArray(Nx,dx,P.ySymmetry);
+y = getGridArray(Ny,dy,P.xSymmetry);
 [X,Y] = ndgrid(x,y);
 
 V = [];
@@ -112,8 +122,8 @@ else % Otherwise a P.n.n array must have been specified
   [Nx_source,Ny_source,Nz_source] = size(P.n.n);
   dx_source = P.n.Lx/Nx_source;
   dy_source = P.n.Ly/Ny_source;
-  x_source = dx_source*((-Nx_source/2+1/2:Nx_source/2-1/2) + P.ySymmetric*Nx_source/2);
-  y_source = dy_source*((-Ny_source/2+1/2:Ny_source/2-1/2) + P.xSymmetric*Ny_source/2);
+  x_source = getGridArray(Nx_source,dx_source,P.ySymmetry);
+  y_source = getGridArray(Ny_source,dy_source,P.xSymmetry);
   if Nz_source == 1 % If P.n.n is 2D, interpolate it to the simulation grid
     n = interpn(x_source,y_source,P.n.n,x,y.','linear',P.n_background);
   else % Otherwise it's 3D so we take the first slice and interpolate to the simulation grid
@@ -136,7 +146,7 @@ for iCore = 1:nCores
   n_core(coreIdxs ~= iCore) = P.n_background;
   
   if ~isfinite(P.bendingRoC)
-    [radiallySymmetric,xC,yC] = testRadialSymmetry(X,Y,n_core,P.n_background,P.xSymmetric,P.ySymmetric); % Numerically estimates whether this core is radially symmetric, and finds the centroid coordinates (xC, yC)
+    [radiallySymmetric,xC,yC] = testRadialSymmetry(X,Y,n_core,P.n_background,P.xSymmetry,P.ySymmetry); % Numerically estimates whether this core is radially symmetric, and finds the centroid coordinates (xC, yC)
   else
     radiallySymmetric = false;
   end
@@ -149,13 +159,12 @@ for iCore = 1:nCores
 
   dz = 1e-10;
   
-  xEdge = P.Lx_main*(1 + P.ySymmetric)/2;
-  yEdge = P.Ly_main*(1 + P.xSymmetric)/2;
+  xEdge = P.Lx_main*(1 + (P.ySymmetry ~= 0))/2;
+  yEdge = P.Ly_main*(1 + (P.xSymmetry ~= 0))/2;
   absorber = exp(-dz*(max(0,max(0,max(abs(Y) - yEdge,abs(X) - xEdge))).^2*P.alpha + 2*pi*imag(n_core)/P.lambda)); % First part is edge absorber, second is absorption from the imaginary part of the refractive indicres
   ax = 1.00001*dz/(dx^2*2i*k_0*P.n_0);
 %   ax = dz/(dx^2*2i*k_0*P.n_0);
   ay = dz/(dy^2*2i*k_0*P.n_0);
-
 
   M_rhs = sparse(1:N,1:N,absorber(1:N) + delta_n_2(1:N)*dz*k_0/(2i*P.n_0),N,N) + ...
     sparse(1:N-1,2:N,[repmat([repmat(ax,1,Nx-1) 0],1,Ny-1) repmat(ax,1,Nx-1)],N,N) + ...
@@ -166,6 +175,10 @@ for iCore = 1:nCores
   M_rhs(1:N+1:N*N) = M_rhs(1:N+1:N*N) - [repmat(ay,1,Nx) repmat(2*ay,1,Nx*(Ny-2)) repmat(ay,1,Nx)];
   absorberdiag = sparse(1:N,1:N,absorber(1:N),N,N);
   M_rhs = M_rhs*absorberdiag;
+  if P.ySymmetry == 2
+    M_rhs(1:((N+1)*Nx):end) = 0;
+    M_rhs(N:((N+1)*Nx):end) = 0;
+  end
 
   [V,D] = eigs(M_rhs,ceil(nModes/nCores),1,'Display',false,'SubspaceDimension',min(N,ceil(nModes/nCores)*10));
   D = diag(D);
