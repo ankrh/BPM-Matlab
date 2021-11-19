@@ -78,22 +78,12 @@ targetLx = P.padfactor*P.Lx_main;
 targetLy = P.padfactor*P.Ly_main;
 
 Nx = round(targetLx/dx);
-switch P.ySymmetry
-  case 0
-    Nx = Nx + (rem(Nx,2) ~= rem(P.Nx_main,2)); % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
-  case 1
-    Nx = Nx + rem(Nx,2); % Ensure that if we have ordinary symmetry, Nx is even
-  case 2
-    Nx = Nx + ~rem(Nx,2); % Ensure that if we have anti-symmetry, Nx is odd
+if ~P.ySymmetry
+  Nx = Nx + (rem(Nx,2) ~= rem(P.Nx_main,2)); % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
 end
 Ny = round(targetLy/dy);
-switch P.xSymmetry
-  case 0
-    Ny = Ny + (rem(Ny,2) ~= rem(P.Ny_main,2)); % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
-  case 1
-    Ny = Ny + rem(Ny,2); % Ensure that if we have ordinary symmetry, Ny is even
-  case 2
-    Ny = Ny + ~rem(Ny,2); % Ensure that if we have anti-symmetry, Ny is odd
+if ~P.xSymmetry
+  Ny = Ny + (rem(Ny,2) ~= rem(P.Ny_main,2)); % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
 end
 N = Nx*Ny;                                                            %N*N - size of sparse matrices
 if nModes >= N - 1
@@ -175,6 +165,10 @@ for iCore = 1:nCores
   M_rhs(1:N+1:N*N) = M_rhs(1:N+1:N*N) - [repmat(ay,1,Nx) repmat(2*ay,1,Nx*(Ny-2)) repmat(ay,1,Nx)];
   absorberdiag = sparse(1:N,1:N,absorber(1:N),N,N);
   M_rhs = M_rhs*absorberdiag;
+  if P.xSymmetry == 2
+    M_rhs(1:N+1:N*Nx) = 0;
+    M_rhs(N*Nx:N+1:2*N*Nx) = 0;
+  end
   if P.ySymmetry == 2
     M_rhs(1:((N+1)*Nx):end) = 0;
     M_rhs(N:((N+1)*Nx):end) = 0;
@@ -194,6 +188,8 @@ for iCore = 1:nCores
     iMode = iMode + 1;
     P.modes(iMode).Lx = Lx;
     P.modes(iMode).Ly = Ly;
+    P.modes(iMode).xSymmetry = P.xSymmetry;
+    P.modes(iMode).ySymmetry = P.ySymmetry;
     E = reshape(V(:,iCoreMode),[Nx Ny]);
     E = E.*exp(-1i*angle(max(E(:)))); % Shift phase arbitrarily so that the resulting modes are (nearly) real
     P.modes(iMode).field = E;

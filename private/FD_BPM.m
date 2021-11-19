@@ -124,6 +124,9 @@ end
 if ~isfield(P,'n_colormap')
   P.n_colormap = 3;
 end
+if ~isfield(P,'calcModeOverlaps')
+  P.calcModeOverlaps = false; 
+end
 
 if P.xSymmetry ~= 0 && ~isinf(P.bendingRoC) && sind(P.bendDirection) || ...
    P.ySymmetry ~= 0 && ~isinf(P.bendingRoC) && cosd(P.bendDirection)
@@ -141,10 +144,6 @@ if P.saveVideo
 end
 
 typename = 'single';
-
-if ~isfield(P,'calcModeOverlaps')
-  P.calcModeOverlaps = false; 
-end
 
 %% Check for GPU compatibility if needed
 if P.useGPU
@@ -173,22 +172,12 @@ targetLx = P.padfactor*P.Lx_main;
 targetLy = P.padfactor*P.Ly_main;
 
 Nx = round(targetLx/dx);
-switch P.ySymmetry
-  case 0
-    Nx = Nx + (rem(Nx,2) ~= rem(P.Nx_main,2)); % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
-  case 1
-    Nx = Nx + rem(Nx,2); % Ensure that if we have ordinary symmetry, Nx is even
-  case 2
-    Nx = Nx + ~rem(Nx,2); % Ensure that if we have anti-symmetry, Nx is odd
+if ~P.ySymmetry
+  Nx = Nx + (rem(Nx,2) ~= rem(P.Nx_main,2)); % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
 end
 Ny = round(targetLy/dy);
-switch P.xSymmetry
-  case 0
-    Ny = Ny + (rem(Ny,2) ~= rem(P.Ny_main,2)); % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
-  case 1
-    Ny = Ny + rem(Ny,2); % Ensure that if we have ordinary symmetry, Ny is even
-  case 2
-    Ny = Ny + ~rem(Ny,2); % Ensure that if we have anti-symmetry, Ny is odd
+if ~P.xSymmetry
+  Ny = Ny + (rem(Ny,2) ~= rem(P.Ny_main,2)); % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
 end
 Lx = Nx*dx;
 Ly = Ny*dy;
@@ -226,31 +215,32 @@ y_plot = y(iy_plot);
 priorData = isfield(P,'originalEinput');
 if ~priorData
   if ~isa(P.E,'function_handle')
-    P.E.field = P.E.field/sqrt(sum(abs(P.E.field(:)).^2));
+    powerFraction_Einput = 1/(1 + (P.E.xSymmetry ~= 0))/(1 + (P.E.ySymmetry ~= 0)); % How large a fraction of the total power the input field contains
+    P.E.field = P.E.field/sqrt(sum(abs(P.E.field(:)).^2)/powerFraction_Einput);
   end
   P.originalEinput = P.E;
 end
 
 %% Beam initialization
+powerFraction = 1/(1 + (P.xSymmetry ~= 0))/(1 + (P.ySymmetry ~= 0)); % How large a fraction of the total power we are simulating
 if isa(P.E,'function_handle')
   E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
-  E = E/sqrt(sum(abs(E(:)).^2));
+  E = E/sqrt(sum(abs(E(:)).^2)/powerFraction);
 else % Interpolate source E field to new grid
+  if ~isfield(P.E,'xSymmetry'); P.E.xSymmetry = 0; end % Assume no x symmetry
+  if ~isfield(P.E,'ySymmetry'); P.E.ySymmetry = 0; end % Assume no y symmetry
   [Nx_source,Ny_source] = size(P.E.field);
   dx_source = P.E.Lx/Nx_source;
   dy_source = P.E.Ly/Ny_source;
-  x_source = getGridArray(Nx_source,dx_source,P.ySymmetry);
-  y_source = getGridArray(Ny_source,dy_source,P.xSymmetry);
-  E = interpn(x_source,y_source,P.E.field,x,y.','linear',0);
-  E = E*sqrt(sum(abs(P.E.field(:)).^2)/sum(abs(E(:)).^2));
+  x_source = getGridArray(Nx_source,dx_source,P.E.ySymmetry);
+  y_source = getGridArray(Ny_source,dy_source,P.E.xSymmetry);
+  [x_source,y_source,E_source] = calcFullField(x_source,y_source,P.E.field);
+  E = interpn(x_source,y_source,E_source,x,y.','linear',0);
+  E = E*sqrt(sum(abs(E_source(:)).^2)/sum(abs(E(:)).^2/powerFraction));
 end
 
-if P.ySymmetry
-  E(X == 0) = 0;
-end
-if P.xSymmetry
-  E(Y == 0) = 0;
-end
+if P.ySymmetry == 2; E(X == 0) = 0; end
+if P.xSymmetry == 2; E(Y == 0) = 0; end
 
 E = complex(single(E)); % Force to be complex single
 
@@ -274,18 +264,21 @@ if isfield(P.n,'func') % If P.n has a function field
     n = trimRI(n,P.n_background);
   end
 else % Otherwise a P.n.n array must have been specified, so we will interpolate it to the simulation xy grid
+  if ~isfield(P.n,'xSymmetry'); P.n.xSymmetry = 0; end % Assume no x symmetry
+  if ~isfield(P.n,'ySymmetry'); P.n.ySymmetry = 0; end % Assume no y symmetry
   [Nx_source,Ny_source,Nz_source] = size(P.n.n);
   dx_source = P.n.Lx/Nx_source;
   dy_source = P.n.Ly/Ny_source;
-  x_source = getGridArray(Nx_source,dx_source,P.ySymmetry);
-  y_source = getGridArray(Ny_source,dy_source,P.xSymmetry);
+  x_source = getGridArray(Nx_source,dx_source,P.n.ySymmetry);
+  y_source = getGridArray(Ny_source,dy_source,P.n.xSymmetry);
+  [x_source,y_source,n_source] = calcFullRI(x_source,y_source,P.n.n);
   if Nz_source == 1 % If P.n.n is 2D, 
-    n = interpn(x_source,y_source,P.n.n,x,y.','linear',P.n_background);
+    n = interpn(x_source,y_source,n_source,x,y.','linear',P.n_background);
     n_slice = n;
   else % Otherwise it's 3D. We trim away any unnecessary repeated outer yz or xz slices that only contain n_background.
     dz_n = P.Lz/(Nz_source-1);
     z_source = dz_n*(0:Nz_source-1);
-    n = interpn(x_source,y_source,z_source,P.n.n,x,y.',z_source,'linear',P.n_background);
+    n = interpn(x_source,y_source,z_source,n_source,x,y.',z_source,'linear',P.n_background);
     n_slice = n(:,:,1);
     n = trimRI(n,P.n_background);
   end
@@ -371,6 +364,16 @@ xlabel('x [m]');
 ylabel('y [m]');
 title('Real part of refractive index');
 
+if P.xSymmetry ~= 0
+  y0idx = 1;
+else
+  y0idx = round((Ny-1)/2+1);
+end
+if P.ySymmetry ~= 0
+  x0idx = 1;
+else
+  x0idx = round((Nx-1)/2+1);
+end
 if priorData
   P.powers = [P.powers NaN(1,P.updates)];
   P.xzSlice{end+1} = NaN(Nx,P.updates);
@@ -380,16 +383,6 @@ else
   P.powers(1) = 1;
   P.xzSlice = {NaN(Nx,P.updates+1)};
   P.yzSlice = {NaN(Ny,P.updates+1)};
-  if P.xSymmetry ~= 0
-    y0idx = 1;
-  else
-    y0idx = round((Ny-1)/2+1);
-  end
-  if P.ySymmetry ~= 0
-    x0idx = 1;
-  else
-    x0idx = round((Nx-1)/2+1);
-  end
   P.xzSlice{1}(:,1) = E(:,y0idx);
   P.yzSlice{1}(:,1) = E(x0idx,:);
 end
@@ -487,7 +480,7 @@ end
 mexParameters = struct('dx',single(dx),'dy',single(dy),'dz',single(dz),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
   'multiplier',single(multiplier),'n_mat',complex(single(n)),'dz_n',single(dz_n),'d',single(d),'n_0',single(P.n_0),...
   'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
-  'inputPrecisePower',P.powers(end-length(zUpdateIdxs)));
+  'inputPrecisePower',P.powers(end-length(zUpdateIdxs))*powerFraction,'antiSymmetries',uint8((P.xSymmetry == 2) + 2*(P.ySymmetry == 2)));
 
 % fprintf("dz = %.2e, ax = %.2f i, ay = %.2f i, d = %.2f\n",dz,ax/1i,ay/1i,d);
 mexParameters.iz_start = int32(0); % z index of the first z position to step from for the first call to FDBPMpropagator, in C indexing (starting from 0)
@@ -524,7 +517,7 @@ for updidx = 1:length(zUpdateIdxs)
   end
   
   mexParameters.inputPrecisePower = precisePower;
-  P.powers(end-length(zUpdateIdxs)+updidx) = precisePower;
+  P.powers(end-length(zUpdateIdxs)+updidx) = precisePower/powerFraction;
   h_plot2.YData = P.powers;
   h_ax2.YLim = [0 1.1*max(P.powers)];
 
@@ -546,7 +539,7 @@ for updidx = 1:length(zUpdateIdxs)
 end
 totalTime = toc;
 fprintf('Segment done. Elapsed time is %.1f s. %.0f%% of the time was spent updating plots.\n',totalTime,100*(totalTime - timeInMex)/totalTime);
-if ~P.disablePlotTimeWarning && timeInMex < 0.5*totalTime
+if ~P.disablePlotTimeWarning && timeInMex < 0.5*totalTime && totalTime > 20
   if P.saveVideo
     warning('More than half of the execution time is spent doing plot updates. You can speed up this simulation by decreasing the number of updates or setting P.saveVideo = false. You can disable this warning by setting P.disablePlotTimeWarning = true.');
   else
@@ -625,8 +618,8 @@ colorbar;
 setColormap(gca,P.Phase_colormap);
 
 %% Store the final E field and n as the new inputs
-P.E = struct('field',E,'Lx',Lx,'Ly',Ly);
-P.n = struct('n',n_slice,'Lx',Lx,'Ly',Ly);
+P.E = struct('field',E,'Lx',Lx,'Ly',Ly,'xSymmetry',P.xSymmetry,'ySymmetry',P.ySymmetry);
+P.n = struct('n',n_slice,'Lx',Lx,'Ly',Ly,'xSymmetry',P.xSymmetry,'ySymmetry',P.ySymmetry);
 
 P.x = x;
 P.y = y;
@@ -664,6 +657,8 @@ assert(isa(P.rho_e,typename));
 assert(isreal(P.rho_e));
 assert(isa(P.bendDirection,typename));
 assert(isreal(P.bendDirection));
+assert(isa(P.antiSymmetries,'uint8'));
+assert(isreal(P.antiSymmetries));
 end
 
 function setColormap(gca,colormapType)
