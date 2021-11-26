@@ -41,6 +41,12 @@ end
 if isfield(P.n,'func') && nargin(P.n.func) == 5 && ~isfield(P.n,'Nz')
   error('You must specify the refractive index array z resolution P.n.Nz if you provide a 3D refractive index function');
 end
+if ~isfield(P,'xSymmetry')
+  P.xSymmetry = 0;
+end
+if ~isfield(P,'ySymmetry')
+  P.ySymmetry = 0;
+end
 if ~isfield(P,'storeE3D')
   P.storeE3D = false;
 end
@@ -118,6 +124,14 @@ end
 if ~isfield(P,'n_colormap')
   P.n_colormap = 3;
 end
+if ~isfield(P,'calcModeOverlaps')
+  P.calcModeOverlaps = false; 
+end
+
+if P.xSymmetry ~= 0 && ~isinf(P.bendingRoC) && sind(P.bendDirection) || ...
+   P.ySymmetry ~= 0 && ~isinf(P.bendingRoC) && cosd(P.bendDirection)
+  error('The specified bending direction is inconsistent with the symmetry assumption');
+end
 
 if P.saveVideo
   if isfield(P,'videoHandle')
@@ -130,10 +144,6 @@ if P.saveVideo
 end
 
 typename = 'single';
-
-if ~isfield(P,'calcModeOverlaps')
-  P.calcModeOverlaps = false; 
-end
 
 %% Check for GPU compatibility if needed
 if P.useGPU
@@ -162,12 +172,12 @@ targetLx = P.padfactor*P.Lx_main;
 targetLy = P.padfactor*P.Ly_main;
 
 Nx = round(targetLx/dx);
-if rem(Nx,2) ~= rem(P.Nx_main,2)
-  Nx = Nx + 1; % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
+if ~P.ySymmetry
+  Nx = Nx + (rem(Nx,2) ~= rem(P.Nx_main,2)); % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
 end
 Ny = round(targetLy/dy);
-if rem(Ny,2) ~= rem(P.Ny_main,2)
-  Ny = Ny + 1; % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
+if ~P.xSymmetry
+  Ny = Ny + (rem(Ny,2) ~= rem(P.Ny_main,2)); % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
 end
 Lx = Nx*dx;
 Ly = Ny*dy;
@@ -176,8 +186,8 @@ if P.calcModeOverlaps && (P.modes(1).Lx ~= Lx || P.modes(1).Ly ~= Ly || size(P.m
   error('The pre-calculated mode fields do not match the simulation Lx, Ly, Nx or Ny');
 end
 
-x = dx*(-(Nx-1)/2:(Nx-1)/2);
-y = dy*(-(Ny-1)/2:(Ny-1)/2);
+x = getGridArray(Nx,dx,P.ySymmetry);
+y = getGridArray(Ny,dy,P.xSymmetry);
 [X,Y] = ndgrid(x,y);
 
 % Check if the MATLAB version is one that has the mex/imagesc bug and, if
@@ -205,24 +215,32 @@ y_plot = y(iy_plot);
 priorData = isfield(P,'originalEinput');
 if ~priorData
   if ~isa(P.E,'function_handle')
-    P.E.field = P.E.field/sqrt(sum(abs(P.E.field(:)).^2));
+    powerFraction_Einput = 1/(1 + (P.E.xSymmetry ~= 0))/(1 + (P.E.ySymmetry ~= 0)); % How large a fraction of the total power the input field contains
+    P.E.field = P.E.field/sqrt(sum(abs(P.E.field(:)).^2)/powerFraction_Einput);
   end
   P.originalEinput = P.E;
 end
 
 %% Beam initialization
+powerFraction = 1/(1 + (P.xSymmetry ~= 0))/(1 + (P.ySymmetry ~= 0)); % How large a fraction of the total power we are simulating
 if isa(P.E,'function_handle')
   E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
-  E = E/sqrt(sum(abs(E(:)).^2));
+  E = E/sqrt(sum(abs(E(:)).^2)/powerFraction);
 else % Interpolate source E field to new grid
+  if ~isfield(P.E,'xSymmetry'); P.E.xSymmetry = 0; end % Assume no x symmetry
+  if ~isfield(P.E,'ySymmetry'); P.E.ySymmetry = 0; end % Assume no y symmetry
   [Nx_source,Ny_source] = size(P.E.field);
   dx_source = P.E.Lx/Nx_source;
   dy_source = P.E.Ly/Ny_source;
-  x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
-  y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
-  E = interpn(x_source,y_source,P.E.field,x,y.','linear',0);
-  E = E*sqrt(sum(abs(P.E.field(:)).^2)/sum(abs(E(:)).^2));
+  x_source = getGridArray(Nx_source,dx_source,P.E.ySymmetry);
+  y_source = getGridArray(Ny_source,dy_source,P.E.xSymmetry);
+  [x_source,y_source,E_source] = calcFullField(x_source,y_source,P.E.field);
+  E = interpn(x_source,y_source,E_source,x,y.','linear',0);
+  E = E*sqrt(sum(abs(E_source(:)).^2)/sum(abs(E(:)).^2/powerFraction));
 end
+
+if P.ySymmetry == 2; E(X == 0) = 0; end
+if P.xSymmetry == 2; E(Y == 0) = 0; end
 
 E = complex(single(E)); % Force to be complex single
 
@@ -246,18 +264,21 @@ if isfield(P.n,'func') % If P.n has a function field
     n = trimRI(n,P.n_background);
   end
 else % Otherwise a P.n.n array must have been specified, so we will interpolate it to the simulation xy grid
+  if ~isfield(P.n,'xSymmetry'); P.n.xSymmetry = 0; end % Assume no x symmetry
+  if ~isfield(P.n,'ySymmetry'); P.n.ySymmetry = 0; end % Assume no y symmetry
   [Nx_source,Ny_source,Nz_source] = size(P.n.n);
   dx_source = P.n.Lx/Nx_source;
   dy_source = P.n.Ly/Ny_source;
-  x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
-  y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
+  x_source = getGridArray(Nx_source,dx_source,P.n.ySymmetry);
+  y_source = getGridArray(Ny_source,dy_source,P.n.xSymmetry);
+  [x_source,y_source,n_source] = calcFullRI(x_source,y_source,P.n.n);
   if Nz_source == 1 % If P.n.n is 2D, 
-    n = interpn(x_source,y_source,P.n.n,x,y.','linear',P.n_background);
+    n = interpn(x_source,y_source,n_source,x,y.','linear',P.n_background);
     n_slice = n;
   else % Otherwise it's 3D. We trim away any unnecessary repeated outer yz or xz slices that only contain n_background.
     dz_n = P.Lz/(Nz_source-1);
     z_source = dz_n*(0:Nz_source-1);
-    n = interpn(x_source,y_source,z_source,P.n.n,x,y.',z_source,'linear',P.n_background);
+    n = interpn(x_source,y_source,z_source,n_source,x,y.',z_source,'linear',P.n_background);
     n_slice = n(:,:,1);
     n = trimRI(n,P.n_background);
   end
@@ -266,10 +287,10 @@ end
 % If RI is 3D, plot it volumetrically
 [Nx_n,Ny_n,Nz_n] = size(n);
 if Nz_n > 1
-  x_n = dx*(-(Nx_n-1)/2:(Nx_n-1)/2);
-  y_n = dy*(-(Ny_n-1)/2:(Ny_n-1)/2);
+  x_n = getGridArray(Nx_n,dx,P.ySymmetry);
+  y_n = getGridArray(Ny_n,dy,P.xSymmetry);
   z_n = dz_n*(0:Nz_n-1);
-  plotVolumetric(101,x_n,y_n,z_n,real(n),'BPM-Matlab_RI');
+  plotVolumetric(201,x_n,y_n,z_n,real(n),'BPM-Matlab_RI');
   title('Real part of refractive index');xlabel('x [m]');ylabel('y [m]');zlabel('z [m]');
 end
 
@@ -301,7 +322,9 @@ ay = dz/(4i*dy^2*k_0*P.n_0);
 d = -dz*k_0;
 
 %% Calculate the edge absorber multiplier
-multiplier = single(exp(-dz*max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha)); % Is real
+xEdge = P.Lx_main*(1 + (P.ySymmetry ~= 0))/2;
+yEdge = P.Ly_main*(1 + (P.xSymmetry ~= 0))/2;
+multiplier = single(exp(-dz*max(0,max(abs(Y) - yEdge,abs(X) - xEdge)).^2*P.alpha)); % Is real
 
 %% Figure initialization
 h_f = figure(P.figNum);clf reset;
@@ -309,12 +332,29 @@ if strcmp(h_f.WindowStyle,'normal')
   h_f.WindowState = 'maximized';
 end
 
+xlims = ([-1 1] + (P.ySymmetry ~= 0))*Lx/(2*P.displayScaling);
+ylims = ([-1 1] + (P.xSymmetry ~= 0))*Ly/(2*P.displayScaling);
+
+if P.xSymmetry ~= 0 && P.ySymmetry ~= 0
+  redline_x = [0 P.Lx_main P.Lx_main];
+  redline_y = [P.Ly_main P.Ly_main 0];
+elseif P.xSymmetry ~= 0
+  redline_x = [-P.Lx_main -P.Lx_main P.Lx_main P.Lx_main]/2;
+  redline_y = [0 P.Ly_main P.Ly_main 0];
+elseif P.ySymmetry ~= 0
+  redline_x = [0 P.Lx_main P.Lx_main 0];
+  redline_y = [-P.Ly_main -P.Ly_main P.Ly_main P.Ly_main]/2;
+else
+  redline_x = [-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2;
+  redline_y = [P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2;
+end
+
 h_axis1 = subplot(2,2,1);
 h_im1 = imagesc(x_plot,y_plot,real(n_slice(ix_plot,iy_plot)).');
 axis xy
 axis equal
-xlim([-1 1]*Lx/(2*P.displayScaling));
-ylim([-1 1]*Ly/(2*P.displayScaling));
+xlim(xlims);
+ylim(ylims);
 colorbar;
 setColormap(gca,P.n_colormap);
 if isfield(P,'n_colorlimits')
@@ -324,6 +364,16 @@ xlabel('x [m]');
 ylabel('y [m]');
 title('Real part of refractive index');
 
+if P.xSymmetry ~= 0
+  y0idx = 1;
+else
+  y0idx = round((Ny-1)/2+1);
+end
+if P.ySymmetry ~= 0
+  x0idx = 1;
+else
+  x0idx = round((Nx-1)/2+1);
+end
 if priorData
   P.powers = [P.powers NaN(1,P.updates)];
   P.xzSlice{end+1} = NaN(Nx,P.updates);
@@ -333,8 +383,8 @@ else
   P.powers(1) = 1;
   P.xzSlice = {NaN(Nx,P.updates+1)};
   P.yzSlice = {NaN(Ny,P.updates+1)};
-  P.xzSlice{1}(:,1) = E(:,round((Nx-1)/2+1));
-  P.yzSlice{1}(:,1) = E(round((Ny-1)/2+1),:);
+  P.xzSlice{1}(:,1) = E(:,y0idx);
+  P.yzSlice{1}(:,1) = E(x0idx,:);
 end
 if P.storeE3D
   if priorData
@@ -359,13 +409,13 @@ box on;
 h_im3a = imagesc(x_plot,y_plot,abs(E(ix_plot,iy_plot).').^2);
 axis xy;
 axis equal;
-xlim([-1 1]*Lx/(2*P.displayScaling));
-ylim([-1 1]*Ly/(2*P.displayScaling));
+xlim(xlims);
+ylim(ylims);
 colorbar;
 xlabel('x [m]');
 ylabel('y [m]');
 title('Intensity [W/m^2]');
-line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+line(redline_x,redline_y,'color','r','linestyle','--');
 setColormap(gca,P.Intensity_colormap);
 if isfield(P,'plotEmax')
   caxis('manual');
@@ -383,11 +433,11 @@ h_im3b.AlphaData = max(0,(1+log10(abs(E(ix_plot,iy_plot).'/maxE0).^2)/3));  %Log
 h_axis3b.Color = 0.7*[1 1 1];  % To set the color corresponding to phase outside the cores where there is no field at all
 axis xy;
 axis equal;
-xlim([-1 1]*Lx/(2*P.displayScaling));
-ylim([-1 1]*Ly/(2*P.displayScaling));
+xlim(xlims);
+ylim(ylims);
 colorbar;
 caxis([-pi pi]);
-line([-P.Lx_main P.Lx_main P.Lx_main -P.Lx_main -P.Lx_main]/2,[P.Ly_main P.Ly_main -P.Ly_main -P.Ly_main P.Ly_main]/2,'color','r','linestyle','--');
+line(redline_x,redline_y,'color','r','linestyle','--');
 xlabel('x [m]');
 ylabel('y [m]');
 title('Phase [rad]');
@@ -430,7 +480,7 @@ end
 mexParameters = struct('dx',single(dx),'dy',single(dy),'dz',single(dz),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
   'multiplier',single(multiplier),'n_mat',complex(single(n)),'dz_n',single(dz_n),'d',single(d),'n_0',single(P.n_0),...
   'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
-  'inputPrecisePower',P.powers(end-length(zUpdateIdxs)));
+  'inputPrecisePower',P.powers(end-length(zUpdateIdxs))*powerFraction,'antiSymmetries',uint8((P.xSymmetry == 2) + 2*(P.ySymmetry == 2)));
 
 % fprintf("dz = %.2e, ax = %.2f i, ay = %.2f i, d = %.2f\n",dz,ax/1i,ay/1i,d);
 mexParameters.iz_start = int32(0); % z index of the first z position to step from for the first call to FDBPMpropagator, in C indexing (starting from 0)
@@ -470,12 +520,12 @@ for updidx = 1:length(zUpdateIdxs)
   end
 
   mexParameters.inputPrecisePower = precisePower;
-  P.powers(end-length(zUpdateIdxs)+updidx) = precisePower;
+  P.powers(end-length(zUpdateIdxs)+updidx) = precisePower/powerFraction;
   h_plot2.YData = P.powers;
   h_ax2.YLim = [0 1.1*max(P.powers)];
 
-  P.xzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(:,round((Nx-1)/2+1));
-  P.yzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(round((Ny-1)/2+1),:);
+  P.xzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(:,y0idx);
+  P.yzSlice{end}(:,end-length(zUpdateIdxs)+updidx) = E(x0idx,:);
 
   if P.calcModeOverlaps
     for iMode = 1:nModes
@@ -492,7 +542,7 @@ for updidx = 1:length(zUpdateIdxs)
 end
 totalTime = toc;
 fprintf('Segment done. Elapsed time is %.1f s. %.0f%% of the time was spent updating plots.\n',totalTime,100*(totalTime - timeInMex)/totalTime);
-if ~P.disablePlotTimeWarning && timeInMex < 0.5*totalTime
+if ~P.disablePlotTimeWarning && timeInMex < 0.5*totalTime && totalTime > 20
   if P.saveVideo
     warning('More than half of the execution time is spent doing plot updates. You can speed up this simulation by decreasing the number of updates or setting P.saveVideo = false. You can disable this warning by setting P.disablePlotTimeWarning = true.');
   else
@@ -516,7 +566,7 @@ if P.storeE3D
     z = P.z(end-P.updates+1:end);
   end
   if numel(z) > 1
-    plotVolumetric(200 + numel(P.E3D),x,y,z,abs(P.E3D{end}).^2,'BPM-Matlab_I');
+    plotVolumetric(201 + numel(P.E3D),x,y,z,abs(P.E3D{end}).^2,'BPM-Matlab_I');
   end
 end
 
@@ -540,7 +590,9 @@ ky = 2*pi/P.lambda*theta_y/180*pi;
 dy_FF = 2*pi/(ky(2)-ky(1))/N_FF;
 y_FF = (-(N_FF-1)/2:(N_FF-1)/2)*dy_FF;
 
-E_interp = interpn(x,y.',E,x_FF,y_FF.','linear',0);
+[x_full,y_full,E_full] = calcFullField(x,y,E);
+
+E_interp = interpn(x_full,y_full.',E_full,x_FF,y_FF.','linear',0);
 
 E_FF = fftshift(fft2(ifftshift(conj(E_interp))));
 
@@ -569,8 +621,8 @@ colorbar;
 setColormap(gca,P.Phase_colormap);
 
 %% Store the final E field and n as the new inputs
-P.E = struct('field',E,'Lx',Lx,'Ly',Ly);
-P.n = struct('n',n_slice,'Lx',Lx,'Ly',Ly);
+P.E = struct('field',E,'Lx',Lx,'Ly',Ly,'xSymmetry',P.xSymmetry,'ySymmetry',P.ySymmetry);
+P.n = struct('n',n_slice,'Lx',Lx,'Ly',Ly,'xSymmetry',P.xSymmetry,'ySymmetry',P.ySymmetry);
 
 P.x = x;
 P.y = y;
@@ -608,6 +660,8 @@ assert(isa(P.rho_e,typename));
 assert(isreal(P.rho_e));
 assert(isa(P.bendDirection,typename));
 assert(isreal(P.bendDirection));
+assert(isa(P.antiSymmetries,'uint8'));
+assert(isreal(P.antiSymmetries));
 end
 
 function setColormap(gca,colormapType)

@@ -36,6 +36,12 @@ end
 if isfield(P.n,'func') && nargin(P.n.func) == 5 && ~isfield(P.n,'Nz')
   error('You must specify the refractive index array z resolution P.n.Nz if you provide a 3D refractive index function');
 end
+if ~isfield(P,'xSymmetry')
+  P.xSymmetry = 0;
+end
+if ~isfield(P,'ySymmetry')
+  P.ySymmetry = 0;
+end
 if ~isfield(P,'nParameters')
   P.nParameters = {};
 end
@@ -55,6 +61,11 @@ if ~isfield(P,'Phase_colormap')
   P.Phase_colormap = 2;
 end
 
+if P.xSymmetry ~= 0 && ~isinf(P.bendingRoC) && sind(P.bendDirection) || ...
+   P.ySymmetry ~= 0 && ~isinf(P.bendingRoC) && cosd(P.bendDirection)
+  error('The specified bending direction is inconsistent with the symmetry assumption');
+end
+
 if isfield(P,'modes')
   P = rmfield(P,'modes');
 end
@@ -67,12 +78,12 @@ targetLx = P.padfactor*P.Lx_main;
 targetLy = P.padfactor*P.Ly_main;
 
 Nx = round(targetLx/dx);
-if rem(Nx,2) ~= rem(P.Nx_main,2)
-  Nx = Nx + 1; % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
+if ~P.ySymmetry
+  Nx = Nx + (rem(Nx,2) ~= rem(P.Nx_main,2)); % Ensure that if Nx_main was set odd (to have a x slice at the center), Nx will also be odd
 end
 Ny = round(targetLy/dy);
-if rem(Ny,2) ~= rem(P.Ny_main,2)
-  Ny = Ny + 1; % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
+if ~P.xSymmetry
+  Ny = Ny + (rem(Ny,2) ~= rem(P.Ny_main,2)); % Ensure that if Ny_main was set odd (to have a y slice at the center), Ny will also be odd
 end
 N = Nx*Ny;                                                            %N*N - size of sparse matrices
 if nModes >= N - 1
@@ -81,8 +92,8 @@ end
 Lx = Nx*dx;
 Ly = Ny*dy;
 
-x = dx*(-(Nx-1)/2:(Nx-1)/2);
-y = dy*(-(Ny-1)/2:(Ny-1)/2);
+x = getGridArray(Nx,dx,P.ySymmetry);
+y = getGridArray(Ny,dy,P.xSymmetry);
 [X,Y] = ndgrid(x,y);
 
 V = [];
@@ -101,8 +112,8 @@ else % Otherwise a P.n.n array must have been specified
   [Nx_source,Ny_source,Nz_source] = size(P.n.n);
   dx_source = P.n.Lx/Nx_source;
   dy_source = P.n.Ly/Ny_source;
-  x_source = dx_source*(-(Nx_source-1)/2:(Nx_source-1)/2);
-  y_source = dy_source*(-(Ny_source-1)/2:(Ny_source-1)/2);
+  x_source = getGridArray(Nx_source,dx_source,P.ySymmetry);
+  y_source = getGridArray(Ny_source,dy_source,P.xSymmetry);
   if Nz_source == 1 % If P.n.n is 2D, interpolate it to the simulation grid
     n = interpn(x_source,y_source,P.n.n,x,y.','linear',P.n_background);
   else % Otherwise it's 3D so we take the first slice and interpolate to the simulation grid
@@ -125,7 +136,7 @@ for iCore = 1:nCores
   n_core(coreIdxs ~= iCore) = P.n_background;
   
   if ~isfinite(P.bendingRoC)
-    [radiallySymmetric,xC,yC] = testRadialSymmetry(X,Y,n_core,P.n_background); % Numerically estimates whether this core is radially symmetric, and finds the centroid coordinates (xC, yC)
+    [radiallySymmetric,xC,yC] = testRadialSymmetry(X,Y,n_core,P.n_background,P.xSymmetry,P.ySymmetry); % Numerically estimates whether this core is radially symmetric, and finds the centroid coordinates (xC, yC)
   else
     radiallySymmetric = false;
   end
@@ -137,11 +148,13 @@ for iCore = 1:nCores
   delta_n_2 = real(n_core_bent).^2 - P.n_0^2;                              %delta_n^2 in the expression for FD BPM
 
   dz = 1e-10;
-  absorber = exp(-dz*(max(0,max(abs(Y) - P.Ly_main/2,abs(X) - P.Lx_main/2)).^2*P.alpha + 2*pi*imag(n_core)/P.lambda)); % First part is edge absorber, second is absorption from the imaginary part of the refractive indicres
+  
+  xEdge = P.Lx_main*(1 + (P.ySymmetry ~= 0))/2;
+  yEdge = P.Ly_main*(1 + (P.xSymmetry ~= 0))/2;
+  absorber = exp(-dz*(max(0,max(0,max(abs(Y) - yEdge,abs(X) - xEdge))).^2*P.alpha + 2*pi*imag(n_core)/P.lambda)); % First part is edge absorber, second is absorption from the imaginary part of the refractive indicres
   ax = 1.00001*dz/(dx^2*2i*k_0*P.n_0);
 %   ax = dz/(dx^2*2i*k_0*P.n_0);
   ay = dz/(dy^2*2i*k_0*P.n_0);
-
 
   M_rhs = sparse(1:N,1:N,absorber(1:N) + delta_n_2(1:N)*dz*k_0/(2i*P.n_0),N,N) + ...
     sparse(1:N-1,2:N,[repmat([repmat(ax,1,Nx-1) 0],1,Ny-1) repmat(ax,1,Nx-1)],N,N) + ...
@@ -152,6 +165,14 @@ for iCore = 1:nCores
   M_rhs(1:N+1:N*N) = M_rhs(1:N+1:N*N) - [repmat(ay,1,Nx) repmat(2*ay,1,Nx*(Ny-2)) repmat(ay,1,Nx)];
   absorberdiag = sparse(1:N,1:N,absorber(1:N),N,N);
   M_rhs = M_rhs*absorberdiag;
+  if P.xSymmetry == 2
+    M_rhs(1:N+1:N*Nx) = 0;
+    M_rhs(N*Nx:N+1:2*N*Nx) = 0;
+  end
+  if P.ySymmetry == 2
+    M_rhs(1:((N+1)*Nx):end) = 0;
+    M_rhs(N:((N+1)*Nx):end) = 0;
+  end
 
   [V,D] = eigs(M_rhs,ceil(nModes/nCores),1,'Display',false,'SubspaceDimension',min(N,ceil(nModes/nCores)*10));
   D = diag(D);
@@ -167,6 +188,8 @@ for iCore = 1:nCores
     iMode = iMode + 1;
     P.modes(iMode).Lx = Lx;
     P.modes(iMode).Ly = Ly;
+    P.modes(iMode).xSymmetry = P.xSymmetry;
+    P.modes(iMode).ySymmetry = P.ySymmetry;
     E = reshape(V(:,iCoreMode),[Nx Ny]);
     E = E.*exp(-1i*angle(max(E(:)))); % Shift phase arbitrarily so that the resulting modes are (nearly) real
     P.modes(iMode).field = E;
@@ -176,22 +199,24 @@ for iCore = 1:nCores
       P.modes(iMode).neff = real(neff(iCoreMode)); % If the user did not specify any complex refractive indices, then the only contribution to kappa would be from the edge absorber, and showing a complex neff would just confuse people and not be very physically meaningful
     end
     if radiallySymmetric
-      [~,iMax] = max(E(:));
-      xMax = X(iMax);
-      yMax = Y(iMax);
+      [x_full,y_full,E_full] = calcFullField(x,y,E);
+      [X_full,Y_full] = ndgrid(x_full,y_full);
+      [~,iMax] = max(E_full(:));
+      xMax = X_full(iMax);
+      yMax = Y_full(iMax);
       theta = atan2(yMax - yC,xMax - xC);
-      radialE = interpn(X,Y,E,xC + linspace(0,max(Lx,Ly),1000)*cos(theta),yC + linspace(0,max(Lx,Ly),1000)*sin(theta));
+      radialE = interpn(X_full,Y_full,E_full,xC + linspace(0,max(Lx,Ly),1000)*cos(theta),yC + linspace(0,max(Lx,Ly),1000)*sin(theta));
       radialEpruned = radialE(abs(radialE) > 0.1*max(abs(radialE)));
       m = sum(abs(diff(angle(radialEpruned*exp(1i*pi/2)) > 0))) + 1;
 
       R = sqrt((xMax - xC)^2 + (yMax - yC)^2);
-      azimuthalE = interpn(X,Y,E,xC + R*cos(theta + linspace(0,2*pi,1000)),yC + R*sin(theta + linspace(0,2*pi,1000)));
+      azimuthalE = interpn(X_full,Y_full,E_full,xC + R*cos(theta + linspace(0,2*pi,1000)),yC + R*sin(theta + linspace(0,2*pi,1000)));
       azimuthalEpruned = azimuthalE(abs(azimuthalE) > 0.1*max(abs(azimuthalE)));
       l = sum(abs(diff(angle(azimuthalEpruned*exp(1i*pi/2)) > 0)))/2;
 
       if l > 0
-        Emaxmirrored = interpn(X,Y,E,xMax,2*yC - yMax);
-        if real(E(iMax)/Emaxmirrored) < 0
+        Emaxmirrored = interpn(X_full,Y_full,E_full,xMax,2*yC - yMax);
+        if real(E_full(iMax)/Emaxmirrored) < 0
           parity = 'o';
         else
           parity = 'e';
