@@ -253,10 +253,10 @@ void substep1b(struct parameters *P_global) {
     // Algorithm is taken from https://en.wikipedia.org/wiki/Tridiagonal_matrix_algorithm
     for(ix=0; ix<P->Nx; ix++) {
       long ib = ix + threadNum*P->Nx;
-      if     (ix == 0 && yAntiSymm) P->b[ib] = 1          ;
-      else if(ix == 0             ) P->b[ib] = 1 +   P->ax;
-      else if(ix < P->Nx-1        ) P->b[ib] = 1 + 2*P->ax;
-      else                          P->b[ib] = 1 +   P->ax;
+      if     (ix == 0 && yAntiSymm) P->b[ib] = 1.0f             ;
+      else if(ix == 0             ) P->b[ib] = 1.0f +      P->ax;
+      else if(ix < P->Nx-1        ) P->b[ib] = 1.0f + 2.0f*P->ax;
+      else                          P->b[ib] = 1.0f +      P->ax;
 
       if(ix > 0) {
         floatcomplex w   = -P->ax/P->b[ib-1];
@@ -382,10 +382,10 @@ void substep2b(struct parameters *P_global) {
   for(ix=0; ix<P->Nx; ix++) {
     for(iy=0; iy<P->Ny; iy++) {
       long ib = iy + threadNum*P->Ny;
-      if     (iy == 0 && xAntiSymm) P->b[ib] = 1          ;
-      else if(iy == 0             ) P->b[ib] = 1 +   P->ay;
-      else if(iy < P->Ny-1        ) P->b[ib] = 1 + 2*P->ay;
-      else                          P->b[ib] = 1 +   P->ay;
+      if     (iy == 0 && xAntiSymm) P->b[ib] = 1.0f             ;
+      else if(iy == 0             ) P->b[ib] = 1.0f +      P->ay;
+      else if(iy < P->Ny-1        ) P->b[ib] = 1.0f + 2.0f*P->ay;
+      else                          P->b[ib] = 1.0f +      P->ay;
 
       if(iy > 0) {
         floatcomplex w   = -P->ay/P->b[ib-1];
