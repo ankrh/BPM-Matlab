@@ -480,7 +480,7 @@ end
 mexParameters = struct('dx',single(dx),'dy',single(dy),'dz',single(dz),'taperPerStep',single((1-P.taperScaling)/Nz),'twistPerStep',single(P.twistRate*P.Lz/Nz),...
   'multiplier',single(multiplier),'n_mat',complex(single(n)),'dz_n',single(dz_n),'d',single(d),'n_0',single(P.n_0),...
   'ax',single(ax),'ay',single(ay),'useAllCPUs',P.useAllCPUs,'RoC',single(P.bendingRoC),'rho_e',single(P.rho_e),'bendDirection',single(P.bendDirection),...
-  'inputPrecisePower',P.powers(end-length(zUpdateIdxs))*powerFraction,'antiSymmetries',uint8((P.xSymmetry == 2) + 2*(P.ySymmetry == 2)));
+  'inputPrecisePower',P.powers(end-length(zUpdateIdxs))*powerFraction,'xSymmetry',uint8(P.xSymmetry),'ySymmetry',uint8(P.ySymmetry));
 
 % fprintf("dz = %.2e, ax = %.2f i, ay = %.2f i, d = %.2f\n",dz,ax/1i,ay/1i,d);
 mexParameters.iz_start = int32(0); % z index of the first z position to step from for the first call to FDBPMpropagator, in C indexing (starting from 0)
@@ -660,8 +660,10 @@ assert(isa(P.rho_e,typename));
 assert(isreal(P.rho_e));
 assert(isa(P.bendDirection,typename));
 assert(isreal(P.bendDirection));
-assert(isa(P.antiSymmetries,'uint8'));
-assert(isreal(P.antiSymmetries));
+assert(isa(P.xSymmetry,'uint8'));
+assert(isreal(P.xSymmetry));
+assert(isa(P.ySymmetry,'uint8'));
+assert(isreal(P.ySymmetry));
 end
 
 function setColormap(gca,colormapType)

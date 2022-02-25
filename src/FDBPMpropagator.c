@@ -96,7 +96,8 @@ struct parameters {
   float dz;
   long iz_start;
   long iz_end;
-  unsigned char antiSymmetries; // 0: no antisymmetries, 1: only x antiSymmetries, 2: only y antiSymmetries, 3: both x and y antiSymmetries
+  unsigned char xSymmetry;
+  unsigned char ySymmetry;
   float taperPerStep;
   float twistPerStep;
   float d;
@@ -154,8 +155,8 @@ void substep1a(struct parameters *P_global) {
   if(!threadIdx.x && !threadIdx.y) *P = *P_global; // Only let one thread per block do the copying. 
   __syncthreads(); // All threads in the block wait for the copy to have finished
 
-  bool xAntiSymm = P->antiSymmetries%2;
-  bool yAntiSymm = P->antiSymmetries/2;
+  bool xAntiSymm = P->xSymmetry == 2;
+  bool yAntiSymm = P->ySymmetry == 2;
 
   __shared__ double tiledummy[TILE_DIM][TILE_DIM+1]; // We declare with double because a double is the same size as a float complex. +1 is to avoid memory bank conflicts
   floatcomplex *tile = (floatcomplex *)tiledummy;
@@ -186,8 +187,8 @@ void substep1a(struct parameters *P_global) {
   #else
   long ix,iy;
   struct parameters *P = P_global;
-  bool xAntiSymm = P->antiSymmetries%2;
-  bool yAntiSymm = P->antiSymmetries/2;
+  bool xAntiSymm = P->xSymmetry == 2;
+  bool yAntiSymm = P->ySymmetry == 2;
   #ifdef _OPENMP
   #pragma omp for schedule(dynamic)
   #endif
@@ -216,7 +217,7 @@ void substep1b(struct parameters *P_global) {
   struct parameters *P = (struct parameters *)Pdummy;
   if(!threadIdx.x && !threadIdx.y) *P = *P_global; // Only let one thread per block do the copying. 
   __syncthreads(); // All threads in the block wait for the copy to have finished
-  bool yAntiSymm = P->antiSymmetries/2;
+  bool yAntiSymm = P->ySymmetry == 2;
   for(long iy=threadNum;iy<P->Ny;iy+=gridDim.x*blockDim.x*blockDim.y){
     for(long ix=0; ix<P->Nx; ix++) {
       long i = iy + ix*P->Ny;
@@ -239,7 +240,7 @@ void substep1b(struct parameters *P_global) {
   }
   #else
   struct parameters *P = P_global;
-  bool yAntiSymm = P->antiSymmetries/2;
+  bool yAntiSymm = P->ySymmetry == 2;
   long i,ix,iy;
   #ifdef _OPENMP
   long threadNum = omp_get_thread_num();
@@ -287,7 +288,7 @@ void substep2a(struct parameters *P_global) {
   __shared__ double tiledummy[TILE_DIM][TILE_DIM+1]; // We declare with double because a double is the same size as a float complex. +1 is to avoid memory bank conflicts
   floatcomplex *tile = (floatcomplex *)tiledummy;
 
-  bool xAntiSymm = P->antiSymmetries%2;
+  bool xAntiSymm = P->xSymmetry == 2;
 
   long xTiles = (P->Nx + TILE_DIM - 1)/TILE_DIM;
   long yTiles = (P->Ny + TILE_DIM - 1)/TILE_DIM;
@@ -314,7 +315,7 @@ void substep2a(struct parameters *P_global) {
   }
   #else
   struct parameters *P = P_global;
-  bool xAntiSymm = P->antiSymmetries%2;
+  bool xAntiSymm = P->xSymmetry == 2;
   long i,ix,iy;
   #ifdef _OPENMP
   #pragma omp for schedule(dynamic)
@@ -342,7 +343,7 @@ void substep2b(struct parameters *P_global) {
   struct parameters *P = (struct parameters *)Pdummy;
   if(!threadIdx.x && !threadIdx.y) *P = *P_global; // Only let one thread per block do the copying. 
   __syncthreads(); // All threads in the block wait for the copy to have finished
-  bool xAntiSymm = P->antiSymmetries%2;
+  bool xAntiSymm = P->xSymmetry == 2;
   for(long ix=threadNum;ix<P->Nx;ix+=gridDim.x*blockDim.x*blockDim.y) {
     for(long iy=0; iy<P->Ny; iy++) {
       long i = ix + iy*P->Nx;
@@ -370,7 +371,7 @@ void substep2b(struct parameters *P_global) {
   #else
   float EfieldPowerThread = 0.0f;
   struct parameters *P = P_global;
-  bool xAntiSymm = P->antiSymmetries%2;
+  bool xAntiSymm = P->xSymmetry == 2;
   long i,ix,iy;
   #ifdef _OPENMP
   long threadNum = omp_get_thread_num();
@@ -439,15 +440,15 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
   for(long i=0;i<P->Nx*P->Ny;i++) {
   #endif // 1
     long ix = i%P->Nx;
-    float x = P->dx*(ix - (P->Nx-1)/2.0f);
+    float x = P->dx*(ix - (P->Nx-1)/2.0f*(P->ySymmetry == 0));
     long iy = i/P->Nx;
-    float y = P->dy*(iy - (P->Ny-1)/2.0f);
+    float y = P->dy*(iy - (P->Ny-1)/2.0f*(P->xSymmetry == 0));
     floatcomplex n = 0;
     if(P->taperPerStep || P->twistPerStep) { // Rotate, scale, interpolate. If we are tapering or twisting, we know that the RIP is 2D
       float x_src = scaling*(cosvalue*x - sinvalue*y);
       float y_src = scaling*(sinvalue*x + cosvalue*y);
-      float ix_src = MIN(MAX(0.0f,x_src/P->dx + (P->Nx - 1)/2.0f),(P->Nx - 1)*(1-FLT_EPSILON)); // Fractional index, coerced to be within the source window
-      float iy_src = MIN(MAX(0.0f,y_src/P->dy + (P->Ny - 1)/2.0f),(P->Ny - 1)*(1-FLT_EPSILON));
+      float ix_src = MIN(MAX(0.0f,x_src/P->dx + (P->Nx - 1)/2.0f*(P->ySymmetry == 0)),(P->Nx - 1)*(1-FLT_EPSILON)); // Fractional index, coerced to be within the source window
+      float iy_src = MIN(MAX(0.0f,y_src/P->dy + (P->Ny - 1)/2.0f*(P->xSymmetry == 0)),(P->Ny - 1)*(1-FLT_EPSILON));
       long ix_low = (long)FLOORF(ix_src);
       long iy_low = (long)FLOORF(iy_src);
       float ix_frac = ix_src - FLOORF(ix_src);
@@ -595,7 +596,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->iz_end = *(long *)mxGetData(mxGetField(prhs[1],0,"iz_end"));
   P->taperPerStep = *(float *)mxGetData(mxGetField(prhs[1],0,"taperPerStep"));
   P->twistPerStep = *(float *)mxGetData(mxGetField(prhs[1],0,"twistPerStep"));
-  P->antiSymmetries = *(unsigned char *)mxGetData(mxGetField(prhs[1],0,"antiSymmetries"));
+  P->xSymmetry = *(unsigned char *)mxGetData(mxGetField(prhs[1],0,"xSymmetry"));
+  P->ySymmetry = *(unsigned char *)mxGetData(mxGetField(prhs[1],0,"ySymmetry"));
   P->d = *(float *)mxGetData(mxGetField(prhs[1],0,"d"));
   P->n_0 = *(float *)mxGetData(mxGetField(prhs[1],0,"n_0"));
   P->n_in = (floatcomplex *)mxGetData(mxGetField(prhs[1],0,"n_mat"));
