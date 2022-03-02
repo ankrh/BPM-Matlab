@@ -4,7 +4,7 @@
 
 BPM-Matlab is a numerical simulation tool in which the Douglas-Gunn Alternating Direction Implicit (DG-ADI) method is used to efficiently model the electric field propagation using a Finite-Difference Beam Propagation Method (FD-BPM) in a wide variety of optical fiber geometries with arbitrary refractive index profiles.
 
-You can find the latest version of BPM-Matlab and more information in the wiki on https://gitlab.gbar.dtu.dk/biophotonics/BPM-Matlab.
+You can find the latest version of BPM-Matlab at https://github.com/ankrh/BPM-Matlab.
 
 
 ## LICENSE
@@ -19,7 +19,7 @@ You should have received a copy of the GNU General Public License along with thi
 ## How do I get set up?
 
 ### Requirements:
-- This software was tested on Windows 10 and macOS 11
+- This software was tested on Windows 10, macOS 11 and Linux Ubuntu 20.04.3
 - MATLAB R2018a or newer
 
 
@@ -174,5 +174,5 @@ The folder includes all the executables necessary, so you don't need to compile 
 If you want to report a bug or are missing a feature, shoot us an email, see below.
 
 ### Who do I talk to?
-This repository is part of the Technical University of Denmark "biophotonics" team.
+This repository is maintained by the Technical University of Denmark "Biophotonics Imaging Group" as well as the "Diode Lasers and LED Systems" group.
 The main responsibles are Anders Kragh Hansen: ankrh@fotonik.dtu.dk and Madhu Veettikazhy: madve@dtu.dk
