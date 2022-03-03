@@ -47,6 +47,14 @@ end
 if ~isfield(P,'ySymmetry')
   P.ySymmetry = 0;
 end
+if ~isa(P.E,'function_handle')
+  if ~isfield(P.E,'xSymmetry')
+    P.E.xSymmetry = 0;
+  end
+  if ~isfield(P.E,'ySymmetry')
+    P.E.ySymmetry = 0;
+  end
+end
 if ~isfield(P,'storeE3D')
   P.storeE3D = false;
 end
