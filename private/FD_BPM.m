@@ -48,6 +48,10 @@ if ~isfield(P,'ySymmetry')
   P.ySymmetry = 0;
 end
 if ~isa(P.E,'function_handle')
+  if ~ismatrix(P.E.field)
+    warning('The input P.E.field is not 2D. Maybe it comes from an image that contains multiple color channels? Proceeding by using the sum of all color channels...');
+  end
+  P.E.field = sum(double(P.E.field),3);
   if ~isfield(P.E,'xSymmetry')
     P.E.xSymmetry = 0;
   end
@@ -235,8 +239,6 @@ if isa(P.E,'function_handle')
   E = P.E(X,Y,P.Eparameters); % Call function to initialize E field
   E = E/sqrt(sum(abs(E(:)).^2)/powerFraction);
 else % Interpolate source E field to new grid
-  if ~isfield(P.E,'xSymmetry'); P.E.xSymmetry = 0; end % Assume no x symmetry
-  if ~isfield(P.E,'ySymmetry'); P.E.ySymmetry = 0; end % Assume no y symmetry
   [Nx_source,Ny_source] = size(P.E.field);
   dx_source = P.E.Lx/Nx_source;
   dy_source = P.E.Ly/Ny_source;
