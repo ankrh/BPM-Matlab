@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example shows a basic case of launching a Gaussian beam
 % into the cylindrical GRINTECH lens (one dimensional -y- version of GT-CFRL-100-025-20-CC (810) ) 
@@ -16,7 +16,7 @@ P.useGPU = false; % (Default: false) Use CUDA acceleration for NVIDIA GPUs
 P.figNum = 1;
 P.figTitle = 'In GRIN Lens';
 P.updates = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
-P.displayScaling = 1;  % Zooms in on figures. Set to 1 for no zooming.  
+P.plotZoom = 1;  % Zooms in on figures. Set to 1 for no zooming.  
 
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 1.0e-3;        % [m] x side length of main area
@@ -33,9 +33,8 @@ P.n_background = 1.0; % [] (may be complex) Background refractive index, (in thi
 P.n_0 = 1.521; % [] reference refractive index
 P.Lz = 6.05e-3; % [m] z propagation distances for this segment
 
-P.n.func = @calcRI;
-
-P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
+P = initializeRIfromFunction(P,@calcRI);
+P = initializeEfromFunction(P,@calcInitialE);
 
 % Run solver
 P = FD_BPM(P);
@@ -43,7 +42,6 @@ P = FD_BPM(P);
 %% Output E from FDBPM propagating in air with FFTBPM
 P.figNum = 2;
 P.figTitle = 'In air';
-P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
 P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
 
 P.Lx_main = 2.5e-3;        % [m] x side length of main area

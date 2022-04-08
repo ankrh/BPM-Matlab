@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example starts in the same way as example 1. To demonstrate that in
 % media with uniform refractive index n_background, either the FFTBPM or FDBPM
@@ -19,13 +19,13 @@ P.useGPU = false; % (Default: false) Use CUDA acceleration for NVIDIA GPUs
 %% Visualization parameters
 P.figNum = 1;
 P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
-P.displayScaling = 1;  % Zooms in on figures. Set to 1 for no zooming.  
+P.plotZoom = 1;  % Zooms in on figures. Set to 1 for no zooming.  
 
-%The colormap options for the different subplots are 
-%1: GBP, 2: HSV, 3:parula, 4: gray, 5: cividis
-P.Intensity_colormap = 5; 
-P.Phase_colormap = 2; 
-P.n_colormap = 4; 
+% The colormap options for the different subplots are 
+% GPBGYR, HSV, parula, gray, cividis
+P.intensityColormap = 'cividis';
+P.phaseColormap = 'hsv';
+P.nColormap = 'gray';
 
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 20e-6;        % [m] x side length of main area
@@ -42,21 +42,18 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index, (in th
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-P.n.func = @calcRI;
-
-P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
+P = initializeRIfromFunction(P,@calcRI);
+P = initializeEfromFunction(P,@calcInitialE);
 
 % Run solver
 P = FD_BPM(P);
-
-E = P.E; % Store this for use in the FFTBPM
 
 %% Part 2 run with FDBPM
 P.figNum = 101;
 P.figTitle = 'FD BPM';
 
 P.n_0 = 1.45;
-P.n.func = @calcRIuniform;
+P = initializeRIfromFunction(P,@calcRIuniform);
 
 P.Lx_main = 100e-6;        % [m] x side length of main area
 P.Ly_main = 100e-6;        % [m] y side length of main area
@@ -66,16 +63,16 @@ P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit 
 
 P.Lz = 2e-4; % [m] z propagation distances for this segment
 
-% Run solver
-P = FD_BPM(P);
+% Run solver but do not pass the results back into P, just discard them
+FD_BPM(P);
 
 %% Part 2 run with FFTBPM for comparison
-P.E = E; % Use E field output from part 1
 P.figNum = 201;
 P.figTitle = 'FFT BPM';
 
-% Run solver
-[E_out] = FFT_BPM(P);
+% Run solver. Here P has the same simulation parameters provided as input
+% to the FD_BPM propagator, so we can compare the results
+FFT_BPM(P);
 
 %% USER DEFINED E-FIELD INITIALIZATION FUNCTION
 function E = calcInitialE(X,Y,Eparameters) % Function to determine the initial E field. Eparameters is a cell array of additional parameters such as beam size

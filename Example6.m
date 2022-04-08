@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example consists of a straight Fermat's Golden Spiral multicore
 % fiber. An input E-field has been pre-computed and is loaded from the file
@@ -19,11 +19,9 @@ P.useGPU = false; % (Default: false) Use CUDA acceleration for NVIDIA GPUs
 
 %% Visualization parameters
 P.figTitle = 'In straight fibre';
-P.videoName = 'Example6.avi';
 P.saveVideo = true; % To save the field intensity and phase profiles at different transverse planes
-P.finalizeVideo = false; % finalizeVideo should only be set to true in the last segment to be simulated.
 P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
-P.displayScaling = 1;  % Zooms in on figures. Set to 1 for no zooming.  
+P.plotZoom = 1;  % Zooms in on figures. Set to 1 for no zooming.  
 
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 200e-6;        % [m] x side length of main area
@@ -42,10 +40,10 @@ P.Lz = 0.3e-3; % [m] z propagation distances for this segment
 P.bendDirection = 0; % [degrees] direction of the bending, in a polar coordinate system with 0° to the right (towards positive x) and increasing angles in counterclockwise direction
 P.bendingRoC = Inf; % [m] radius of curvature of the bend
 
-P.n.func = @calcRI;
+P = initializeRIfromFunction(P,@calcRI);
 
 load('./ExampleData/ExampleInputField.mat','E');
-P.E = E; % See the readme file for details
+P.E = E;
 
 % Run solver
 P = FD_BPM(P);
@@ -60,10 +58,10 @@ P.alpha = 8e13;             % [1/m^3] "Absorption coefficient" per squared unit 
 P.figTitle = 'In air';
 P.Lz = 5e-3;
 
-P.finalizeVideo = true; % finalizeVideo should only be set to true in the last segment to be simulated.
-
 % Run solver
-[E_out_fft] = FFT_BPM(P);
+P = FFT_BPM(P);
+
+finalizeVideo(P);
 
 %% USER DEFINED RI FUNCTIONS
 function n = calcRI(X,Y,n_background,nParameters)

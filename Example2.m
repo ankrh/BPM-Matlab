@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example consists of multiple segments of fiber, showing that the
 % output of one simulation can be used as input to the next. Segment 2 is
@@ -17,7 +17,7 @@ P.useGPU = false; % (Default: false) Use CUDA acceleration for NVIDIA GPUs
 
 %% Visualization parameters
 P.updates = 30;            % Number of times to update plot. Must be at least 1, showing the final state.
-P.displayScaling = 1;  % Zooms in on figures. Set to 1 for no zooming.
+P.plotZoom = 1;  % Zooms in on figures. Set to 1 for no zooming.
 
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 50e-6;        % [m] x side length of main area
@@ -37,9 +37,8 @@ P.taperScaling = 1; % [] the ratio of the width of the structure at the end of t
 P.twistRate = 0; % [rad/m] the rate of rotation in units of radians per meter.
 P.figTitle = 'Segment 1';
 
-P.n.func = @calcRI;
-
-P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
+P = initializeRIfromFunction(P,@calcRI);
+P = initializeEfromFunction(P,@calcInitialE);
 
 % Run solver
 P = FD_BPM(P);
@@ -65,7 +64,7 @@ P = FD_BPM(P);
 %% Next segment
 P.figTitle = 'Segment 4';
 P.Lz = 3e-3;
-P.n.func = @calcRIsegment4;
+P = initializeRIfromFunction(P,@calcRIsegment4);
 
 % Run solver
 P = FD_BPM(P);

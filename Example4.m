@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example shows a basic case of launching a Gaussian beam
 % into the GRINTECH lens GT-CFRL-100-025-20-CC (810) realized using FDBPM 
@@ -15,13 +15,11 @@ P.useGPU = false; % (Default: false) Use CUDA acceleration for NVIDIA GPUs
 P.figNum = 1;
 P.figTitle = 'In GRIN Lens';
 P.updates = 100;            % Number of times to update plot. Must be at least 1, showing the final state.
-P.displayScaling = 1;  % Zooms in on figures. Set to 1 for no zooming.  
+P.plotZoom = 1;  % Zooms in on figures. Set to 1 for no zooming.  
 
-%The colormap options for the different subplots are 
-%1: GBP, 2: HSV, 3:parula, 4: gray, 5: cividis
-P.Intensity_colormap = 4; 
-P.Phase_colormap = 2; 
-P.n_colormap = 3; 
+% The colormap options for the different subplots are 
+% GPBGYR, HSV, parula, gray, cividis
+P.intensityColormap = 'gray';
 
 %% Resolution-related parameters (check for convergence)
 P.Lx_main = 0.7e-3;        % [m] x side length of main area
@@ -38,9 +36,8 @@ P.n_background = 1.0; % [] (may be complex) Background refractive index, (in thi
 P.n_0 = 1.521; % [] reference refractive index
 P.Lz = 6.05e-3; % [m] z propagation distances for this segment
 
-P.n.func = @calcRI;
-
-P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
+P = initializeRIfromFunction(P,@calcRI);
+P = initializeEfromFunction(P,@calcInitialE);
 
 % Run solver
 P = FD_BPM(P);
@@ -49,7 +46,6 @@ P = FD_BPM(P);
 P.figNum = 2;
 P.figTitle = 'In air';
 P.n_0 = 1;
-P.Intensity_colormap = 1; 
 
 P.Lx_main = 700e-6;        % [m] x side length of main area
 P.Ly_main = 700e-6;        % [m] y side length of main area
