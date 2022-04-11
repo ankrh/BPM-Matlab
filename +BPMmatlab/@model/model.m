@@ -43,7 +43,7 @@ classdef model
     % Optical and material parameters
     alpha (1,1) double {mustBePositive} = 3e14
     lambda (1,1) double {mustBePositive} = 1
-    n_background (1,1) double {mustBePositive} = 1
+    n_background (1,1) double {mustBeFinite} = 1
     n_0 (1,1) double {mustBePositive} = 1
     rho_e (1,1) double {mustBePositive} = 0.22
 
@@ -69,11 +69,12 @@ classdef model
   
   properties (SetAccess = private)
     powers
+    modeOverlaps
     xzSlice
     yzSlice
     videoHandle
     modes BPMmatlab.electricFieldProfile
-    E3D single
+    E3D cell
     z
     priorData = false
   end
@@ -137,8 +138,12 @@ classdef model
 
     P = FD_BPM(P)
     P = FFT_BPM(P)
-    P = initializeRIfromFunction(P,hFunc,nParameters)
+    P = initializeRIfromFunction(P,hFunc,varargin)
     P = initializeEfromFunction(P,hFunc,Eparameters)
+    E = modeSuperposition(P,modeIdxs,varargin)
+    P = offsetField(P,direction,distance)
+    P = tiltField(P,direction,angle)
+    n = trimRI(n,n_background)
 
     [E,n_slice,precisePower] = FDBPMpropagator(E,mexParameters);
     [E,n_slice,precisePower] = FDBPMpropagator_CUDA(E,mexParameters);

@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example serves as inspiration on how to define differently shaped
 % cores based on arbitrary mathematical expressions. We define an
@@ -30,9 +30,8 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index, (in th
 P.n_0 = 1.47; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-P.n.func = @calcRI; % Defined at the end of this file. See the readme file for details
-
-P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
+P = initializeRIfromFunction(P,@calcRI);
+P = initializeEfromFunction(P,@calcInitialE);
 
 % Run solver
 P = FD_BPM(P);

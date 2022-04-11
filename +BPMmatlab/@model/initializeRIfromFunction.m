@@ -1,45 +1,49 @@
 function P = initializeRIfromFunction(P,hFunc,varargin)
 if ~isa(hFunc,"function_handle")
-  error('Argument 2 is wrong type. Must be function handle.');
+  error('Argument 2 is the wrong type. It must be a function handle.');
 end
-if numel(varargin)
+if nargin(hFunc) ~= 4 && nargin(hFunc) ~= 5
+  error('The function handle you provided takes neither 4 arguments (X,Y,n_background,nParameters) nor 5 arguments (X,Y,Z,n_background,nParameters). It must conform to one of these syntaxes.');
+end
+
+if numel(varargin) >= 1
   nParameters = varargin{1};
   if ~isa(nParameters,"cell")
-    error('Argument 3 is wrong type. Must be cell array.');
+    error('Argument 3 is the wrong type. It must be a cell array.');
   end
 else
   nParameters = {};
+end
+if numel(varargin) >= 2
+  Nz = varargin{2};
+  if mod(Nz,1) || Nz <= 0
+    error('Argument 4 is the wrong type. It must be a positive integer.');
+  end
+else
+  Nz = 1;
+end
+if Nz > 1 && nargin(hFunc) == 4
+  error('You have specified an Nz > 1, but the function handle provided only takes 4 arguments (X,Y,n_background,nParameters). It must take 5 arguments (X,Y,Z,n_background,nParameters).');
 end
 
 if nargin(hFunc) == 4 % It's 2D
   [X,Y] = ndgrid(single(P.x),single(P.y));
   P.n.n = single(hFunc(X,Y,P.n_background,nParameters));
 else % It's 3D. We evaluate it on the grid and trim the result
-  dz_n = P.Lz/(P.n.Nz-1);
-  z_n = dz_n*(0:P.n.Nz-1);
-  [X,Y,Z_n] = ndgrid(single(x),single(y),single(z_n));
+  if Nz > 1
+    dz_n = P.Lz/(Nz-1);
+  else
+    dz_n = 0;
+  end
+  z_n = dz_n*(0:Nz-1);
+  [X,Y,Z_n] = ndgrid(single(P.x),single(P.y),single(z_n));
   n = single(hFunc(X,Y,Z_n,P.n_background,nParameters));
   clear X Y Z_n
   P.n.n = trimRI(n,P.n_background);
 end
 
-P.n.Lx = P.Lx;
-P.n.Ly = P.Ly;
+P.n.Lx = P.dx*size(P.n.n,1);
+P.n.Ly = P.dy*size(P.n.n,2);
 P.n.xSymmetry = P.xSymmetry;
 P.n.ySymmetry = P.ySymmetry;
-end
-
-function n = trimRI(n,n_background)
-n_background = single(n_background);
-[Nx,Ny,~] = size(n);
-xmin = find(any(n ~= n_background,[2 3]),1,'first');
-xmax = find(any(n ~= n_background,[2 3]),1,'last');
-xtrim = min(xmin-1,Nx - xmax);
-ymin = find(any(n ~= n_background,[1 3]),1,'first');
-ymax = find(any(n ~= n_background,[1 3]),1,'last');
-ytrim = min(ymin-1,Ny - ymax);
-
-n_temp = n(xtrim+1:Nx-xtrim,ytrim+1:Ny-ytrim,:);
-n = n_background*ones(size(n_temp) + [2 2 0], class(n_temp));
-n(2:end-1, 2:end-1, :) = n_temp;
 end

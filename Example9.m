@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example shows the propagation of an LP mode in a multimode fiber.
 % The MMF is divided into four segments, where the first and last are
@@ -30,7 +30,7 @@ P.lambda = 800e-9; % [m] Wavelength
 P.n_background = 1.45; % [] (may be complex) Background refractive index, (in this case, the cladding)
 P.n_0 = 1.4666; % [] reference refractive index
 
-P.n.func = @calcRI;
+P = initializeRIfromFunction(P,@calcRI);
 
 %% Segment 1
 P.Lz = 5e-4; % [m] z propagation distances for this segment

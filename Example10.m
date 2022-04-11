@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example illustrates the adiabatic mode conversion and shedding of
 % unguided modes illustrated in figure 4 of the article "BPM-Matlab - An
@@ -37,7 +37,7 @@ P.useGPU = false;
 %% Visualization parameters
 updateFrequency = 5e4; % [1/m]
 P.saveVideo = false; % To save the field intensity and phase profiles at different transverse planes
-P.displayScaling = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
+P.plotZoom = 1;  % Zooms in on figures 1 & 3a,b. Set to 1 for no zooming.  
 P.plotEmax = 1; % Max of color scale in the intensity plot, relative to the peak of initial intensity
 
 %% Resolution-related parameters (check for convergence)
@@ -58,7 +58,7 @@ P.updates = P.Lz*updateFrequency;            % Number of times to update plot. M
 P.taperScaling = 0.3;
 P.figTitle = 'Segment 1';
 
-P.n.func = @calcRI;
+P = initializeRIfromFunction(P,@calcRI);
 
 P = findModes(P,10,'plotModes',false); % Find up to 10 modes, but don't plot them
 randvec = [0.974931557198556 + 0.222504963491603i ,  0.583350562881419 - 0.812220487790066i ,  0.915224078253766 - 0.402945264998293i , -0.432956662664553 - 0.901414737096290i ,  0.048613506502203 - 0.998817664534203i , -0.043136586317590 - 0.999069184251454i , -0.779356851920114 + 0.626580319963187i , -0.559597395571616 - 0.828764595569493i]; % Randomly generated array of mode coefficients for use in the superposition

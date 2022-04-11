@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example shows how to use the xSymmetry and ySymmetry settings to
 % speed up calculations.
@@ -60,32 +60,32 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index (in thi
 P.n_0 = 1.47; % [] reference refractive index
 P.Lz = 2e-4; % [m] z propagation distances for this segment
 
-P.n.func = @calcRI;
+P.xSymmetry = 'Symmetry'; % Symmetry under mirroring in the x axis
+P.ySymmetry = 'NoSymmetry'; % Symmetry under mirroring in the y axis
 
-P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
-
-P.xSymmetry = 1; % Symmetry under mirroring in the x axis: 0: No symmetry, 1: Symmetric RIP and field, 2: Symmetric RIP and anti-symmetric field.
-P.ySymmetry = 0; % Symmetry under mirroring in the y axis: 0: No symmetry, 1: Symmetric RIP and field, 2: Symmetric RIP and anti-symmetric field.
+P = initializeRIfromFunction(P,@calcRI);
+P = initializeEfromFunction(P,@calcInitialE);
 
 % Run solver
 FD_BPM(P);
 
 %% Same simulation, without use of symmetry
 P.figNum = 4;
-P.xSymmetry = 0;
-P.ySymmetry = 0;
+P.xSymmetry = 'NoSymmetry';
+P.ySymmetry = 'NoSymmetry';
 P.Ly_main = 20e-6;        % [m] y side length of main area
 P.Ny_main = 200;          % y resolution of main area
 FD_BPM(P);
 
 %% Simulation with antisymmetry in x but ordinary symmetry in y
 P.figNum = 8;
-P.xSymmetry = 2;
-P.ySymmetry = 1;
+P.xSymmetry = 'AntiSymmetry';
+P.ySymmetry = 'Symmetry';
 P.Lx_main = 10e-6;        % [m] x side length of main area
 P.Nx_main = 100;          % x resolution of main area
 P.Ly_main = 10e-6;        % [m] y side length of main area
 P.Ny_main = 100;          % y resolution of main area
+
 P = findModes(P,10,'plotModes',true);
 P.E = modeSuperposition(P,1:4);
 
@@ -93,8 +93,8 @@ FD_BPM(P);
 
 %% Same as above, without use of symmetry
 P.figNum = 12;
-P.xSymmetry = 0;
-P.ySymmetry = 0;
+P.xSymmetry = 'NoSymmetry';
+P.ySymmetry = 'NoSymmetry';
 P.Lx_main = 20e-6;        % [m] x side length of main area
 P.Nx_main = 200;          % x resolution of main area
 P.Ly_main = 20e-6;        % [m] y side length of main area

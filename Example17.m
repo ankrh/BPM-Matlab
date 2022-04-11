@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example shows the speedup that can be obtained by launching
 % simulations on the GPU compared to the CPU. The speedup is greatest for
@@ -27,8 +27,8 @@ P.updates = 1;            % Number of times to update plot. Must be at least 1, 
 P.plotEmax = 0.5; % Max of color scale in the intensity plot, relative to the peak of initial intensity
 
 %% Resolution-related parameters (check for convergence)
-P.Lx_main = 100e-6;        % [m] x side length of main area
-P.Ly_main = 100e-6;        % [m] y side length of main area
+P.Lx_main = 30e-6;        % [m] x side length of main area
+P.Ly_main = 30e-6;        % [m] y side length of main area
 P.Nx_main = 1500;          % x resolution of main area
 P.Ny_main = 1500;          % y resolution of main area
 P.padfactor = 1.5;  % How much absorbing padding to add on the sides of the main area (1 means no padding, 2 means the absorbing padding on both sides is of thickness Lx_main/2)
@@ -41,9 +41,8 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index (in thi
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 1e-4; % [m] z propagation distances for this segment
 
-P.n.func = @calcRI;
-
-P.E = @calcInitialE; % Defined at the end of this file. See the readme file for details
+P = initializeRIfromFunction(P,@calcRI);
+P = initializeEfromFunction(P,@calcInitialE);
 
 % Run solver
 fprintf('CPU:\n');
@@ -66,5 +65,5 @@ end
 function n = calcRI(X,Y,n_background,nParameters)
 % n may be complex
 n = n_background*ones(size(X)); % Start by setting all pixels to n_background
-n(X.^2 + Y.^2 < 15e-6^2) = 1.46;
+n(X.^2 + Y.^2 < 5e-6^2) = 1.46;
 end

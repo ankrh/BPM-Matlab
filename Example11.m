@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example shows that refractive indices can be complex, leading to
 % losses during propagation. The imaginary part of the refractive index is
@@ -45,7 +45,7 @@ P.n_background = 1.45 + 1e-3i; % [] (may be complex) Background refractive index
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-P.n.func = @calcRI;
+P = initializeRIfromFunction(P,@calcRI);
 
 P = findModes(P,2,'singleCoreModes',true,'sortByLoss',true); % Find 2 modes, one for each core by itself. Sort them so that lowest loss mode is first.
 

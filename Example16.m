@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example shows offset and tilt of the E field in MMF splices.
 % 
@@ -31,7 +31,7 @@ P.alpha = 5e14;             % [1/m^3] "Absorption coefficient" per squared unit 
 P.lambda = 1000e-9; % [m] Wavelength
 P.n_background = 1.45; % [] (may be complex) Background refractive index (in this case, the cladding)
 P.n_0 = 1.46; % [] reference refractive index
-P.n.func = @calcRI;
+P = initializeRIfromFunction(P,@calcRI);
 
 P.Lz = 2e-4; % [m] z propagation distances for this segment
 P.updates = 20;            % Number of times to update plot. Must be at least 1, showing the final state.

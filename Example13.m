@@ -1,11 +1,13 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example, like example 12, shows how to define a completely arbitrary
 % (complex) refractive index profile using the P.n input, but in this
-% example we specify P.n as a struct. In this example, we load a built-in
-% MATLAB image of the moon, scale it to values that are realistic
-% refractive indices and store it as the 'n' field of the P.n input. We
-% choose some arbitrary values for the 'Lx' and 'Ly' side length fields.
+% example we specify the properties of P.n manually. In this example, we
+% load a built-in MATLAB image of the moon, scale it to values that are
+% realistic refractive indices and store it as the 'n' property of the P.n
+% input. We choose some arbitrary values for the 'Lx' and 'Ly' side length
+% properties that correspond to this 2D array. BPM-matlab will automatically
+% convert the data to the simulation grid by linear interpolation.
 
 % The mode solver also works with such arbitrary refractive index profiles,
 % which we demonstrate here by finding and launching the 5th mode into this
@@ -40,9 +42,9 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index, (in th
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-P.n = struct('n',flipud(single(imread('./ExampleData/moon.tif'))).'/255*0.02 + P.n_background, ...
-             'Lx',10e-6, ...
-             'Ly',10e-6*(537/358)); % See the readme file for details
+P.n.n = flipud(single(imread('./ExampleData/moon.tif'))).'/255*0.02 + P.n_background;
+P.n.Lx = 10e-6;
+P.n.Ly = 10e-6*(537/358);
 
 P = findModes(P,5);
 P.E = P.modes(5); % See the readme file for details

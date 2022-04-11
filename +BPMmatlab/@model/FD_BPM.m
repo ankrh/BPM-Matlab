@@ -140,13 +140,18 @@ y_source = getGridArray(Ny_source,dy_source,P.n.xSymmetry);
 [x_source,y_source,n_source] = calcFullRI(x_source,y_source,P.n.n);
 if Nz_source == 1 % If P.n.n is 2D, 
   n = interpn(x_source,y_source,n_source,x,y.','linear',P.n_background);
+  n_slice = n;
 else % Otherwise it's 3D. We trim away any unnecessary repeated outer yz or xz slices that only contain n_background.
-  dz_n = P.Lz/(Nz_source-1);
+  if Nz_source > 1
+    dz_n = P.Lz/(Nz_source-1);
+  else
+    dz_n = 0;
+  end
   z_source = dz_n*(0:Nz_source-1);
   n = interpn(x_source,y_source,z_source,n_source,x,y.',z_source,'linear',P.n_background);
+  n_slice = n(:,:,1);
   n = trimRI(n,P.n_background);
 end
-n_slice = n(:,:,1);
 
 % If RI is 3D, plot it volumetrically
 [Nx_n,Ny_n,Nz_n] = size(n);

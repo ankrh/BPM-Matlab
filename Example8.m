@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example shows that modes can be found and stored in the parameters
 % struct using the findModes function, then used as initial E fields. Here,
@@ -27,7 +27,7 @@ P.n_background = 1.45; % [] (may be complex) Background refractive index, (in th
 P.n_0 = 1.46; % [] reference refractive index
 P.Lz = 2e-3; % [m] z propagation distances for this segment
 
-P.n.func = @calcRI;
+P = initializeRIfromFunction(P,@calcRI);
 
 % We search for the 10 modes with effective refractive index closest to
 % n_0:

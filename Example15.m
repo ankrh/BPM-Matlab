@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example shows that the mode finder can correctly find the LPlm
 % labels even of modes of nonstandard radially symmetric refractive index
@@ -37,7 +37,7 @@ P.lambda = 800e-9; % [m] Wavelength
 P.n_background = 1.44; % [] (may be complex) Background refractive index, (in this case, the cladding)
 P.n_0 = 1.443; % [] reference refractive index
 
-P.n.func = @calcRI;
+P = initializeRIfromFunction(P,@calcRI);
 
 %% Mode finder
 P = findModes(P,15);

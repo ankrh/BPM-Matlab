@@ -20,10 +20,6 @@ if P.xSymmetry ~= 0 && ~isinf(P.bendingRoC) && sind(P.bendDirection) || ...
   error('The specified bending direction is inconsistent with the symmetry assumption');
 end
 
-% if isfield(P,'modes')
-%   P = rmfield(P,'modes');
-% end
-
 dx = P.dx;
 dy = P.dy;
 Nx = P.Nx;
@@ -33,7 +29,7 @@ Ly = P.Ly;
 x = P.x;
 y = P.y;
 
-N = Nx*Ny;                                                            %N*N - size of sparse matrices
+N = Nx*Ny;   % N*N - size of sparse matrices
 if nModes >= N - 1
   error('Error: The number of modes requested must be less than the pixels in the full simulation window minus one (roughly Nx_main*padfactor*Ny_main*padfactor - 1)');
 end
@@ -45,12 +41,11 @@ k_0 = 2*pi/P.lambda;  % [m^-1] Wavenumber
 fprintf('Finding modes...\n');
 tic
 
-% Otherwise a P.n.n array must have been specified
 [Nx_source,Ny_source,Nz_source] = size(P.n.n);
 dx_source = P.n.Lx/Nx_source;
 dy_source = P.n.Ly/Ny_source;
-x_source = getGridArray(Nx_source,dx_source,P.ySymmetry);
-y_source = getGridArray(Ny_source,dy_source,P.xSymmetry);
+x_source = getGridArray(Nx_source,dx_source,P.n.ySymmetry);
+y_source = getGridArray(Ny_source,dy_source,P.n.xSymmetry);
 if Nz_source == 1 % If P.n.n is 2D, interpolate it to the simulation grid
   n = interpn(x_source,y_source,P.n.n,x,y.','linear',P.n_background);
 else % Otherwise it's 3D so we take the first slice and interpolate to the simulation grid

@@ -1,4 +1,4 @@
-clear P % Parameters struct
+P = BPMmatlab.model;
 
 % This example shows how to define a 3D refractive index, e.g., modulated
 % along the z axis. It also shows that the E-field simulation results can
@@ -9,17 +9,20 @@ clear P % Parameters struct
 % defined with a super-Gaussian profile and a sinusoidal variation along z.
 % This fiber grating functions as a mode converter between LP01 and LP03.
 
-% The refractive index (RI) is here defined by setting P.n.func to
+% The refractive index (RI) is here defined using calcRIfromFunction with
 % a function, defined at the end of the model file, that takes X, Y, Z,
 % n_background and nParameters as inputs and returns the 3D RI. The RI
 % could be complex, but is in this case real. The grating has period Lambda
-% and dbeta = 2*pi/Lambda. dbeta is in this case passed to the RI function
-% as the first cell in the nParameters cell array.
+% and dbeta = 2*pi/Lambda. The nParameters cell array is a convenient way
+% to pass variables into the RI definition function, so we choose to pass
+% in dbeta as the first cell in the nParameters cell array.
 
-% For 3D RI functions, the P.n.Nz field is necessary to ensure that the RI
-% is calculated with a high enough resolution in z. High values of
-% P.Nx*P.Ny*P.n.Nz will require large amounts of memory (CPU or GPU). If
-% memory is a problem, you can split the simulation into multiple segments.
+% For 3D RI functions, calcRIfromFunction needs a fourth input argument:
+% The number of Z slices to calculate the RI at, Nz_n. It has to be large
+% enough to ensure that the RI is calculated with a high enough resolution
+% in z. High values of P.Nx*P.Ny*Nz_n will require large amounts of memory
+% (CPU or GPU). If memory is a problem, you can split the simulation into
+% multiple segments.
 
 % First, the grating length Lambda is set to infinity (dbeta = 0) and the
 % modes of the unmodulated fiber are found. From the theory of long period
@@ -53,17 +56,19 @@ P.n_background = 1.44; % [] (may be complex) Background refractive index, (in th
 P.n_0 = 1.442; % [] reference refractive index
 P.Lz = 140e-3; % [m] z propagation distances for this segment
 
-P.n.func = @calcRI; % See the readme file for details
-P.n.Nz = 1500;
-
-P.nParameters = {0}; % No grating for initial mode finding
+nParameters = {0}; % No grating for initial mode finding
+Nz_n = 1; % Although the refractive index is a function of Z, we do not need the Z dependence for the initial mode finding. Therefore we specify that we only need one Z slice calculated.
+P = initializeRIfromFunction(P,@calcRI,nParameters,Nz_n);
 
 P = findModes(P,20);
 
 P.calcModeOverlaps = true;
 
 Lambda = P.lambda/(P.modes(1).neff - P.modes(15).neff)
-P.nParameters = {2*pi/Lambda}; % Grating with correct period for phase matching
+
+nParameters = {2*pi/Lambda}; % Grating with correct period for phase matching
+Nz_n = 1500; % Now we want enough Z slices to resolve the grating modulation
+P = initializeRIfromFunction(P,@calcRI,nParameters,Nz_n);
 
 P.E = P.modes(1); % See the readme file for details
 
