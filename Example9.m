@@ -7,6 +7,9 @@ P = BPMmatlab.model;
 % setting P.calcModeOverlaps = true. Due to symmetry, the modes with odd
 % parity are not excited in the first two segments despite the bending.
 
+% We use the getLabeledModeIdx() function to find out which index in the
+% P.modes array correponds to a particular mode label (LP01, LP11e, etc.)
+
 %% General and solver-related settings
 P.name = mfilename;
 P.useAllCPUs = true; % If false, BPM-Matlab will leave one processor unused. Useful for doing other work on the PC while simulations are running.
@@ -40,9 +43,11 @@ P.bendingRoC = Inf; % [m] radius of curvature of the bend
 
 P = findModes(P,30); % Find up to 30 modes
 
-% P.E = P.modes(1); % The LP01 mode, relatively sensitive to bending-induced mode coupling
-P.E = P.modes(3); % The LP11e mode, about equally sensitive as LP01
-% P.E = P.modes(15); % The LP04 mode, less sensitive
+% modeIdx = getLabeledModeIndex(P,'LP01'); % The LP01 mode, relatively sensitive to bending-induced mode coupling
+modeIdx = getLabeledModeIndex(P,'LP11e'); % The LP11e mode, about equally sensitive as LP01
+% modeIdx = getLabeledModeIndex(P,'LP04'); % The LP04 mode, less sensitive
+
+P.E = P.modes(modeIdx);
 
 P = FD_BPM(P);
 

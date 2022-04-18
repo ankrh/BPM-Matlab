@@ -47,7 +47,7 @@ P.n.Lx = 10e-6;
 P.n.Ly = 10e-6*(537/358);
 
 P = findModes(P,5);
-P.E = P.modes(5); % See the readme file for details
+P.E = P.modes(5);
 
 %% First segment, non-twisted fiber
 % Run solver

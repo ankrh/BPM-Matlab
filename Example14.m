@@ -70,7 +70,8 @@ nParameters = {2*pi/Lambda}; % Grating with correct period for phase matching
 Nz_n = 1500; % Now we want enough Z slices to resolve the grating modulation
 P = initializeRIfromFunction(P,@calcRI,nParameters,Nz_n);
 
-P.E = P.modes(1); % See the readme file for details
+modeIdx = getLabeledModeIndex(P,'LP01');
+P.E = P.modes(modeIdx);
 
 % Run solver
 tic

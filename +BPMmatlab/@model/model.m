@@ -78,10 +78,28 @@ classdef model
     z
     priorData = false
   end
+
+  properties (Hidden)
+    n_cladding
+    shapes
+    displayScaling
+  end
   
   methods
     function P = model() % Constructor
       P.name = ['BPM-Matlab model ' char(datetime('now','Format','d-MMM-y HH.mm.ss'))];
+    end
+
+    function P = set.n_cladding(~,~) %#ok<STOUT> 
+      error('Error: n_cladding has been renamed n_background');
+    end
+
+    function P = set.shapes(~,~) %#ok<STOUT> 
+      error('Error: The P.shapes field has been deprecated. Use the P.n property to define the refractive index instead, as shown in the example files.');
+    end
+
+    function P = set.displayScaling(~,~) %#ok<STOUT> 
+      error('Error: displayScaling has been renamed plotZoom.');
     end
 
     function dx = get.dx(P)
@@ -140,9 +158,11 @@ classdef model
     P = FFT_BPM(P)
     P = initializeRIfromFunction(P,hFunc,varargin)
     P = initializeEfromFunction(P,hFunc,Eparameters)
-    E = modeSuperposition(P,modeIdxs,varargin)
     P = offsetField(P,direction,distance)
     P = tiltField(P,direction,angle)
+
+    E = modeSuperposition(P,modeIdxs,varargin)
+    
     n = trimRI(n,n_background)
 
     [E,n_slice,precisePower] = FDBPMpropagator(E,mexParameters);

@@ -39,7 +39,8 @@ P.plotEmax = 2;
 
 P = findModes(P,10,'plotModes',false);
 
-P.E = P.modes(1);
+modeIdx = getLabeledModeIndex(P,'LP01');
+P.E = P.modes(modeIdx);
 
 P.calcModeOverlaps = true;
 

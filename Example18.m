@@ -5,9 +5,9 @@ P = BPMmatlab.model;
 % 
 % xSymmetry and ySymmetry describe which assumptions we make regarding 
 % symmetries under mirroring in the x and y axes and can each be set to either
-% 0: (default), no symmetry assumption
-% 1: ordinary symmetry for both the refractive index and the electric field
-% 2: ordinary symmetry for the refractive index and anti-symmetry for the electric field
+% 'NoSymmetry': (default), no symmetry assumption
+% 'Symmetry': ordinary symmetry for both the refractive index and the electric field
+% 'AntiSymmetry': ordinary symmetry for the refractive index and anti-symmetry for the electric field
 % 
 % In all simulations, FD_BPM is called without output variables, so that
 % the P struct is not modified. This makes it easier for us to run the same

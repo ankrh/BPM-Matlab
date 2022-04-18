@@ -6,4 +6,14 @@ classdef refractiveIndexProfile
     xSymmetry(1,1) BPMmatlab.symmetry = BPMmatlab.symmetry.NoSymmetry
     ySymmetry(1,1) BPMmatlab.symmetry = BPMmatlab.symmetry.NoSymmetry
   end
+
+  properties (Hidden)
+    func
+  end
+
+  methods
+    function P = set.func(~,~) %#ok<STOUT> 
+      error('Error: The func property is deprecated. Use initializeRIfromFunction() instead, as shown in the example files.');
+    end
+  end
 end

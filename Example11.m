@@ -49,7 +49,7 @@ P = initializeRIfromFunction(P,@calcRI);
 
 P = findModes(P,2,'singleCoreModes',true,'sortByLoss',true); % Find 2 modes, one for each core by itself. Sort them so that lowest loss mode is first.
 
-P.E = modeSuperposition(P,[1 2]); % See the readme file for details
+P.E = modeSuperposition(P,[1 2]);
 
 % Run solver
 P = FD_BPM(P);
