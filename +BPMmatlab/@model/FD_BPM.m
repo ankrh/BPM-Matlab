@@ -15,6 +15,9 @@ function P = FD_BPM(P)
 format long
 format compact
 
+if P.calcModeOverlaps && ~numel(P.modes)
+  error('You have requested that mode overlaps be calculated, but you have not yet calculated any modes using findModes().');
+end
 if isempty(P.n.n)
   error('You have to initialize the refractive index object, for example by running initializeRIfromFunction().')
 end
@@ -73,8 +76,13 @@ Ny = P.Ny;
 Lx = P.Lx;
 Ly = P.Ly;
 
-if P.calcModeOverlaps && (P.modes(1).Lx ~= Lx || P.modes(1).Ly ~= Ly || size(P.modes(1).field,1) ~= Nx || size(P.modes(1).field,2) ~= Ny)
-  error('The pre-calculated mode fields do not match the simulation Lx, Ly, Nx or Ny');
+if P.calcModeOverlaps
+  if P.modes(1).xSymmetry ~= P.xSymmetry || P.modes(1).ySymmetry ~= P.ySymmetry
+    error('The pre-calculated mode fields were calculated with different symmetry assumptions. Please recalculate using findModes().');
+  end
+  if P.modes(1).Lx ~= Lx || P.modes(1).Ly ~= Ly || size(P.modes(1).field,1) ~= Nx || size(P.modes(1).field,2) ~= Ny
+    error('The pre-calculated mode fields do not match the simulation Lx, Ly, Nx or Ny. Please recalculate using findModes().');
+  end
 end
 
 x = P.x;
@@ -329,7 +337,7 @@ if P.calcModeOverlaps % Mode overlap figure
   else
     P.modeOverlaps = NaN(nModes,P.updates+1);
     for iMode = 1:nModes
-      P.modeOverlaps(iMode,1) = abs(sum(E(:).*conj(P.modes(iMode).field(:)))).^2; % The overlap integral calculation
+      P.modeOverlaps(iMode,1) = abs(sum(E(:).*conj(P.modes(iMode).field(:)))).^2/powerFraction; % The overlap integral calculation
     end
   end
   
@@ -398,7 +406,7 @@ for updidx = 1:length(zUpdateIdxs)
 
   if P.calcModeOverlaps
     for iMode = 1:nModes
-      P.modeOverlaps(iMode,end-length(zUpdateIdxs)+updidx) = abs(sum(E(:).*conj(P.modes(iMode).field(:)))).^2; % The overlap integral calculation
+      P.modeOverlaps(iMode,end-length(zUpdateIdxs)+updidx) = abs(sum(E(:).*conj(P.modes(iMode).field(:)))).^2/powerFraction; % The overlap integral calculation
       h_overlapplot(iMode).YData = P.modeOverlaps(iMode,:);
     end
   end

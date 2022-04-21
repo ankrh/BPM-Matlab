@@ -22,7 +22,8 @@ monotonicity_imag = sign(diff(imag(nsorted)));
 reversals_imag = sum(abs(diff(monotonicity_imag(monotonicity_imag ~= 0))/2)); % Number of times the monotonicity of the imaginary part changes (increasing/decreasing) as a function of the radial distance
 
 % Rsorted = R(sortIdxs);
-% figure(201);clf;plot(Rsorted,nsorted);grid on;grid minor;
+% figure(201);clf reset;plot(Rsorted,nsorted);grid on;grid minor;
+% figure(202);clf reset;imagesc(X(:,1),Y(1,:),n.'); axis equal tight;
 
 radiallySymmetric = reversals_real < 5 && reversals_imag < 5; % We arbitrarily choose that five reversals is the max we will allow. Non-radially-symmetric RI distributions will have many reversals.
 end

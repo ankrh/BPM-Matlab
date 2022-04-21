@@ -46,10 +46,11 @@ dx_source = P.n.Lx/Nx_source;
 dy_source = P.n.Ly/Ny_source;
 x_source = getGridArray(Nx_source,dx_source,P.n.ySymmetry);
 y_source = getGridArray(Ny_source,dy_source,P.n.xSymmetry);
+[x_source,y_source,n_source] = calcFullRI(x_source,y_source,P.n.n);
 if Nz_source == 1 % If P.n.n is 2D, interpolate it to the simulation grid
-  n = interpn(x_source,y_source,P.n.n,x,y.','linear',P.n_background);
+  n = interpn(x_source,y_source,n_source,x,y.','linear',P.n_background);
 else % Otherwise it's 3D so we take the first slice and interpolate to the simulation grid
-  n = interpn(x_source,y_source,P.n.n(:,:,1),x,y.','linear',P.n_background);
+  n = interpn(x_source,y_source,n_source(:,:,1),x,y.','linear',P.n_background);
 end
 
 anycomplex = ~isreal(n);
