@@ -1,6 +1,6 @@
-# BPM-Matlab
+# Readme and User Manual for BPM-Matlab
 
-## What is this repository for?
+## What is BPM-Matlab?
 BPM-Matlab is a MATLAB-based numerical simulation tool for solving the paraxial Helmholtz equation using the Douglas-Gunn Alternating Direction Implicit (DG-ADI) method to efficiently model the electric field propagation using a Finite-Difference Beam Propagation Method (FD-BPM) in a wide variety of optical fiber geometries with arbitrary refractive index profiles.
 
 Included is also a solver for the Fast Fourier Transform Beam Propagation Method, FFT_BPM.
@@ -8,7 +8,7 @@ Included is also a solver for the Fast Fourier Transform Beam Propagation Method
 You can find the latest version of BPM-Matlab at https://github.com/ankrh/BPM-Matlab.
 
 
-## LICENSE
+## License
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
