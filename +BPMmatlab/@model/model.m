@@ -30,6 +30,7 @@ classdef model
     ySymmetry (1,1) BPMmatlab.symmetry = 'NoSymmetry'
     dz_target (1,1) double {mustBePositive} = 1e-6
     padfactor (1,1) double {mustBeGreaterThanOrEqual(padfactor,1)} = 1.5
+    alpha (1,1) double {mustBePositive} = 3e14
 
     % Geometry parameters
     Lx_main (1,1) double {mustBePositive} = 1
@@ -41,7 +42,6 @@ classdef model
     bendDirection (1,1) double {mustBeFinite, mustBeReal} = 0
 
     % Optical and material parameters
-    alpha (1,1) double {mustBePositive} = 3e14
     lambda (1,1) double {mustBePositive} = 1
     n_background (1,1) double {mustBeFinite} = 1
     n_0 (1,1) double {mustBePositive} = 1
