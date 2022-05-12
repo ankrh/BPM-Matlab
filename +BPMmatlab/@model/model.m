@@ -17,6 +17,7 @@ classdef model
     intensityColormap (1,1) BPMmatlab.colormap = 'GPBGYR'
     phaseColormap (1,1) BPMmatlab.colormap = 'HSV'
     nColormap (1,1) BPMmatlab.colormap = 'Parula'
+    n_colorlimits (1,2) double {mustBeNonnegative} = [0 0]
     calcModeOverlaps (1,1) logical = false
     disableStepsizeWarning (1,1) logical = false
     disablePlotTimeWarning (1,1) logical = false

@@ -80,6 +80,10 @@ An object that designates the colormap of the respective subplot. The options ar
   - 'gray'
   - 'cividis'
 
+- `n_colorlimits`
+(Default: [0 0])
+A two-element array that specifies what limits to use for the color scale of the refractive index plot. If left at [0 0], the plot autoscales.
+
 - `calcModeOverlaps`
 (Default: false)
 If true, this will make the solver calculate the overlap of the E-field with any precalculated modes in each update. A plot will be generated to show these overlaps.

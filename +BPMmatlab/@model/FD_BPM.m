@@ -234,9 +234,9 @@ xlim(xlims);
 ylim(ylims);
 colorbar;
 setColormap(gca,P.nColormap);
-% if isfield(P,'n_colorlimits')
-%   h_axis1.CLim = P.n_colorlimits;
-% end
+if P.n_colorlimits(2) > P.n_colorlimits(1) % Default is [0 0], so false
+  h_axis1.CLim = P.n_colorlimits;
+end
 xlabel('x [m]');
 ylabel('y [m]');
 title('Real part of refractive index');
@@ -294,7 +294,7 @@ ylabel('y [m]');
 title('Intensity [W/m^2]');
 line(redline_x,redline_y,'color','r','linestyle','--');
 setColormap(gca,P.intensityColormap);
-if isfield(P,'plotEmax')
+if P.plotEmax ~= 0
   caxis('manual');
   caxis([0 P.plotEmax*max(abs(E(:)).^2)]);
 else
@@ -389,10 +389,10 @@ for updidx = 1:length(zUpdateIdxs)
   if updidx == 1
     caxis(h_axis1,'auto'); % To refresh the numbers on the color bar
   end
-  if ~isfield(P,'plotEmax')
+  if P.plotEmax == 0
     caxis(h_axis3a,'auto');
   end
-  if isfield(P,'n_colorlimits')
+  if P.n_colorlimits(2) > P.n_colorlimits(1) % Default is [0 0], so false
     h_axis1.CLim = P.n_colorlimits;
   end
 
