@@ -21,6 +21,7 @@ classdef model
     calcModeOverlaps (1,1) logical = false
     disableStepsizeWarning (1,1) logical = false
     disablePlotTimeWarning (1,1) logical = false
+    disableDownsamplingWarning (1,1) logical = false
 
     % Solver parameters
     useAllCPUs (1,1) logical = false

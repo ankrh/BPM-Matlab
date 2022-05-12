@@ -96,6 +96,12 @@ If true, the FD_BPM solver will not warn you if the step sizes you have specifie
 (Default: false)
 If true, the FD_BPM solver will not warn you if the updates take more than 50% of the total execution time of the solver.
 
+- `disableDownsamplingWarning`
+(Default: false)
+If true, BPM-Matlab will not warn you about the low-level bug present in MATLAB releases 2018b, 2019a and 2019b that can causes hard crashes when using mex functions and imagesc() with high resolutions (greater than roughly 500x500).
+
+If the user is on one of these MATLAB releases, BPM-Matlab will automatically downsample the plots to <= 500x500 (the simulation grid is unaffected, only the plots have lowered resolution). Ideally, the user should simply update MATLAB to a version in which Mathworks have fixed the bug (R2020a or newer).
+
 #### Solver parameters
 These parameters will affect how the solver will numerically describe the problem. You have to ensure yourself that the pixel size and z step size are small enough for the simulation to converge. This is typically done by doing a manual parameter scan of the resolution parameters.
 

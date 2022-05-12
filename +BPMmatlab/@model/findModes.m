@@ -195,10 +195,12 @@ for iMode = 1:numel(P.modes)
     axis equal; axis tight; axis xy;
     setColormap(gca,P.phaseColormap);
     neff = P.modes(iMode).neff;
-    if anycomplex
-      sgtitle({[P.modes(iMode).label ', n_{eff} = ' num2str(real(neff),'%.6g') ' + ' num2str(imag(neff),'%.3g') 'i'],['rough loss estimate: ' num2str(imag(neff)*4*pi/P.lambda,'%.3g') ' m^{-1} (' num2str(-10*log10(exp(-1))*imag(neff)*4*pi/P.lambda,'%.3g') ' dB/m)']});
-    else
-      sgtitle({[P.modes(iMode).label ', n_{eff} = ' num2str(real(neff),'%.6g')],['rough loss estimate: ' num2str(imag(neff)*4*pi/P.lambda,'%.3g') ' m^{-1} (' num2str(-10*log10(exp(-1))*imag(neff)*4*pi/P.lambda,'%.3g') ' dB/m)']});
+    if ~verLessThan('matlab','9.5')
+      if anycomplex
+        sgtitle({[P.modes(iMode).label ', n_{eff} = ' num2str(real(neff),'%.6g') ' + ' num2str(imag(neff),'%.3g') 'i'],['rough loss estimate: ' num2str(imag(neff)*4*pi/P.lambda,'%.3g') ' m^{-1} (' num2str(-10*log10(exp(-1))*imag(neff)*4*pi/P.lambda,'%.3g') ' dB/m)']});
+      else
+        sgtitle({[P.modes(iMode).label ', n_{eff} = ' num2str(real(neff),'%.6g')],['rough loss estimate: ' num2str(imag(neff)*4*pi/P.lambda,'%.3g') ' m^{-1} (' num2str(-10*log10(exp(-1))*imag(neff)*4*pi/P.lambda,'%.3g') ' dB/m)']});
+      end
     end
   end
 end
