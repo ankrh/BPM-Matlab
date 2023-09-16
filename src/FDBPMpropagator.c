@@ -3,9 +3,9 @@
  * 
  ** Compiling on Windows
  * Can be compiled with GCC using
- * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' -outdir private .\src\FDBPMpropagator.c ".\src\libut.lib" -R2018a"
+ * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' -outdir +BPMmatlab\@model\private .\src\FDBPMpropagator.c ".\src\libut.lib" -R2018a"
  * ... or the Microsoft Visual C++ compiler (MSVC) with
- * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator.cpp; mex COMPFLAGS='/Zp8 /GR /EHs /nologo /MD /openmp /W4 /WX /wd4204 /wd4100' -outdir private .\src\FDBPMpropagator.cpp ".\src\libut.lib" -R2018a"
+ * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator.cpp; mex COMPFLAGS='/Zp8 /GR /EHs /nologo /MD /openmp /W4 /WX /wd4204 /wd4100' -outdir +BPMmatlab\@model\private .\src\FDBPMpropagator.cpp ".\src\libut.lib" -R2018a"
  * 
  * The source code in this file is written is such a way that it is
  * compilable by either C or C++ compilers, either with GCC, MSVC or
@@ -14,19 +14,19 @@
  * installed. As of January 2020, mexcuda does not work with MSVC 2019,
  * so I'd recommend MSVC 2017. You also need the Parallel Computing
  * Toolbox, which you will find in the MATLAB addon manager. To compile, run:
- * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator_CUDA.cu; mexcuda -llibut COMPFLAGS='-use_fast_math -res-usage $COMPFLAGS' -outdir private .\src\FDBPMpropagator_CUDA.cu -R2018a"
+ * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator_CUDA.cu; mexcuda -llibut COMPFLAGS='-use_fast_math -res-usage $COMPFLAGS' -outdir +BPMmatlab\@model\private .\src\FDBPMpropagator_CUDA.cu -R2018a"
  *
  ** Compiling on macOS
  * As of March 2021, the macOS compiler doesn't support libut (for ctrl+c 
  * breaking) or openmp (for multithreading).
- * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -std=c11 -Wall' -outdir private ./src/FDBPMpropagator.c -R2018a"
+ * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -std=c11 -Wall' -outdir +BPMmatlab\@model\private ./src/FDBPMpropagator.c -R2018a"
  *
  * To get the MATLAB C compiler to work, try this:
  * 1. Install XCode from the App Store
  * 2. Type "mex -setup" in the MATLAB command window
  *
  ** Compiling on Linux
- * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' -outdir private ./src/FDBPMpropagator.c ./src/libut.so -R2018a"
+ * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' -outdir +BPMmatlab\@model\private ./src/FDBPMpropagator.c ./src/libut.so -R2018a"
  *
  * To get the MATLAB C compiler to work, try this:
  * 1. Use a package manager like apt to install GCC (on Ubuntu, part of the build-essential package)
@@ -34,10 +34,14 @@
  ********************************************/
 // printf("Reached line %d...\n",__LINE__);mexEvalString("drawnow; pause(.001);");mexEvalString("drawnow; pause(.001);");mexEvalString("drawnow; pause(.001);"); // For inserting into code for debugging purposes
 
+int count = 0;
+int countlimit = 6;
+
 #include <math.h>
 #include <stdint.h>
 #include "mex.h"
 #define PI acosf(-1.0f)
+#define MSZ 6 // Marginsize
 #ifdef _OPENMP
   #include "omp.h"
 #endif
@@ -65,6 +69,7 @@
     #define MIN(a,b) ({__typeof__ (a) _a = (a); __typeof__ (b) _b = (b); _a > _b? _b: _a;})
     #include <complex.h>
     typedef float complex floatcomplex;
+    #define CLOGF(x) (clogf(x))
     #define CEXPF(x) (cexpf(x))
     #define CREALF(x) (crealf(x))
     #define CIMAGF(x) (cimagf(x))
@@ -72,15 +77,19 @@
   #else
     #include <algorithm>
     #include <complex>
+    #include "print.h"
     typedef std::complex<float> floatcomplex;
     #define I std::complex<float>{0,1}
     #define CEXPF(x) (std::exp(x))
+    #define CLOGF(x) (std::log(x))
     #define CREALF(x) (std::real(x))
     #define CIMAGF(x) (std::imag(x))
     #define MAX(x,y) (std::max(x,y))
     #define MIN(x,y) (std::min(x,y))
     #define FLOORF(x) (std::floor(x))
   #endif
+  #define ISINF(x) (mxIsInf(x))
+  #define ISNAN(x) (mxIsNaN(x))
 #endif
 
 struct debug {
@@ -412,33 +421,173 @@ void substep2b(struct parameters *P_global) {
   #endif
 }
 
-#ifdef __NVCC__ // 1 If compiling for CUDA
+#ifdef __NVCC__ // If compiling for CUDA
 __global__
-#endif // 1
+#endif
+void marginExtrapolateSingle(struct parameters *P, long ixy, char extrapolationdirection) { // ixy is either ix or iy depending on the direction
+  floatcomplex E[3];
+  for(long iOffset=0; iOffset<3; iOffset++) { // Apply n to the three inner elements
+    long ix = 0;
+    long iy = 0;
+    switch(extrapolationdirection) {
+      case 0: // Left margin
+        ix = MSZ + iOffset;
+        iy = ixy;
+        break;
+      case 1: // Right margin
+        ix = P->Nx - 1 - MSZ - iOffset;
+        iy = ixy;
+        break;
+      case 2: // Bottom margin
+        ix = ixy;
+        iy = MSZ + iOffset;
+        break;
+      case 3: // Top margin
+        ix = ixy;
+        iy = P->Ny - 1 - MSZ - iOffset;
+    }
+    E[iOffset] = P->E1[ix + iy*P->Nx];  // E[0] is the "outer" element, right next to the margin. E[2] is the "inner" element, further in from the margin
+  }
+
+  // Derivatives along the outside->inside direction:
+  floatcomplex valuelog = CLOGF(E[0]);
+  floatcomplex firstderivlog = 1.0f/2.0f*CLOGF(E[1]/E[0]*E[1]/E[0]*E[1]/E[0]*E[1]/E[2]); // Intentionally written as alternating multiplication and division in order to avoid floating point underflow or overflow
+  floatcomplex secondderivlog = CLOGF(E[0]/E[1]*E[2]/E[1]);
+  
+  for(long iOffset= -1; iOffset>= -MSZ; iOffset--) { // Substitute the margin with Taylorpol. extrapolation
+    long ix = 0;
+    long iy = 0;
+    switch(extrapolationdirection) {
+      case 0: // Left margin
+        ix = MSZ + iOffset;
+        iy = ixy;
+        break;
+      case 1: // Right margin
+        ix = P->Nx - 1 - MSZ - iOffset;
+        iy = ixy;
+        break;
+      case 2: // Bottom margin
+        ix = ixy;
+        iy = MSZ + iOffset;
+        break;
+      case 3: // Top margin
+        ix = ixy;
+        iy = P->Ny - 1 - MSZ - iOffset;
+    }
+    long i = ix + iy*P->Nx;
+    float oldP = sqrf(CREALF(P->E1[i])) + sqrf(CIMAGF(P->E1[i]));
+    floatcomplex extraplog = valuelog + firstderivlog*(float)iOffset + secondderivlog/2.0f*(float)(iOffset*iOffset); // Taylorpol.
+// if(ixy == 10) {
+// print(valuelog);
+// print(firstderivlog);
+// print(secondderivlog);
+// print(extraplog);
+// print(abs(P->E1[i]));
+// print(abs(CEXPF(extraplog)));
+// }
+floatcomplex temp = P->E1[i];
+    P->E1[i] = CEXPF(extraplog);
+//     if(ISINF(CREALF(P->E1[i])) || ISINF(CIMAGF(P->E1[i])) || ISNAN(CREALF(P->E1[i])) || ISNAN(CIMAGF(P->E1[i]))) {
+//       P->E1[i] = 0;
+//     }
+float temp2 = P->precisePowerDiff;
+    #ifdef _OPENMP
+    #pragma omp atomic
+    #endif
+    P->precisePowerDiff += sqrf(CREALF(P->E1[i])) + sqrf(CIMAGF(P->E1[i])) - oldP;
+    if((ISINF(P->precisePowerDiff) || ISNAN(P->precisePowerDiff)) && count++ < 1) {
+      print(i);
+      print(iOffset);
+      print(sqrf(CREALF(P->E1[i])) + sqrf(CIMAGF(P->E1[i])));
+      print(oldP);
+      printArray(E,3);
+      print(temp);
+      print(temp2);
+      print(valuelog);
+      print(firstderivlog);
+      print(secondderivlog);
+      print(extraplog);
+      print(P->E1[i]);
+    }
+  }
+}
+
+#ifdef __NVCC__ // If compiling for CUDA
+__global__
+#endif
+void marginExtrapolate(struct parameters *P) {
+  if(P->ySymmetry && P->xSymmetry) {
+    for(long iy=0; iy<P->Ny-MSZ; iy++) {
+      marginExtrapolateSingle(P,iy,1); // Right
+    }
+    for(long ix=0; ix<P->Nx; ix++) {
+      marginExtrapolateSingle(P,ix,3); // Up
+    }
+  } else if(P->ySymmetry) {
+    for(long iy=MSZ; iy<P->Ny-MSZ; iy++) {
+      marginExtrapolateSingle(P,iy,1); // Right
+    }
+    for(long ix=0; ix<P->Nx; ix++) {
+      marginExtrapolateSingle(P,ix,2); // Down
+      marginExtrapolateSingle(P,ix,3); // Up
+    }
+  } else if(P->xSymmetry) {
+    for(long ix=MSZ; ix<P->Nx-MSZ; ix++) {
+      marginExtrapolateSingle(P,ix,3); // Up
+    }
+    for(long iy=0; iy<P->Ny; iy++) {
+      marginExtrapolateSingle(P,iy,0); // Left
+      marginExtrapolateSingle(P,iy,1); // Right
+    }
+  } else {
+    for(long iy=MSZ; iy<P->Ny-MSZ; iy++) {
+      marginExtrapolateSingle(P,iy,0); // Left
+//       marginExtrapolateSingle(P,iy,1); // Right
+    }
+    for(long ix=0; ix<P->Nx; ix++) {
+//       marginExtrapolateSingle(P,ix,2); // Down
+//       marginExtrapolateSingle(P,ix,3); // Up
+    }
+  }
+}
+
+#ifdef __NVCC__ // If compiling for CUDA
+__global__
 void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
   float precisePowerDiffThread = 0.0f;
-  #ifdef __NVCC__ // 1
   long threadNum = threadIdx.x + threadIdx.y*blockDim.x + blockIdx.x*blockDim.x*blockDim.y;
   __shared__ char Pdummy[sizeof(struct parameters)];
   struct parameters *P = (struct parameters *)Pdummy;
   if(!threadIdx.x && !threadIdx.y) *P = *P_global; // Only let one thread per block do the copying
   __syncthreads(); // All threads in the block wait for the copy to have finished
   float fieldCorrection = sqrtf((float)P->precisePower/P->EfieldPower);
-  float cosvalue = cosf(-P->twistPerStep*iz); // Minus is because we go from the rotated frame to the source frame
-  float sinvalue = sinf(-P->twistPerStep*iz);
-  float scaling = 1/(1 - P->taperPerStep*iz); // Take reciprocal because we go from scaled frame to unscaled frame
   for(long i=threadNum;i<P->Nx*P->Ny;i+=gridDim.x*blockDim.x*blockDim.y) {
-  #else // 1
+    floatcomplex n = calcRI(P,ix,iy,iz);
+    if(iz == P->iz_end-1) P->n_out[i] = n;
+    return CREALF(n)*(1-(sqrf(CREALF(n))*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
+    floatcomplex a = CEXPF(P->d*(CIMAGF(n) + (sqrf(n_bend) - sqrf(P->n_0))*I/(2*P->n_0)));
+    P->E1[i] *= fieldCorrection*a;
+    float anormsqr = sqrf(CREALF(a)) + sqrf(CIMAGF(a));
+    if(anormsqr > 1 - 10*FLT_EPSILON && anormsqr < 1 + 10*FLT_EPSILON) anormsqr = 1; // To avoid accumulating power discrepancies due to rounding errors
+    precisePowerDiffThread += (sqrf(CREALF(P->E1[i])) + sqrf(CIMAGF(P->E1[i])))*(1 - 1/anormsqr);
+  }
+
+  atomicAdd(&P_global->precisePowerDiff,precisePowerDiffThread);
+}
+
+#else // Not CUDA
+
+void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
+  float precisePowerDiffThread = 0.0f;
   struct parameters *P = P_global;
   float fieldCorrection = sqrtf((float)P->precisePower/P->EfieldPower);
   float cosvalue = cosf(-P->twistPerStep*iz); // Minus is because we go from the rotated frame to the source frame
   float sinvalue = sinf(-P->twistPerStep*iz);
   float scaling = 1/(1 - P->taperPerStep*iz); // Take reciprocal because we go from scaled frame to unscaled frame
-  #ifdef _OPENMP // 2
+  #ifdef _OPENMP
   #pragma omp for schedule(dynamic)
-  #endif // 2
+  #endif
   for(long i=0;i<P->Nx*P->Ny;i++) {
-  #endif // 1
     long ix = i%P->Nx;
     float x = P->dx*(ix - (P->Nx-1)/2.0f*(P->ySymmetry == 0));
     long iy = i/P->Nx;
@@ -471,25 +620,22 @@ void applyMultiplier(struct parameters *P_global, long iz, struct debug *D) {
     }
     if(iz == P->iz_end-1) P->n_out[i] = n;
     float n_bend = CREALF(n)*(1-(sqrf(CREALF(n))*(x*P->cosBendDirection+y*P->sinBendDirection)/2/P->RoC*P->rho_e))*exp((x*P->cosBendDirection+y*P->sinBendDirection)/P->RoC);
-    floatcomplex a = P->multiplier[i]*CEXPF(P->d*(CIMAGF(n) + (sqrf(n_bend) - sqrf(P->n_0))*I/(2*P->n_0))); // Multiplier includes only the edge absorber
+    floatcomplex a = CEXPF(P->d*(CIMAGF(n) + (sqrf(n_bend) - sqrf(P->n_0))*I/(2*P->n_0)));
     P->E2[i] *= fieldCorrection*a;
     float anormsqr = sqrf(CREALF(a)) + sqrf(CIMAGF(a));
     if(anormsqr > 1 - 10*FLT_EPSILON && anormsqr < 1 + 10*FLT_EPSILON) anormsqr = 1; // To avoid accumulating power discrepancies due to rounding errors
     precisePowerDiffThread += (sqrf(CREALF(P->E2[i])) + sqrf(CIMAGF(P->E2[i])))*(1 - 1/anormsqr);
   }
 
-  #ifdef __NVCC__ // 1
-  atomicAdd(&P_global->precisePowerDiff,precisePowerDiffThread);
-  #else // 1
-  #ifdef _OPENMP // 2
+  #ifdef _OPENMP
   #pragma omp atomic
-  #endif // 2
+  #endif
   P->precisePowerDiff += precisePowerDiffThread;
-  #ifdef _OPENMP // 2
+  #ifdef _OPENMP
   #pragma omp barrier
-  #endif // 2
-  #endif // 1
+  #endif
 }
+#endif
 
 #ifdef __NVCC__ // If compiling for CUDA
 __global__
@@ -503,24 +649,9 @@ P->precisePowerDiff = 0;
 __global__
 #endif
 void swapEPointers(struct parameters *P, long iz) {
-  P->EfieldPower = 0;
-  #ifdef __NVCC__
   floatcomplex *temp = P->E1;
   P->E1 = P->E2;
   P->E2 = temp;
-  #else
-  if(iz>P->iz_start) { // Swap E1 and E2
-    floatcomplex *temp = P->E1;
-    P->E1 = P->E2;
-    P->E2 = temp;
-  } else if((P->iz_end - P->iz_start)%2) {
-    P->E1 = P->E2;
-    P->E2 = (floatcomplex *)malloc(P->Nx*P->Ny*sizeof(floatcomplex));
-  } else {
-    P->E1 = P->E2;
-    P->E2 = P->Efinal;
-  }
-  #endif
 }
 
 #ifdef __NVCC__ // If compiling for CUDA
@@ -611,13 +742,20 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   P->RoC = *(float *)mxGetData(mxGetField(prhs[1],0,"RoC"));
   P->sinBendDirection = sin(*(float *)mxGetData(mxGetField(prhs[1],0,"bendDirection"))/180*PI);
   P->cosBendDirection = cos(*(float *)mxGetData(mxGetField(prhs[1],0,"bendDirection"))/180*PI);
-  P->E1 = (floatcomplex *)mxGetData(prhs[0]); // Input E field
+  floatcomplex *Einput = (floatcomplex *)mxGetData(prhs[0]); // Input E field
   dimPtr = mxGetDimensions(prhs[0]);
   P->Efinal = (floatcomplex *)mxGetData(plhs[0] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxCOMPLEX)); // Output E field
   P->n_out = (floatcomplex *)mxGetData(plhs[1] = mxCreateNumericArray(2,dimPtr,mxSINGLE_CLASS,mxCOMPLEX)); // Output refractive index
   P->precisePower = (float)mxGetScalar(mxGetField(prhs[1],0,"inputPrecisePower"));
   #ifndef __NVCC__
-  P->E2 = (floatcomplex *)((P->iz_end - P->iz_start)%2? P->Efinal: malloc(P->Nx*P->Ny*sizeof(floatcomplex)));
+  if((P->iz_end - P->iz_start)%2) {
+    P->E1 = (floatcomplex *)malloc(P->Nx*P->Ny*sizeof(floatcomplex));
+    P->E2 = P->Efinal;
+  } else {
+    P->E1 = P->Efinal;
+    P->E2 = (floatcomplex *)malloc(P->Nx*P->Ny*sizeof(floatcomplex));
+  }
+  for(long i=0; i<P->Nx*P->Ny; i++) P->E1[i] = Einput[i];
   #endif
   P->multiplier = (float *)mxGetData(mxGetField(prhs[1],0,"multiplier")); // Array of multiplier values to apply to the E field after each step, due to the edge absorber outside the main simulation window
   P->ax = *(floatcomplex *)mxGetData(mxGetField(prhs[1],0,"ax"));
@@ -625,6 +763,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   
   bool ctrlc_caught = false;      // Has a ctrl+c been passed from MATLAB?
   P->EfieldPower = 0;
+  for(int i=0;i<P->Nx*P->Ny;i++) P->EfieldPower += sqrf(CREALF(P->E1[i])) + sqrf(CIMAGF(P->E1[i]));
   P->precisePowerDiff = 0;
   #ifdef __NVCC__
   int temp, nBlocks; gpuErrchk(cudaOccupancyMaxPotentialBlockSize(&nBlocks,&temp,&substep1a,0,0));
@@ -648,21 +787,28 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   #endif
   #endif
   {
+    #ifdef __NVCC__
     for(long iz=P->iz_start; iz<P->iz_end; iz++) {
       if(ctrlc_caught) break;
       
-      #ifdef __NVCC__
       substep1a<<<nBlocks, blockDims>>>(P_dev); // xy -> yx
       substep1b<<<nBlocks, blockDims>>>(P_dev); // yx -> yx
       substep2a<<<nBlocks, blockDims>>>(P_dev); // yx -> xy
       substep2b<<<nBlocks, blockDims>>>(P_dev); // xy -> xy
       applyMultiplier<<<nBlocks, blockDims>>>(P_dev,iz,D_dev); // xy -> xy
-      #else
+    #else
+    for(long iz=P->iz_start; iz<P->iz_end; iz++) {
+      if(ctrlc_caught) break;
+      
+      applyMultiplier(P,iz,NULL);
+      marginExtrapolate(P);
+// print(P->precisePower)
+// print(P->precisePowerDiff)
+// print(P->EfieldPower)
       substep1a(P);
       substep1b(P);
       substep2a(P);
       substep2b(P);
-      applyMultiplier(P,iz,NULL);
       #endif
 
       #ifdef _OPENMP
@@ -695,7 +841,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, mxArray const *prhs[]) {
   retrieveAndFreeDeviceStructs(P,P_dev,D,D_dev);
 //   printf("\nDebug: %.18e %.18e %.18e %llu %llu %llu\n          ",D->dbls[0],D->dbls[1],D->dbls[2],D->ulls[0],D->ulls[1],D->ulls[2]);
   #else
-  if(P->E1 != mxGetData(prhs[0]) && P->E1 != P->Efinal) free(P->E1); // Part of the reason for checking this is to properly handle ctrl-c cases
+  if(P->E1 != P->Efinal) free(P->E1); // Part of the reason for checking this is to properly handle ctrl-c cases
   free(P->b);
   #endif
   double *outputPrecisePowerPtr = (double *)mxGetData(plhs[2] = mxCreateDoubleMatrix(1,1,mxREAL));
