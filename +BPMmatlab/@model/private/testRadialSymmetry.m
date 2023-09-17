@@ -14,16 +14,17 @@ end
 
 R = sqrt((X-xC).^2 + (Y-yC).^2); % Distances of all pixels from the centroid
 [~,sortIdxs] = sort(R(:));
-nsorted = n(sortIdxs);
+nsortedRounded = round(n(sortIdxs),5);
 
-monotonicity_real = sign(diff(real(nsorted)));
+monotonicity_real = sign(diff(real(nsortedRounded)));
 reversals_real = sum(abs(diff(monotonicity_real(monotonicity_real ~= 0))/2)); % Number of times the monotonicity of the real part changes (increasing/decreasing) as a function of the radial distance
-monotonicity_imag = sign(diff(imag(nsorted)));
+monotonicity_imag = sign(diff(imag(nsortedRounded)));
 reversals_imag = sum(abs(diff(monotonicity_imag(monotonicity_imag ~= 0))/2)); % Number of times the monotonicity of the imaginary part changes (increasing/decreasing) as a function of the radial distance
 
-% Rsorted = R(sortIdxs);
-% figure(201);clf reset;plot(Rsorted,nsorted);grid on;grid minor;
+Rsorted = R(sortIdxs);
+% figure(201);clf reset;plot(Rsorted,nsortedRounded);grid on;grid minor;
 % figure(202);clf reset;imagesc(X(:,1),Y(1,:),n.'); axis equal tight;
+% figure(203);clf reset;plot(Rsorted(1:end-1),diff(nsortedRounded));grid on;grid minor;
 
 radiallySymmetric = reversals_real < 5 && reversals_imag < 5; % We arbitrarily choose that five reversals is the max we will allow. Non-radially-symmetric RI distributions will have many reversals.
 end
