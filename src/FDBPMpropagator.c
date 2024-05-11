@@ -3,9 +3,9 @@
  * 
  ** Compiling on Windows
  * Can be compiled with GCC using
- * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' -outdir private .\src\FDBPMpropagator.c ".\src\libut.lib" -R2018a"
+ * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' -outdir +BPMmatlab\@model\private .\src\FDBPMpropagator.c ".\src\libut.lib" -R2018a"
  * ... or the Microsoft Visual C++ compiler (MSVC) with
- * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator.cpp; mex COMPFLAGS='/Zp8 /GR /EHs /nologo /MD /openmp /W4 /WX /wd4204 /wd4100' -outdir private .\src\FDBPMpropagator.cpp ".\src\libut.lib" -R2018a"
+ * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator.cpp; mex COMPFLAGS='/Zp8 /GR /EHs /nologo /MD /openmp /W4 /WX /wd4204 /wd4100' -outdir +BPMmatlab\@model\private .\src\FDBPMpropagator.cpp ".\src\libut.lib" -R2018a"
  * 
  * The source code in this file is written is such a way that it is
  * compilable by either C or C++ compilers, either with GCC, MSVC or
@@ -14,19 +14,19 @@
  * installed. As of January 2020, mexcuda does not work with MSVC 2019,
  * so I'd recommend MSVC 2017. You also need the Parallel Computing
  * Toolbox, which you will find in the MATLAB addon manager. To compile, run:
- * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator_CUDA.cu; mexcuda -llibut COMPFLAGS='-use_fast_math -res-usage $COMPFLAGS' -outdir private .\src\FDBPMpropagator_CUDA.cu -R2018a"
+ * "copyfile ./src/FDBPMpropagator.c ./src/FDBPMpropagator_CUDA.cu; mexcuda -llibut COMPFLAGS='-use_fast_math -res-usage $COMPFLAGS' -outdir +BPMmatlab\@model\private .\src\FDBPMpropagator_CUDA.cu -R2018a"
  *
  ** Compiling on macOS
  * As of March 2021, the macOS compiler doesn't support libut (for ctrl+c 
  * breaking) or openmp (for multithreading).
- * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -std=c11 -Wall' -outdir private ./src/FDBPMpropagator.c -R2018a"
+ * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -std=c11 -Wall' -outdir +BPMmatlab/@model/private ./src/FDBPMpropagator.c -R2018a"
  *
  * To get the MATLAB C compiler to work, try this:
  * 1. Install XCode from the App Store
  * 2. Type "mex -setup" in the MATLAB command window
  *
  ** Compiling on Linux
- * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' -outdir private ./src/FDBPMpropagator.c ./src/libut.so -R2018a"
+ * "mex COPTIMFLAGS='$COPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' LDOPTIMFLAGS='$LDOPTIMFLAGS -Ofast -fopenmp -std=c11 -Wall' -outdir +BPMmatlab/@model/private ./src/FDBPMpropagator.c -R2018a -lut"
  *
  * To get the MATLAB C compiler to work, try this:
  * 1. Use a package manager like apt to install GCC (on Ubuntu, part of the build-essential package)
@@ -47,6 +47,7 @@
   #endif
   extern bool utIsInterruptPending(); // Allows catching ctrl+c while executing the mex function
 #endif
+
 #ifdef __NVCC__
   #include <thrust/complex.h>
   typedef thrust::complex<float> floatcomplex;
